@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "Pati Nöbeti",
+    "slug": "pati-nobeti",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "patinobeti",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.example.patinobeti"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-image-picker",
+      "expo-location"
+    ]
+  }
+}

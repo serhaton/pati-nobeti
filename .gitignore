@@ -1,0 +1,22 @@
+node_modules/
+
+# Expo local state and logs
+.expo/
+
+# macOS
+.DS_Store
+
+# Native build artifacts
+ios/Pods/
+ios/build/
+
+# Local secrets
+*.p8
+*.mobileprovision
+*.cer
+*.key
+*.p12
+
+# Local env files
+.env
+.env.*
