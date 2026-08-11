@@ -8,6 +8,7 @@ export type Community = {
   members: number;
   animals: number;
   debt: number;
+  adminUserIds: string[];
 };
 
 type CommunityContextValue = {

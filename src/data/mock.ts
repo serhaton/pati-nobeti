@@ -1,7 +1,7 @@
 export const communities = [
-  { id: '1', name: 'Moda Pati Gönüllüleri', neighborhood: 'Kadıköy', members: 38, animals: 24, debt: 6840 },
-  { id: '2', name: 'Yıldız Mahallesi Can Dostları', neighborhood: 'Beşiktaş', members: 21, animals: 17, debt: 3250 },
-  { id: '3', name: 'Çankaya Pati Ekibi', neighborhood: 'Çankaya', members: 46, animals: 31, debt: 9120 },
+  { id: '1', name: 'Moda Pati Gönüllüleri', neighborhood: 'Kadıköy', members: 38, animals: 24, debt: 6840, adminUserIds: ['user-1'] },
+  { id: '2', name: 'Yıldız Mahallesi Can Dostları', neighborhood: 'Beşiktaş', members: 21, animals: 17, debt: 3250, adminUserIds: [] },
+  { id: '3', name: 'Çankaya Pati Ekibi', neighborhood: 'Çankaya', members: 46, animals: 31, debt: 9120, adminUserIds: [] },
 ];
 
 export const animals = [

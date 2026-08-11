@@ -81,18 +81,13 @@ export default function PointCreateScreen() {
       return;
     }
 
-    if (!photoUri) {
-      Alert.alert('Eksik bilgi', 'Lutfen fotograf cek.');
-      return;
-    }
-
     setSaving(true);
     const createdPoint = addCustomFeedingPoint({
       communityId: selectedCommunity.id,
       name: name.trim(),
       lat: latitude,
       lng: longitude,
-      photoUri,
+      photoUri: photoUri ?? undefined,
     });
     setSaving(false);
     router.replace({
@@ -113,7 +108,7 @@ export default function PointCreateScreen() {
       </TouchableOpacity>
 
       <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Mama Noktasi Ekle</Text>
-      <Text style={{ color: colors.muted, marginTop: 5 }}>Nokta adini yaz, fotograf cek ve kaydet.</Text>
+      <Text style={{ color: colors.muted, marginTop: 5 }}>Nokta adini yaz, istersen fotograf ekleyip kaydet.</Text>
 
       <Card style={{ marginTop: 22 }}>
         <Text style={{ fontWeight: '800', color: colors.text }}>Secilen konum</Text>

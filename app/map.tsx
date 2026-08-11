@@ -33,6 +33,7 @@ export default function MapScreen() {
   const dragStartY = useRef(SHEET_COLLAPSED_Y);
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
+  const [showCurrentLocationLabel, setShowCurrentLocationLabel] = useState(false);
   const [points, setPoints] = useState<FeedingPoint[]>(() => getAllFeedingPoints());
   const [selectedPoint, setSelectedPoint] = useState<FeedingPoint | null>(null);
   const [highlightedPointId, setHighlightedPointId] = useState<string | null>(null);
@@ -73,6 +74,15 @@ export default function MapScreen() {
 
     return () => clearTimeout(timer);
   }, [highlightedPointId]);
+
+  useEffect(() => {
+    if (!showCurrentLocationLabel) return;
+    const timer = setTimeout(() => {
+      setShowCurrentLocationLabel(false);
+    }, 3500);
+
+    return () => clearTimeout(timer);
+  }, [showCurrentLocationLabel]);
 
   function openCreatePointFromPress(event: LongPressEvent) {
     hasUserInteractedRef.current = true;
@@ -154,6 +164,7 @@ export default function MapScreen() {
         longitude: position.coords.longitude,
       };
       setCurrentLocation(coords);
+      setShowCurrentLocationLabel(true);
 
       mapRef.current?.animateToRegion(
         {
@@ -212,6 +223,7 @@ export default function MapScreen() {
       <MapView
         ref={mapRef}
         style={{ flex: 1 }}
+        moveOnMarkerPress={false}
         showsUserLocation
         showsMyLocationButton
         onPanDrag={() => {
@@ -224,12 +236,14 @@ export default function MapScreen() {
         initialRegion={{ latitude: 40.987, longitude: 29.026, latitudeDelta: 0.025, longitudeDelta: 0.025 }}
       >
         {currentLocation && (
-          <Marker coordinate={currentLocation} anchor={{ x: 0.5, y: 0.5 }}>
+          <Marker coordinate={currentLocation} anchor={{ x: 0.5, y: 1 }} tracksViewChanges={false}>
             <View style={{ alignItems: 'center' }}>
-              <View style={{ backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5, marginBottom: 6 }}>
-                <Text style={{ fontSize: 12, fontWeight: '800', color: colors.text }}>Buradasın</Text>
-              </View>
-              <View style={{ width: 16, height: 16, borderRadius: 999, backgroundColor: '#2F80ED', borderWidth: 2, borderColor: '#fff' }} />
+              {showCurrentLocationLabel ? (
+                <View style={{ backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: colors.text }}>Buradasın</Text>
+                </View>
+              ) : null}
+              <View style={{ height: 18 }} />
             </View>
           </Marker>
         )}

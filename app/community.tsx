@@ -2,11 +2,14 @@ import { router } from 'expo-router';
 import { ScrollView, View, Text, TouchableOpacity } from 'react-native';
 import { Card } from '../src/components/Card';
 import { useCommunity } from '../src/context/CommunityContext';
+import { useAuth } from '../src/context/AuthContext';
 import { colors } from '../src/theme';
 import { joinRequests } from '../src/data/mock';
 
 export default function Community() {
   const { selectedCommunity } = useCommunity();
+  const { currentUser } = useAuth();
+  const isCommunityAdmin = !!currentUser && selectedCommunity?.adminUserIds.includes(currentUser.id);
 
   if (!selectedCommunity) return null;
 
@@ -28,27 +31,31 @@ export default function Community() {
         <Text style={{ color: colors.primary, textAlign: 'center', fontWeight: '800' }}>Toplulugu Degistir</Text>
       </TouchableOpacity>
 
-      <Text style={{ fontSize: 19, fontWeight: '800', color: colors.text, marginTop: 28, marginBottom: 12 }}>Yönetici işlemleri</Text>
-      <Card>
-        <Text style={{ fontWeight: '800', color: colors.text, fontSize: 16 }}>2 yeni katılım isteği</Text>
-        {joinRequests.map(r => (
-          <View key={r.id} style={{ paddingTop: 15, marginTop: 13, borderTopWidth: 1, borderTopColor: colors.border }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontWeight: '800', color: colors.primary }}>{r.initials}</Text>
+      {isCommunityAdmin ? (
+        <>
+          <Text style={{ fontSize: 19, fontWeight: '800', color: colors.text, marginTop: 28, marginBottom: 12 }}>Yönetici işlemleri</Text>
+          <Card>
+            <Text style={{ fontWeight: '800', color: colors.text, fontSize: 16 }}>2 yeni katılım isteği</Text>
+            {joinRequests.map(r => (
+              <View key={r.id} style={{ paddingTop: 15, marginTop: 13, borderTopWidth: 1, borderTopColor: colors.border }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontWeight: '800', color: colors.primary }}>{r.initials}</Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={{ fontWeight: '800', color: colors.text }}>{r.name}</Text>
+                    <Text style={{ color: colors.muted, fontSize: 12, marginTop: 3 }}>{r.note}</Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 11 }}>
+                  <TouchableOpacity style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 12, padding: 11 }}><Text style={{ color: '#fff', textAlign: 'center', fontWeight: '700' }}>Onayla</Text></TouchableOpacity>
+                  <TouchableOpacity style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 11 }}><Text style={{ color: colors.text, textAlign: 'center', fontWeight: '700' }}>Reddet</Text></TouchableOpacity>
+                </View>
               </View>
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={{ fontWeight: '800', color: colors.text }}>{r.name}</Text>
-                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 3 }}>{r.note}</Text>
-              </View>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 11 }}>
-              <TouchableOpacity style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 12, padding: 11 }}><Text style={{ color: '#fff', textAlign: 'center', fontWeight: '700' }}>Onayla</Text></TouchableOpacity>
-              <TouchableOpacity style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 11 }}><Text style={{ color: colors.text, textAlign: 'center', fontWeight: '700' }}>Reddet</Text></TouchableOpacity>
-            </View>
-          </View>
-        ))}
-      </Card>
+            ))}
+          </Card>
+        </>
+      ) : null}
 
       <Text style={{ fontSize: 19, fontWeight: '800', color: colors.text, marginTop: 28, marginBottom: 12 }}>Topluluk menüsü</Text>
       {[

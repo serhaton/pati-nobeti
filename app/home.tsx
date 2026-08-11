@@ -11,6 +11,7 @@ export default function Home() {
   const { selectedCommunity } = useCommunity();
   const { currentUser } = useAuth();
   const totalDebt = expenses.reduce((s, x) => s + x.amount - x.paid, 0);
+  const isCommunityAdmin = !!currentUser && selectedCommunity?.adminUserIds.includes(currentUser.id);
 
   if (!selectedCommunity) return null;
 
@@ -44,19 +45,6 @@ export default function Home() {
         </Card>
       </View>
 
-      <Text style={{ fontSize: 19, fontWeight: '800', color: colors.text, marginTop: 28, marginBottom: 12 }}>Toplulugum</Text>
-      <TouchableOpacity onPress={() => router.push('/community')}>
-        <Card style={{ marginBottom: 10 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <View>
-              <Text style={{ fontWeight: '800', fontSize: 17, color: colors.text }}>{selectedCommunity.name}</Text>
-              <Text style={{ color: colors.muted, marginTop: 5 }}>{selectedCommunity.neighborhood} · {selectedCommunity.members} uye · {selectedCommunity.animals} can</Text>
-            </View>
-            <Text style={{ fontSize: 28 }}>›</Text>
-          </View>
-        </Card>
-      </TouchableOpacity>
-
       <Text style={{ fontSize: 19, fontWeight: '800', color: colors.text, marginTop: 18, marginBottom: 12 }}>Hızlı işlemler</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {[
@@ -73,6 +61,23 @@ export default function Home() {
           </TouchableOpacity>
         ))}
       </View>
+
+      {isCommunityAdmin ? (
+        <>
+          <Text style={{ fontSize: 19, fontWeight: '800', color: colors.text, marginTop: 25, marginBottom: 12 }}>Yönetici işlemleri</Text>
+          <TouchableOpacity onPress={() => router.push('/community')}>
+            <Card style={{ marginBottom: 10 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <View>
+                  <Text style={{ fontWeight: '800', fontSize: 17, color: colors.text }}>{selectedCommunity.name}</Text>
+                  <Text style={{ color: colors.muted, marginTop: 5 }}>{selectedCommunity.neighborhood} · {selectedCommunity.members} uye · {selectedCommunity.animals} can</Text>
+                </View>
+                <Text style={{ fontSize: 28 }}>›</Text>
+              </View>
+            </Card>
+          </TouchableOpacity>
+        </>
+      ) : null}
 
       <Text style={{ fontSize: 19, fontWeight: '800', color: colors.text, marginTop: 25, marginBottom: 12 }}>Bugünün canları</Text>
       {animals.map(a => (

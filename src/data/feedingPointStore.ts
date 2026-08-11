@@ -56,7 +56,7 @@ export function addCustomFeedingPoint(input: {
   name: string;
   lat: number;
   lng: number;
-  photoUri: string;
+  photoUri?: string;
 }): FeedingPoint {
   const point: FeedingPoint = {
     id: `custom-${Date.now()}`,
