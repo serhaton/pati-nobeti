@@ -66,18 +66,12 @@ export const DOG_BREEDS: string[] = [
   'Alaca',
 ];
 
-function seedCommunityId(index: number): string {
-  if (index % 3 === 0) return '1';
-  if (index % 3 === 1) return '2';
-  return '3';
-}
-
 const allAnimals: CommunityAnimal[] = animals.map((item, index) => ({
   id: item.id,
-  communityId: seedCommunityId(index),
+  communityId: item.communityId,
   name: item.name,
   type: item.type === 'Kedi' ? 'Kedi' : 'Köpek',
-  breed: item.color,
+  breed: item.cins,
   gender: index % 2 === 0 ? 'Dişi' : 'Erkek',
   isSterilized: index % 2 === 0,
   birthDate: index % 2 === 0 ? '2022-03-10' : '2021-09-24',

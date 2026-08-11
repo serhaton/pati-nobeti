@@ -88,7 +88,7 @@ export default function Home() {
             </View>
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={{ fontWeight: '800', color: colors.text }}>{a.name}</Text>
-              <Text style={{ color: colors.muted }}>{a.color} · {a.location}</Text>
+              <Text style={{ color: colors.muted }}>{a.cins} · {a.location}</Text>
             </View>
             <Text style={{ color: a.fedToday ? colors.primary : colors.accent, fontWeight: '700' }}>
               {a.fedToday ? '✓ Beslendi' : '• Bekliyor'}

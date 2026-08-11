@@ -1,9 +1,12 @@
 import { createContext, PropsWithChildren, useContext, useMemo, useState } from 'react';
+import { users } from '../data/mock';
 
 export type AuthUser = {
   id: string;
+  username: string;
   fullName: string;
   provider: 'google' | 'apple';
+  status: 'active' | 'passive';
 };
 
 type AuthContextValue = {
@@ -18,11 +21,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
 
   function signInWithProvider(provider: 'google' | 'apple') {
-    // Prototype auth: set a mock signed-in user.
+    const user = users.find((item) => item.authMethod === provider && item.status === 'active');
+    if (!user) {
+      setCurrentUser(null);
+      return;
+    }
+
     setCurrentUser({
-      id: 'user-1',
-      fullName: 'Serhat Onal',
+      id: user.id,
+      username: user.username,
+      fullName: user.fullName,
       provider,
+      status: user.status,
     });
   }
 
