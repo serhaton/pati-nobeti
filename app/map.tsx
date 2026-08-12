@@ -2,15 +2,24 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, PanResponder, View, Text, TouchableOpacity } from 'react-native';
+import { Animated, Dimensions, Image, PanResponder, View, Text, TouchableOpacity } from 'react-native';
 import MapView, { LongPressEvent, Marker } from 'react-native-maps';
-import { FeedingPoint, FeedingRecord, getAllFeedingPoints, getRecentFeedingRecords } from '../src/data/feedingPointStore';
+import {
+  FeedingPoint,
+  FeedingRecord,
+  getAllFeedingPoints,
+  getRecentFeedingRecords,
+  getTodayFeedingRecordCountByPoint,
+} from '../src/data/feedingPointStore';
+import { useAuth } from '../src/context/AuthContext';
 import { useCommunity } from '../src/context/CommunityContext';
 import { colors } from '../src/theme';
 
-const SHEET_HEIGHT = 300;
-const SHEET_COLLAPSED_Y = 215;
-const SHEET_EXPANDED_Y = 0;
+const WINDOW_HEIGHT = Dimensions.get('window').height;
+const SHEET_HEIGHT = Math.max(420, WINDOW_HEIGHT - 20);
+const SHEET_COLLAPSED_Y = SHEET_HEIGHT - 95;
+const SHEET_TOP_GAP = 88;
+const SHEET_EXPANDED_Y = SHEET_TOP_GAP;
 
 function FeedingBowlIcon() {
   return (
@@ -28,8 +37,10 @@ function FeedingBowlIcon() {
 
 export default function MapScreen() {
   const { selectedCommunity } = useCommunity();
+  const { currentUser } = useAuth();
   const params = useLocalSearchParams<{ focusLat?: string; focusLng?: string; focusId?: string; refresh?: string }>();
   const mapRef = useRef<MapView | null>(null);
+  const suppressNextMapPressRef = useRef(false);
   const hasUserInteractedRef = useRef(false);
   const sheetY = useRef(new Animated.Value(SHEET_COLLAPSED_Y)).current;
   const dragStartY = useRef(SHEET_COLLAPSED_Y);
@@ -45,6 +56,13 @@ export default function MapScreen() {
     if (!selectedPoint) return [];
     return getRecentFeedingRecords(selectedPoint.id, 5);
   }, [selectedPoint]);
+  const fedTodayPointIds = useMemo(() => {
+    return new Set(
+      points
+        .filter((point) => getTodayFeedingRecordCountByPoint(point.id) > 0)
+        .map((point) => point.id)
+    );
+  }, [points]);
   const defaultCenter = useMemo(
     () => ({
       latitude: selectedCommunity?.latitude ?? 41.018101,
@@ -56,10 +74,16 @@ export default function MapScreen() {
     const zoom = selectedCommunity?.defaultZoom ?? 17;
     return 360 / Math.pow(2, zoom);
   }, [selectedCommunity?.defaultZoom]);
+  const isCommunityAdmin = !!currentUser && !!selectedCommunity?.adminUserIds.includes(currentUser.id);
 
   useFocusEffect(
     useCallback(() => {
-      setPoints(getAllFeedingPoints());
+      const refreshedPoints = getAllFeedingPoints();
+      setPoints(refreshedPoints);
+      setSelectedPoint((prev) => {
+        if (!prev) return null;
+        return refreshedPoints.find((item) => item.id === prev.id) ?? null;
+      });
 
       if (Number.isFinite(focusLatitude) && Number.isFinite(focusLongitude)) {
         mapRef.current?.animateToRegion(
@@ -98,6 +122,8 @@ export default function MapScreen() {
   }, [showCurrentLocationLabel]);
 
   function openCreatePointFromPress(event: LongPressEvent) {
+    if (!isCommunityAdmin) return;
+
     hasUserInteractedRef.current = true;
     const { latitude, longitude } = event.nativeEvent.coordinate;
     router.push({
@@ -157,6 +183,7 @@ export default function MapScreen() {
 
   function onPointMarkerPress(point: FeedingPoint) {
     hasUserInteractedRef.current = true;
+    suppressNextMapPressRef.current = true;
     setSelectedPoint(point);
     animateSheet(SHEET_EXPANDED_Y);
   }
@@ -233,9 +260,16 @@ export default function MapScreen() {
           hasUserInteractedRef.current = true;
         }}
         onPress={() => {
+          if (suppressNextMapPressRef.current) {
+            suppressNextMapPressRef.current = false;
+            return;
+          }
+
           hasUserInteractedRef.current = true;
+          setSelectedPoint(null);
+          animateSheet(SHEET_COLLAPSED_Y);
         }}
-        onLongPress={openCreatePointFromPress}
+        onLongPress={isCommunityAdmin ? openCreatePointFromPress : undefined}
         initialRegion={{
           latitude: defaultCenter.latitude,
           longitude: defaultCenter.longitude,
@@ -259,6 +293,7 @@ export default function MapScreen() {
           <Marker key={p.id} coordinate={{ latitude: p.lat, longitude: p.lng }} onPress={() => onPointMarkerPress(p)}>
             <View
               style={{
+                position: 'relative',
                 backgroundColor: highlightedPointId === p.id ? colors.accent : colors.primary,
                 padding: 8,
                 borderRadius: 18,
@@ -267,6 +302,25 @@ export default function MapScreen() {
               }}
             >
               <FeedingBowlIcon />
+              {fedTodayPointIds.has(p.id) ? (
+                <View
+                  style={{
+                    position: 'absolute',
+                    right: -6,
+                    top: -6,
+                    width: 18,
+                    height: 18,
+                    borderRadius: 999,
+                    backgroundColor: '#2EAF62',
+                    borderWidth: 1,
+                    borderColor: '#fff',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 11 }}>✓</Text>
+                </View>
+              ) : null}
             </View>
           </Marker>
         ))}
@@ -309,12 +363,22 @@ export default function MapScreen() {
                 {selectedPoint.lat.toFixed(5)}, {selectedPoint.lng.toFixed(5)}
               </Text>
 
-              <TouchableOpacity
-                onPress={() => openEditPoint(selectedPoint.id)}
-                style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 13, marginTop: 16 }}
-              >
-                <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>Noktayi Duzenle</Text>
-              </TouchableOpacity>
+              {selectedPoint.photoUri ? (
+                <Image
+                  source={{ uri: selectedPoint.photoUri }}
+                  style={{ marginTop: 12, width: '100%', height: 170, borderRadius: 12, backgroundColor: '#E7ECE8' }}
+                  resizeMode="cover"
+                />
+              ) : null}
+
+              {isCommunityAdmin ? (
+                <TouchableOpacity
+                  onPress={() => openEditPoint(selectedPoint.id)}
+                  style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 13, marginTop: 16 }}
+                >
+                  <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>Noktayi Duzenle</Text>
+                </TouchableOpacity>
+              ) : null}
 
               <Text style={{ fontWeight: '800', color: colors.text, marginTop: 18, fontSize: 15 }}>Son 5 Besleme</Text>
               {selectedPointRecords.length > 0 ? (

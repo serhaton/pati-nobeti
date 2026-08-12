@@ -95,7 +95,7 @@ function mapFeedingPointRows(rows: any[]): FeedingPoint[] {
     lat: Number(row.latitude ?? row.lat ?? 41.018101),
     lng: Number(row.longitude ?? row.lng ?? 29.125607),
     type: String(row.animal_type ?? row.type ?? 'Kedi + Köpek'),
-    status: String(row.status ?? row.notes ?? 'Durum belirtilmedi'),
+    status: String(row.status ?? 'Durum belirtilmedi'),
     photoUri: row.photo_uri ? String(row.photo_uri) : undefined,
   }));
 }

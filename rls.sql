@@ -204,8 +204,8 @@ create policy feeding_points_update
 on public.feeding_points
 for update
 to authenticated
-using (public.is_community_member(community_id))
-with check (public.is_community_member(community_id));
+using (public.is_community_admin(community_id))
+with check (public.is_community_admin(community_id));
 
 create policy feeding_points_delete
 on public.feeding_points

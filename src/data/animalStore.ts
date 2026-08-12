@@ -1,5 +1,6 @@
 import { animals } from './mock';
 import { getAppDataSource, isSupabaseDataEnabled, supabase } from '../services/supabase';
+import { uploadImageIfNeeded } from '../services/supabaseStorage';
 
 export type AnimalType = 'Kedi' | 'Köpek';
 export type AnimalGender = 'Dişi' | 'Erkek' | 'Bilinmiyor';
@@ -142,8 +143,20 @@ function formatPersistenceError(error: any, fallback: string): Error {
   return new Error(parts.join(' - '));
 }
 
+function pickPrimaryPhotoUri(photoUris?: string[]): string | undefined {
+  if (!photoUris || photoUris.length === 0) return undefined;
+  const firstLocal = photoUris.find((uri) => uri && !uri.startsWith('http://') && !uri.startsWith('https://'));
+  return firstLocal ?? photoUris[0];
+}
+
 export async function addAnimal(input: SaveAnimalInput): Promise<CommunityAnimal> {
   let animalId = `animal-${Date.now()}`;
+  const persistedPhotoUrl = await uploadImageIfNeeded({
+    uri: pickPrimaryPhotoUri(input.photoUris),
+    communityId: input.communityId,
+    folder: 'animals',
+    filePrefix: input.communityId,
+  });
 
   if (isSupabaseDataEnabled()) {
     const { data, error } = await supabase
@@ -156,7 +169,7 @@ export async function addAnimal(input: SaveAnimalInput): Promise<CommunityAnimal
         gender: input.gender,
         neutered: input.isSterilized,
         notes: input.location,
-        photo_url: input.photoUris?.[0] ?? null,
+        photo_url: persistedPhotoUrl ?? null,
       })
       .select('id')
       .single();
@@ -180,7 +193,7 @@ export async function addAnimal(input: SaveAnimalInput): Promise<CommunityAnimal
     location: input.location,
     vaccinationSchedule: input.vaccinationSchedule.map((event) => ({ ...event })),
     treatmentSchedule: input.treatmentSchedule.map((event) => ({ ...event })),
-    photoUris: input.photoUris ? [...input.photoUris] : [],
+    photoUris: persistedPhotoUrl ? [persistedPhotoUrl] : [],
   };
 
   allAnimals.unshift(created);
@@ -192,6 +205,13 @@ export async function updateAnimal(id: string, input: Omit<SaveAnimalInput, 'com
   const index = allAnimals.findIndex((animal) => animal.id === id);
   if (index < 0) return null;
 
+  const persistedPhotoUrl = await uploadImageIfNeeded({
+    uri: pickPrimaryPhotoUri(input.photoUris),
+    communityId: allAnimals[index].communityId,
+    folder: 'animals',
+    filePrefix: allAnimals[index].communityId,
+  });
+
   if (isSupabaseDataEnabled()) {
     const { data, error } = await supabase
       .from('animals')
@@ -202,7 +222,7 @@ export async function updateAnimal(id: string, input: Omit<SaveAnimalInput, 'com
         gender: input.gender,
         neutered: input.isSterilized,
         notes: input.location,
-        photo_url: input.photoUris?.[0] ?? null,
+        photo_url: persistedPhotoUrl ?? allAnimals[index].photoUris[0] ?? null,
       })
       .eq('id', id)
       .select('id')
@@ -228,7 +248,11 @@ export async function updateAnimal(id: string, input: Omit<SaveAnimalInput, 'com
     location: input.location,
     vaccinationSchedule: input.vaccinationSchedule.map((event) => ({ ...event })),
     treatmentSchedule: input.treatmentSchedule.map((event) => ({ ...event })),
-    photoUris: input.photoUris ? [...input.photoUris] : [],
+    photoUris: persistedPhotoUrl
+      ? [persistedPhotoUrl]
+      : input.photoUris && input.photoUris.length > 0
+        ? [...input.photoUris]
+        : [...allAnimals[index].photoUris],
   };
 
   return cloneAnimal(allAnimals[index]);

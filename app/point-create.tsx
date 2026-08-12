@@ -3,19 +3,40 @@ import * as ImagePicker from 'expo-image-picker';
 import { useMemo, useState } from 'react';
 import { Alert, Image, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Card } from '../src/components/Card';
+import { useAuth } from '../src/context/AuthContext';
 import { useCommunity } from '../src/context/CommunityContext';
 import { addCustomFeedingPoint } from '../src/data/feedingPointStore';
 import { colors } from '../src/theme';
 
 export default function PointCreateScreen() {
   const { selectedCommunity } = useCommunity();
+  const { currentUser } = useAuth();
   const params = useLocalSearchParams<{ lat?: string; lng?: string }>();
   const [name, setName] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const isCommunityAdmin = !!currentUser && !!selectedCommunity?.adminUserIds.includes(currentUser.id);
 
   const latitude = useMemo(() => Number(params.lat), [params.lat]);
   const longitude = useMemo(() => Number(params.lng), [params.lng]);
+
+  if (!selectedCommunity) return null;
+
+  if (!isCommunityAdmin) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, padding: 20, paddingTop: 58 }}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={{ fontSize: 30 }}>‹</Text>
+        </TouchableOpacity>
+        <Text style={{ marginTop: 14, color: colors.text, fontSize: 24, fontWeight: '800' }}>Yetki gerekli</Text>
+        <Text style={{ marginTop: 8, color: colors.muted }}>
+          Haritadan mama noktasi ekleme islemi sadece topluluk yoneticileri icin acik.
+        </Text>
+      </View>
+    );
+  }
+
+  const selectedCommunityId = selectedCommunity.id;
 
   async function pickFromLibrary() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -66,11 +87,6 @@ export default function PointCreateScreen() {
   }
 
   async function savePoint() {
-    if (!selectedCommunity) {
-      Alert.alert('Topluluk secilmedi', 'Nokta kaydi icin once topluluk secmelisin.');
-      return;
-    }
-
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
       Alert.alert('Konum hatasi', 'Uzun basarak tekrar nokta sec.');
       return;
@@ -84,7 +100,7 @@ export default function PointCreateScreen() {
     setSaving(true);
     try {
       const createdPoint = await addCustomFeedingPoint({
-        communityId: selectedCommunity.id,
+        communityId: selectedCommunityId,
         name: name.trim(),
         lat: latitude,
         lng: longitude,

@@ -3,11 +3,16 @@ import * as ImagePicker from 'expo-image-picker';
 import { useMemo, useState } from 'react';
 import { Alert, Image, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Card } from '../src/components/Card';
+import { useAuth } from '../src/context/AuthContext';
+import { useCommunity } from '../src/context/CommunityContext';
 import { getFeedingPointById, updateFeedingPoint } from '../src/data/feedingPointStore';
 import { colors } from '../src/theme';
 
 export default function PointEditScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
+  const { currentUser } = useAuth();
+  const { selectedCommunity } = useCommunity();
+  const isCommunityAdmin = !!currentUser && !!selectedCommunity?.adminUserIds.includes(currentUser.id);
 
   const point = useMemo(() => {
     if (!params.id) return null;
@@ -67,6 +72,11 @@ export default function PointEditScreen() {
   }
 
   async function saveChanges() {
+    if (!isCommunityAdmin) {
+      Alert.alert('Yetki gerekli', 'Mama noktalarini sadece topluluk yoneticileri guncelleyebilir.');
+      return;
+    }
+
     if (!params.id) {
       Alert.alert('Hata', 'Nokta bulunamadi.');
       return;
@@ -82,6 +92,7 @@ export default function PointEditScreen() {
       const updated = await updateFeedingPoint(params.id, {
         name: name.trim(),
         photoUri: photoUri ?? undefined,
+        removePhoto: photoUri === null,
       });
 
       if (!updated) {
@@ -104,6 +115,20 @@ export default function PointEditScreen() {
           <Text style={{ fontSize: 30 }}>‹</Text>
         </TouchableOpacity>
         <Text style={{ fontSize: 24, fontWeight: '800', color: colors.text, marginTop: 16 }}>Nokta bulunamadi</Text>
+      </View>
+    );
+  }
+
+  if (!isCommunityAdmin) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, padding: 20, paddingTop: 58 }}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={{ fontSize: 30 }}>‹</Text>
+        </TouchableOpacity>
+        <Text style={{ fontSize: 24, fontWeight: '800', color: colors.text, marginTop: 16 }}>Yetki gerekli</Text>
+        <Text style={{ color: colors.muted, marginTop: 8 }}>
+          Mama noktalarini guncelleme islemi sadece topluluk yoneticileri icin acik.
+        </Text>
       </View>
     );
   }
@@ -151,6 +176,15 @@ export default function PointEditScreen() {
             resizeMode="cover"
           />
         )}
+
+        {photoUri ? (
+          <TouchableOpacity
+            onPress={() => setPhotoUri(null)}
+            style={{ marginTop: 10, borderWidth: 1, borderColor: '#D97A7A', borderRadius: 13, padding: 12, backgroundColor: '#fff' }}
+          >
+            <Text style={{ color: '#D97A7A', textAlign: 'center', fontWeight: '700' }}>Fotografi Sil</Text>
+          </TouchableOpacity>
+        ) : null}
       </Card>
 
       <TouchableOpacity

@@ -186,7 +186,7 @@ export function applySupabaseSnapshot(input: {
   users?: AppUser[];
   communityMembers?: CommunityMember[];
   animals?: Array<{ id: string; communityId: string; name: string; type: 'Kedi' | 'Köpek'; cins: string; location: string }>;
-  feedingPoints?: Array<{ id: string; communityId: string; name: string; lat: number; lng: number; type: string; status: string }>;
+  feedingPoints?: Array<{ id: string; communityId: string; name: string; lat: number; lng: number; type: string; status: string; photoUri?: string }>;
   expenses?: Array<{ id: string; communityId: string; title: string; vendor: string; amount: number; paid: number; category: string; date: string }>;
   joinRequests?: Array<{ id: string; name: string; initials: string; note: string }>;
 }) {

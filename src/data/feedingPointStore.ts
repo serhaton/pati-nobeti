@@ -1,5 +1,6 @@
 import { feedingPoints } from './mock';
 import { getAppDataSource, isSupabaseDataEnabled, supabase } from '../services/supabase';
+import { uploadImageIfNeeded } from '../services/supabaseStorage';
 
 export type FeedingPoint = {
   id: string;
@@ -110,6 +111,16 @@ export async function addCustomFeedingPoint(input: {
   photoUri?: string;
 }): Promise<FeedingPoint> {
   let pointId = `custom-${Date.now()}`;
+  let persistedPhotoUri = input.photoUri;
+
+  if (persistedPhotoUri) {
+    persistedPhotoUri = await uploadImageIfNeeded({
+      uri: persistedPhotoUri,
+      communityId: input.communityId,
+      folder: 'feeding-points',
+      filePrefix: input.communityId,
+    });
+  }
 
   if (isSupabaseDataEnabled()) {
     const { data, error } = await supabase
@@ -120,7 +131,7 @@ export async function addCustomFeedingPoint(input: {
         latitude: input.lat,
         longitude: input.lng,
         animal_type: 'both',
-        notes: input.photoUri ? `photo:${input.photoUri}` : null,
+        photo_uri: persistedPhotoUri ?? null,
       })
       .select('id')
       .single();
@@ -140,7 +151,7 @@ export async function addCustomFeedingPoint(input: {
     lng: input.lng,
     type: 'Kedi + Kopek',
     status: 'Yeni eklendi',
-    photoUri: input.photoUri,
+    photoUri: persistedPhotoUri,
   };
 
   allFeedingPoints.unshift(point);
@@ -169,17 +180,30 @@ export async function updateFeedingPoint(
   updates: {
     name: string;
     photoUri?: string;
+    removePhoto?: boolean;
   }
 ): Promise<FeedingPoint | null> {
   const index = allFeedingPoints.findIndex((item) => item.id === id);
   if (index < 0) return null;
+
+  let persistedPhotoUri: string | undefined;
+  if (!updates.removePhoto) {
+    persistedPhotoUri = await uploadImageIfNeeded({
+      uri: updates.photoUri,
+      communityId: allFeedingPoints[index].communityId,
+      folder: 'feeding-points',
+      filePrefix: allFeedingPoints[index].communityId,
+    });
+  }
 
   if (isSupabaseDataEnabled()) {
     const { data, error } = await supabase
       .from('feeding_points')
       .update({
         name: updates.name,
-        notes: updates.photoUri ? `photo:${updates.photoUri}` : null,
+        photo_uri: updates.removePhoto
+          ? null
+          : (persistedPhotoUri ?? allFeedingPoints[index].photoUri ?? null),
       })
       .eq('id', id)
       .select('id')
@@ -197,7 +221,7 @@ export async function updateFeedingPoint(
   allFeedingPoints[index] = {
     ...allFeedingPoints[index],
     name: updates.name,
-    photoUri: updates.photoUri ?? allFeedingPoints[index].photoUri,
+    photoUri: updates.removePhoto ? undefined : (persistedPhotoUri ?? allFeedingPoints[index].photoUri),
     status: 'Guncellendi',
   };
 
@@ -266,6 +290,21 @@ export function getTodayFeedingRecordCountByCommunity(communityId: string): numb
 
   return feedingRecords.filter((record) => {
     if (!communityPointIds.has(record.pointId)) return false;
+
+    if (record.fedAtDateTime) {
+      const fedAt = new Date(record.fedAtDateTime);
+      return isSameLocalDay(fedAt, today);
+    }
+
+    return record.fedAt.toLowerCase().startsWith('bugun');
+  }).length;
+}
+
+export function getTodayFeedingRecordCountByPoint(pointId: string): number {
+  const today = new Date();
+
+  return feedingRecords.filter((record) => {
+    if (record.pointId !== pointId) return false;
 
     if (record.fedAtDateTime) {
       const fedAt = new Date(record.fedAtDateTime);
