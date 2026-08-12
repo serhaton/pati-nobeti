@@ -91,6 +91,7 @@ create table if not exists expenses (
   paid_by uuid references profiles(id),
   vendor text,
   receipt_url text,
+  receipt_urls jsonb not null default '[]'::jsonb,
   due_amount numeric(12,2) not null default 0,
   created_at timestamptz not null default now()
 );
@@ -150,12 +151,43 @@ create table if not exists community_veterinarians (
   unique (community_id, global_veterinarian_id)
 );
 
+alter table expenses
+  add column if not exists expense_type text check (expense_type in ('mama', 'veteriner', 'diger')),
+  add column if not exists community_veterinarian_id uuid references community_veterinarians(id) on delete set null,
+  add column if not exists vendor_text text,
+  add column if not exists receipt_urls jsonb not null default '[]'::jsonb,
+  add column if not exists expense_at timestamptz not null default now(),
+  add column if not exists note text,
+  add column if not exists submitted_by uuid references profiles(id) on delete set null,
+  add column if not exists submitted_at timestamptz not null default now(),
+  add column if not exists approval_status text not null default 'approved' check (approval_status in ('pending', 'approved', 'rejected')),
+  add column if not exists approved_by uuid references profiles(id) on delete set null,
+  add column if not exists approved_at timestamptz;
+
+update expenses
+set receipt_urls = jsonb_build_array(receipt_url)
+where receipt_url is not null
+  and receipt_url <> ''
+  and receipt_urls = '[]'::jsonb;
+
+alter table expenses
+  drop constraint if exists expenses_expense_type_check;
+
+alter table expenses
+  add constraint expenses_expense_type_check check (expense_type in ('mama', 'veteriner', 'diger'));
+
+alter table expenses
+  alter column amount type numeric(12,2) using round(coalesce(amount, 0)::numeric, 2),
+  alter column due_amount type numeric(12,2) using round(coalesce(due_amount, 0)::numeric, 2);
+
 create index if not exists idx_community_members_community_id on community_members (community_id);
 create index if not exists idx_feeding_points_community_id on feeding_points (community_id);
 create index if not exists idx_animals_community_id on animals (community_id);
 create index if not exists idx_feeding_logs_community_id on feeding_logs (community_id);
 create index if not exists idx_feeding_logs_fed_at on feeding_logs (fed_at desc);
 create index if not exists idx_expenses_community_id on expenses (community_id);
+create index if not exists idx_expenses_approval_status on expenses (approval_status);
+create index if not exists idx_expenses_community_veterinarian_id on expenses (community_veterinarian_id);
 create index if not exists idx_global_veterinarians_active on global_veterinarians (is_active);
 create index if not exists idx_global_veterinarians_location on global_veterinarians (latitude, longitude);
 create index if not exists idx_community_veterinarians_community_id on community_veterinarians (community_id);

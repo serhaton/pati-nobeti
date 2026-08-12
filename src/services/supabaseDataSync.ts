@@ -211,15 +211,20 @@ export async function syncMockDataFromSupabase(): Promise<SupabaseSyncResult> {
     }
 
     if (!expensesRes.error && expensesRes.data) {
-      const mappedExpenses = expensesRes.data.map((row: any, index: number) => ({
+      const approvedExpenseRows = expensesRes.data.filter((row: any) => {
+        const status = String(row.approval_status ?? 'approved').toLowerCase();
+        return status === 'approved';
+      });
+
+      const mappedExpenses = approvedExpenseRows.map((row: any, index: number) => ({
         id: toStringId(row.id, `expense-${index + 1}`),
         communityId: toStringId(row.community_id, '1'),
         title: String(row.title ?? 'Masraf'),
-        vendor: String(row.vendor ?? 'Bilinmiyor'),
+        vendor: String(row.vendor_text ?? row.vendor ?? 'Bilinmiyor'),
         amount: Number(row.amount ?? 0),
         paid: Number((row.amount ?? 0) - (row.due_amount ?? 0)),
         category: String(row.category ?? 'Diger'),
-        date: row.created_at ? new Date(row.created_at).toLocaleDateString('tr-TR') : 'Belirtilmedi',
+        date: row.expense_at ? new Date(row.expense_at).toLocaleDateString('tr-TR') : (row.created_at ? new Date(row.created_at).toLocaleDateString('tr-TR') : 'Belirtilmedi'),
       }));
       applySupabaseSnapshot({ expenses: mappedExpenses });
     }

@@ -1,0 +1,370 @@
+import { expenses as mockExpenses } from '../data/mock';
+import { isSupabaseDataEnabled, supabase } from './supabase';
+
+export type ExpenseType = 'mama' | 'veteriner' | 'diger';
+export type ExpenseApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+export type ExpenseRecord = {
+  id: string;
+  communityId: string;
+  title: string;
+  type: ExpenseType;
+  vendorName: string;
+  communityVeterinarianId: string | null;
+  expenseAt: string;
+  amount: number;
+  note: string;
+  receiptUrl: string;
+  receiptUrls: string[];
+  approvalStatus: ExpenseApprovalStatus;
+  submittedBy: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  createdAt: string;
+};
+
+function toNumber(value: any): number {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function toIso(value: any, fallbackIso: string): string {
+  if (!value) return fallbackIso;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return fallbackIso;
+  return parsed.toISOString();
+}
+
+function formatError(error: any, fallback: string): Error {
+  const details = [error?.message, error?.details, error?.hint].filter(Boolean).join(' - ');
+  return new Error(details || fallback);
+}
+
+function normalizeType(row: any): ExpenseType {
+  const raw = String(row.expense_type ?? row.category ?? '').toLowerCase();
+  if (raw === 'vet' || raw === 'veteriner') return 'veteriner';
+  if (raw === 'other' || raw === 'diger') return 'diger';
+  return 'mama';
+}
+
+function normalizeStatus(row: any): ExpenseApprovalStatus {
+  const raw = String(row.approval_status ?? 'approved').toLowerCase();
+  if (raw === 'pending' || raw === 'rejected') return raw;
+  return 'approved';
+}
+
+function parseReceiptUrls(row: any): string[] {
+  const raw = row.receipt_urls;
+  if (Array.isArray(raw)) {
+    return raw
+      .map((item) => String(item ?? '').trim())
+      .filter((item) => item.length > 0);
+  }
+
+  const single = String(row.receipt_url ?? '').trim();
+  return single ? [single] : [];
+}
+
+function mapRow(row: any): ExpenseRecord {
+  const createdAt = toIso(row.created_at, new Date().toISOString());
+  const receiptUrls = parseReceiptUrls(row);
+  const primaryReceiptUrl = receiptUrls[0] ?? String(row.receipt_url ?? '');
+
+  return {
+    id: String(row.id),
+    communityId: String(row.community_id),
+    title: String(row.title ?? 'Masraf'),
+    type: normalizeType(row),
+    vendorName: String(row.vendor_text ?? row.vendor ?? 'Belirtilmedi'),
+    communityVeterinarianId: row.community_veterinarian_id ? String(row.community_veterinarian_id) : null,
+    expenseAt: toIso(row.expense_at, createdAt),
+    amount: toNumber(row.amount),
+    note: String(row.note ?? ''),
+    receiptUrl: primaryReceiptUrl,
+    receiptUrls,
+    approvalStatus: normalizeStatus(row),
+    submittedBy: row.submitted_by ? String(row.submitted_by) : null,
+    approvedBy: row.approved_by ? String(row.approved_by) : null,
+    approvedAt: row.approved_at ? toIso(row.approved_at, createdAt) : null,
+    createdAt,
+  };
+}
+
+let mockExpenseRecords: ExpenseRecord[] = mockExpenses.map((item) => {
+  const nowIso = new Date().toISOString();
+  const normalizedType: ExpenseType = item.category.toLowerCase().includes('veteriner') ? 'veteriner' : 'mama';
+
+  return {
+    id: item.id,
+    communityId: item.communityId,
+    title: item.title,
+    type: normalizedType,
+    vendorName: item.vendor,
+    communityVeterinarianId: null,
+    expenseAt: nowIso,
+    amount: Number(item.amount),
+    note: '',
+    receiptUrl: 'mock://receipt',
+    receiptUrls: ['mock://receipt'],
+    approvalStatus: 'approved',
+    submittedBy: null,
+    approvedBy: null,
+    approvedAt: nowIso,
+    createdAt: nowIso,
+  };
+});
+
+export async function getApprovedExpensesByCommunity(communityId: string): Promise<ExpenseRecord[]> {
+  if (!isSupabaseDataEnabled()) {
+    return mockExpenseRecords
+      .filter((item) => item.communityId === communityId && item.approvalStatus === 'approved')
+      .sort((left, right) => right.expenseAt.localeCompare(left.expenseAt));
+  }
+
+  const { data, error } = await supabase
+    .from('expenses')
+    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, note, receipt_url, receipt_urls, approval_status, submitted_by, approved_by, approved_at, created_at')
+    .eq('community_id', communityId)
+    .eq('approval_status', 'approved')
+    .order('expense_at', { ascending: false });
+
+  if (error) {
+    throw formatError(error, 'Onaylı masraflar okunamadı.');
+  }
+
+  return (data ?? []).map(mapRow);
+}
+
+export async function getPendingExpensesForCommunity(communityId: string): Promise<ExpenseRecord[]> {
+  if (!isSupabaseDataEnabled()) {
+    return mockExpenseRecords
+      .filter((item) => item.communityId === communityId && item.approvalStatus === 'pending')
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  }
+
+  const { data, error } = await supabase
+    .from('expenses')
+    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, note, receipt_url, receipt_urls, approval_status, submitted_by, approved_by, approved_at, created_at')
+    .eq('community_id', communityId)
+    .eq('approval_status', 'pending')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw formatError(error, 'Bekleyen masraflar okunamadı.');
+  }
+
+  return (data ?? []).map(mapRow);
+}
+
+export async function createExpense(input: {
+  communityId: string;
+  submittedBy: string;
+  performedByUserId?: string;
+  isCommunityAdmin: boolean;
+  title: string;
+  type: ExpenseType;
+  amount: number;
+  expenseAtIso: string;
+  note?: string;
+  receiptUrls: string[];
+  vendorName: string;
+  communityVeterinarianId?: string | null;
+}): Promise<ExpenseRecord> {
+  const nowIso = new Date().toISOString();
+  const approvalStatus: ExpenseApprovalStatus = input.isCommunityAdmin ? 'approved' : 'pending';
+  const normalizedAmount = roundMoney(input.amount);
+  const normalizedReceiptUrls = input.receiptUrls.map((item) => item.trim()).filter(Boolean);
+  const primaryReceiptUrl = normalizedReceiptUrls[0] ?? '';
+  const effectiveSubmittedBy = (input.performedByUserId ?? input.submittedBy).trim() || input.submittedBy;
+
+  if (!isSupabaseDataEnabled()) {
+    const record: ExpenseRecord = {
+      id: `expense-${Date.now()}`,
+      communityId: input.communityId,
+      title: input.title,
+      type: input.type,
+      vendorName: input.vendorName,
+      communityVeterinarianId: input.communityVeterinarianId ?? null,
+      expenseAt: input.expenseAtIso,
+      amount: normalizedAmount,
+      note: String(input.note ?? '').trim(),
+      receiptUrl: primaryReceiptUrl,
+      receiptUrls: normalizedReceiptUrls,
+      approvalStatus,
+      submittedBy: effectiveSubmittedBy,
+      approvedBy: input.isCommunityAdmin ? input.submittedBy : null,
+      approvedAt: input.isCommunityAdmin ? nowIso : null,
+      createdAt: nowIso,
+    };
+
+    mockExpenseRecords = [record, ...mockExpenseRecords];
+    return record;
+  }
+
+  const { data, error } = await supabase
+    .from('expenses')
+    .insert({
+      community_id: input.communityId,
+      submitted_by: effectiveSubmittedBy,
+      submitted_at: nowIso,
+      title: input.title,
+      category: input.type === 'veteriner' ? 'Veteriner' : input.type === 'diger' ? 'Diger' : 'Mama',
+      expense_type: input.type,
+      amount: normalizedAmount,
+      due_amount: normalizedAmount,
+      expense_at: input.expenseAtIso,
+      note: String(input.note ?? '').trim() || null,
+      receipt_url: primaryReceiptUrl || null,
+      receipt_urls: normalizedReceiptUrls,
+      vendor: input.vendorName,
+      vendor_text: input.vendorName,
+      community_veterinarian_id: input.communityVeterinarianId ?? null,
+      approval_status: approvalStatus,
+      approved_by: input.isCommunityAdmin ? input.submittedBy : null,
+      approved_at: input.isCommunityAdmin ? nowIso : null,
+      paid_by: effectiveSubmittedBy,
+    })
+    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, note, receipt_url, receipt_urls, approval_status, submitted_by, approved_by, approved_at, created_at')
+    .single();
+
+  if (error) {
+    throw formatError(error, 'Masraf kaydı oluşturulamadı.');
+  }
+
+  return mapRow(data);
+}
+
+export async function updateExpense(input: {
+  expenseId: string;
+  communityId: string;
+  title: string;
+  type: ExpenseType;
+  amount: number;
+  expenseAtIso: string;
+  note?: string;
+  receiptUrls: string[];
+  vendorName: string;
+  communityVeterinarianId?: string | null;
+  performedByUserId: string;
+}): Promise<ExpenseRecord> {
+  const normalizedAmount = roundMoney(input.amount);
+  const normalizedReceiptUrls = input.receiptUrls.map((item) => item.trim()).filter(Boolean);
+  const primaryReceiptUrl = normalizedReceiptUrls[0] ?? '';
+
+  if (!isSupabaseDataEnabled()) {
+    const index = mockExpenseRecords.findIndex((item) => item.id === input.expenseId && item.communityId === input.communityId);
+    if (index < 0) {
+      throw new Error('Masraf kaydı bulunamadı.');
+    }
+
+    const existing = mockExpenseRecords[index];
+    const updated: ExpenseRecord = {
+      ...existing,
+      title: input.title,
+      type: input.type,
+      amount: normalizedAmount,
+      expenseAt: input.expenseAtIso,
+      note: String(input.note ?? '').trim(),
+      receiptUrl: primaryReceiptUrl,
+      receiptUrls: normalizedReceiptUrls,
+      vendorName: input.vendorName,
+      communityVeterinarianId: input.communityVeterinarianId ?? null,
+      submittedBy: input.performedByUserId,
+    };
+
+    mockExpenseRecords[index] = updated;
+    return updated;
+  }
+
+  const { data, error } = await supabase
+    .from('expenses')
+    .update({
+      title: input.title,
+      category: input.type === 'veteriner' ? 'Veteriner' : input.type === 'diger' ? 'Diger' : 'Mama',
+      expense_type: input.type,
+      amount: normalizedAmount,
+      due_amount: normalizedAmount,
+      expense_at: input.expenseAtIso,
+      note: String(input.note ?? '').trim() || null,
+      receipt_url: primaryReceiptUrl || null,
+      receipt_urls: normalizedReceiptUrls,
+      vendor: input.vendorName,
+      vendor_text: input.vendorName,
+      community_veterinarian_id: input.communityVeterinarianId ?? null,
+      submitted_by: input.performedByUserId,
+      paid_by: input.performedByUserId,
+    })
+    .eq('id', input.expenseId)
+    .eq('community_id', input.communityId)
+    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, note, receipt_url, receipt_urls, approval_status, submitted_by, approved_by, approved_at, created_at')
+    .single();
+
+  if (error) {
+    throw formatError(error, 'Masraf kaydı güncellenemedi.');
+  }
+
+  return mapRow(data);
+}
+
+export async function deleteExpense(input: {
+  expenseId: string;
+  communityId: string;
+}): Promise<void> {
+  if (!isSupabaseDataEnabled()) {
+    const next = mockExpenseRecords.filter((item) => !(item.id === input.expenseId && item.communityId === input.communityId));
+    if (next.length === mockExpenseRecords.length) {
+      throw new Error('Masraf kaydı bulunamadı.');
+    }
+    mockExpenseRecords = next;
+    return;
+  }
+
+  const { error } = await supabase
+    .from('expenses')
+    .delete()
+    .eq('id', input.expenseId)
+    .eq('community_id', input.communityId);
+
+  if (error) {
+    throw formatError(error, 'Masraf kaydı silinemedi.');
+  }
+}
+
+export async function approveExpense(input: {
+  expenseId: string;
+  communityId: string;
+  approvedBy: string;
+}): Promise<void> {
+  const nowIso = new Date().toISOString();
+
+  if (!isSupabaseDataEnabled()) {
+    mockExpenseRecords = mockExpenseRecords.map((item) => {
+      if (item.id !== input.expenseId || item.communityId !== input.communityId) return item;
+      return {
+        ...item,
+        approvalStatus: 'approved',
+        approvedBy: input.approvedBy,
+        approvedAt: nowIso,
+      };
+    });
+    return;
+  }
+
+  const { error } = await supabase
+    .from('expenses')
+    .update({
+      approval_status: 'approved',
+      approved_by: input.approvedBy,
+      approved_at: nowIso,
+    })
+    .eq('id', input.expenseId)
+    .eq('community_id', input.communityId);
+
+  if (error) {
+    throw formatError(error, 'Masraf onaylanamadı.');
+  }
+}

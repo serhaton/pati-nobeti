@@ -14,14 +14,22 @@ import {
   PendingJoinRequest,
   rejectJoinRequest,
 } from '../src/services/communityService';
+import {
+  approveExpense,
+  ExpenseRecord,
+  getPendingExpensesForCommunity,
+} from '../src/services/expenseService';
 import { isSupabaseDataEnabled } from '../src/services/supabase';
 
 export default function Community() {
   const { selectedCommunity, refreshCommunities } = useCommunity();
   const { currentUser } = useAuth();
   const [pendingRequests, setPendingRequests] = useState<PendingJoinRequest[]>([]);
+  const [pendingExpenseApprovals, setPendingExpenseApprovals] = useState<ExpenseRecord[]>([]);
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
+  const [isLoadingExpenseApprovals, setIsLoadingExpenseApprovals] = useState(false);
   const [actioningRequestId, setActioningRequestId] = useState<string | null>(null);
+  const [actioningExpenseId, setActioningExpenseId] = useState<string | null>(null);
   const selectedCommunityId = selectedCommunity?.id ?? null;
   const isCommunityAdmin = !!currentUser && selectedCommunity?.adminUserIds.includes(currentUser.id);
   const communityMenuItems = [
@@ -32,7 +40,6 @@ export default function Community() {
     ['🗺️', 'Harita ve besleme noktalari', '/map'],
     ['🐾', 'Can dostlar', '/animal'],
     ['💰', 'Gelir / gider ve borclar', '/expenses'],
-    ['📣', 'Duyurular', '/community'],
   ] as const;
   const memberCount = useMemo(() => {
     if (!selectedCommunity) return 0;
@@ -62,6 +69,23 @@ export default function Community() {
     }
   }, [isCommunityAdmin, selectedCommunityId]);
 
+  const loadPendingExpenseApprovals = useCallback(async () => {
+    if (!selectedCommunityId || !isCommunityAdmin || !isSupabaseDataEnabled()) {
+      setPendingExpenseApprovals([]);
+      return;
+    }
+
+    setIsLoadingExpenseApprovals(true);
+    try {
+      const rows = await getPendingExpensesForCommunity(selectedCommunityId);
+      setPendingExpenseApprovals(rows);
+    } catch (error: any) {
+      Alert.alert('Masraf okuma hatası', String(error?.message ?? 'Bekleyen masraflar okunamadı.'));
+    } finally {
+      setIsLoadingExpenseApprovals(false);
+    }
+  }, [isCommunityAdmin, selectedCommunityId]);
+
   useFocusEffect(
     useCallback(() => {
       let mounted = true;
@@ -69,7 +93,7 @@ export default function Community() {
       async function refreshScreenData() {
         await refreshCommunities();
         if (!mounted) return;
-        await loadPendingRequests();
+        await Promise.all([loadPendingRequests(), loadPendingExpenseApprovals()]);
       }
 
       refreshScreenData();
@@ -77,7 +101,7 @@ export default function Community() {
       return () => {
         mounted = false;
       };
-    }, [loadPendingRequests, refreshCommunities])
+    }, [loadPendingExpenseApprovals, loadPendingRequests, refreshCommunities])
   );
 
   async function onApprove(request: PendingJoinRequest) {
@@ -114,6 +138,25 @@ export default function Community() {
     }
   }
 
+  async function onApproveExpense(expense: ExpenseRecord) {
+    if (!selectedCommunityId || !currentUser) return;
+
+    setActioningExpenseId(expense.id);
+    try {
+      await approveExpense({
+        expenseId: expense.id,
+        communityId: selectedCommunityId,
+        approvedBy: currentUser.id,
+      });
+      await refreshCommunities();
+      await loadPendingExpenseApprovals();
+    } catch (error: any) {
+      Alert.alert('Onay hatası', String(error?.message ?? 'Masraf onaylanamadı.'));
+    } finally {
+      setActioningExpenseId(null);
+    }
+  }
+
   if (!selectedCommunity) return null;
 
   return (
@@ -125,7 +168,6 @@ export default function Community() {
       <View style={{ flexDirection: 'row', gap: 9, marginTop: 22 }}>
         {[
           [String(animalCount),'Can Dost'],
-          ['12','Besleme'],
           [`${selectedCommunity.debt.toLocaleString('tr-TR')} ₺`,'Açık Borc']
         ].map(([v,l]) => <Card key={l} style={{ flex: 1, padding: 13 }}><Text style={{ fontWeight: '800', fontSize: 18, color: colors.text }}>{v}</Text><Text style={{ color: colors.muted, marginTop: 3, fontSize: 12 }}>{l}</Text></Card>)}
       </View>
@@ -185,6 +227,41 @@ export default function Community() {
               </View>
             ))}
 
+          </Card>
+
+          <Card style={{ marginTop: 12 }}>
+            <Text style={{ fontWeight: '800', color: colors.text, fontSize: 16 }}>
+              {pendingExpenseApprovals.length} masraf onay bekliyor
+            </Text>
+
+            {isLoadingExpenseApprovals ? (
+              <View style={{ marginTop: 12, alignItems: 'center' }}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            ) : null}
+
+            {!isLoadingExpenseApprovals && pendingExpenseApprovals.length === 0 ? (
+              <Text style={{ color: colors.muted, marginTop: 10 }}>Bekleyen masraf onayı yok.</Text>
+            ) : null}
+
+            {pendingExpenseApprovals.map((expense) => (
+              <View key={expense.id} style={{ paddingTop: 15, marginTop: 13, borderTopWidth: 1, borderTopColor: colors.border }}>
+                <Text style={{ fontWeight: '800', color: colors.text }}>{expense.title}</Text>
+                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 3 }}>
+                  {expense.type === 'veteriner' ? 'Veteriner' : 'Mama'} · {expense.vendorName}
+                </Text>
+                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 3 }}>
+                  {new Date(expense.expenseAt).toLocaleString('tr-TR')} · {expense.amount.toLocaleString('tr-TR')} ₺
+                </Text>
+                <TouchableOpacity
+                  disabled={actioningExpenseId === expense.id}
+                  onPress={() => onApproveExpense(expense)}
+                  style={{ marginTop: 11, backgroundColor: colors.primary, borderRadius: 12, padding: 11, opacity: actioningExpenseId === expense.id ? 0.7 : 1 }}
+                >
+                  <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '700' }}>Masrafı Onayla</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
           </Card>
         </>
       ) : null}

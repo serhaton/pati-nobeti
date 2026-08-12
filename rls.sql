@@ -297,6 +297,7 @@ to authenticated
 using (public.is_community_admin(community_id));
 
 drop policy if exists expenses_select on public.expenses;
+drop policy if exists expenses_insert_member_or_admin on public.expenses;
 drop policy if exists expenses_insert_admin on public.expenses;
 drop policy if exists expenses_update_admin on public.expenses;
 drop policy if exists expenses_delete_admin on public.expenses;
@@ -305,26 +306,70 @@ create policy expenses_select
 on public.expenses
 for select
 to authenticated
-using (public.is_community_member(community_id));
+using (
+  public.is_community_admin(community_id)
+  or (
+    public.is_community_member(community_id)
+    and (
+      approval_status = 'approved'
+      or submitted_by = auth.uid()
+    )
+  )
+);
 
-create policy expenses_insert_admin
+create policy expenses_insert_member_or_admin
 on public.expenses
 for insert
 to authenticated
-with check (public.is_community_admin(community_id));
+with check (
+  public.is_community_member(community_id)
+  and (
+    (public.is_community_admin(community_id) and submitted_by is not null)
+    or ((not public.is_community_admin(community_id)) and submitted_by = auth.uid())
+  )
+  and (
+    receipt_url is not null
+    or jsonb_array_length(coalesce(receipt_urls, '[]'::jsonb)) > 0
+  )
+  and (
+    (public.is_community_admin(community_id) and approval_status in ('pending', 'approved'))
+    or ((not public.is_community_admin(community_id)) and approval_status = 'pending')
+  )
+);
 
 create policy expenses_update_admin
 on public.expenses
 for update
 to authenticated
-using (public.is_community_admin(community_id))
-with check (public.is_community_admin(community_id));
+using (
+  public.is_community_admin(community_id)
+  or (
+    public.is_community_member(community_id)
+    and submitted_by = auth.uid()
+    and approval_status = 'pending'
+  )
+)
+with check (
+  public.is_community_admin(community_id)
+  or (
+    public.is_community_member(community_id)
+    and submitted_by = auth.uid()
+    and approval_status = 'pending'
+  )
+);
 
 create policy expenses_delete_admin
 on public.expenses
 for delete
 to authenticated
-using (public.is_community_admin(community_id));
+using (
+  public.is_community_admin(community_id)
+  or (
+    public.is_community_member(community_id)
+    and submitted_by = auth.uid()
+    and approval_status = 'pending'
+  )
+);
 
 drop policy if exists contributions_select on public.contributions;
 drop policy if exists contributions_insert on public.contributions;

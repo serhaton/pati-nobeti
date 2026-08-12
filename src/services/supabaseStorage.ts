@@ -12,6 +12,7 @@ function inferExtension(uri: string): string {
   if (raw === 'png') return 'png';
   if (raw === 'webp') return 'webp';
   if (raw === 'heic') return 'heic';
+  if (raw === 'pdf') return 'pdf';
   return 'jpg';
 }
 
@@ -19,7 +20,14 @@ function inferMimeType(extension: string): string {
   if (extension === 'png') return 'image/png';
   if (extension === 'webp') return 'image/webp';
   if (extension === 'heic') return 'image/heic';
+  if (extension === 'pdf') return 'application/pdf';
   return 'image/jpeg';
+}
+
+function assertAllowedExtension(extension: string, allowed: string[], errorMessage: string) {
+  if (!allowed.includes(extension)) {
+    throw new Error(errorMessage);
+  }
 }
 
 function isRemoteUrl(uri: string): boolean {
@@ -87,6 +95,7 @@ export async function uploadImageIfNeeded(input: {
   }
 
   const extension = inferExtension(sourceUri);
+  assertAllowedExtension(extension, ['jpg', 'png', 'webp', 'heic'], 'Yalnızca görsel dosyaları yüklenebilir.');
   const contentType = inferMimeType(extension);
   const guid = generateGuid();
   const filePath = `${normalizedCommunityId}/${input.folder}/${input.filePrefix}-${guid}.${extension}`;
@@ -115,4 +124,77 @@ export async function uploadImageIfNeeded(input: {
   }
 
   return publicUrl;
+}
+
+export async function uploadExpenseReceiptIfNeeded(input: {
+  uri?: string;
+  communityId: string;
+  filePrefix: string;
+}): Promise<string | undefined> {
+  const sourceUri = input.uri?.trim();
+  if (!sourceUri) return undefined;
+
+  if (isRemoteUrl(sourceUri)) {
+    return sourceUri;
+  }
+
+  if (!isSupabaseDataEnabled()) {
+    return sourceUri;
+  }
+
+  const normalizedCommunityId = input.communityId.trim();
+  if (!normalizedCommunityId) {
+    throw new Error('Topluluk bilgisi bulunamadı. Fiş yüklenemedi.');
+  }
+
+  const extension = inferExtension(sourceUri);
+  assertAllowedExtension(extension, ['jpg', 'png', 'webp', 'heic', 'pdf'], 'Fiş yalnızca görsel veya PDF olabilir.');
+
+  const contentType = inferMimeType(extension);
+  const guid = generateGuid();
+  const filePath = `${normalizedCommunityId}/expenses/${input.filePrefix}-${guid}.${extension}`;
+  const uploadBody = await getUploadBodyFromUri(sourceUri);
+
+  const { error: uploadError } = await supabase
+    .storage
+    .from(DEFAULT_BUCKET)
+    .upload(filePath, uploadBody, {
+      contentType,
+      upsert: false,
+    });
+
+  if (uploadError) {
+    throw formatStorageError(uploadError, `Fiş dosyası Supabase Storage'a yüklenemedi. Bucket: ${DEFAULT_BUCKET}`);
+  }
+
+  const { data } = supabase.storage.from(DEFAULT_BUCKET).getPublicUrl(filePath);
+  const publicUrl = data?.publicUrl;
+
+  if (!publicUrl) {
+    throw new Error('Fiş yüklendi fakat public URL alınamadı.');
+  }
+
+  return publicUrl;
+}
+
+export async function uploadExpenseReceiptsIfNeeded(input: {
+  uris: string[];
+  communityId: string;
+  filePrefix: string;
+}): Promise<string[]> {
+  const normalizedUris = input.uris
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+
+  if (normalizedUris.length === 0) return [];
+
+  const uploadedUrls = await Promise.all(
+    normalizedUris.map((uri, index) => uploadExpenseReceiptIfNeeded({
+      uri,
+      communityId: input.communityId,
+      filePrefix: `${input.filePrefix}-${index + 1}`,
+    }))
+  );
+
+  return uploadedUrls.filter((item): item is string => Boolean(item));
 }
