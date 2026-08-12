@@ -61,6 +61,8 @@ export default function AnimalCreateScreen() {
     );
   }
 
+  const selectedCommunityId = selectedCommunity.id;
+
   async function addFromLibrary() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -133,7 +135,7 @@ export default function AnimalCreateScreen() {
     setTreatmentNote('');
   }
 
-  function saveAnimal() {
+  async function saveAnimal() {
     if (!name.trim()) {
       Alert.alert('Eksik bilgi', 'Can dost adı zorunlu.');
       return;
@@ -149,21 +151,25 @@ export default function AnimalCreateScreen() {
       return;
     }
 
-    const created = addAnimal({
-      communityId: selectedCommunity.id,
-      name: name.trim(),
-      type,
-      breed: breed.trim(),
-      gender,
-      isSterilized,
-      birthDate: formatDate(birthDate),
-      location: location.trim(),
-      vaccinationSchedule,
-      treatmentSchedule,
-      photoUris,
-    });
+    try {
+      const created = await addAnimal({
+        communityId: selectedCommunityId,
+        name: name.trim(),
+        type,
+        breed: breed.trim(),
+        gender,
+        isSterilized,
+        birthDate: formatDate(birthDate),
+        location: location.trim(),
+        vaccinationSchedule,
+        treatmentSchedule,
+        photoUris,
+      });
 
-    router.replace({ pathname: '/animal-detail', params: { id: created.id } });
+      router.replace({ pathname: '/animal-detail', params: { id: created.id } });
+    } catch (error: any) {
+      Alert.alert('Supabase kayit hatasi', String(error?.message ?? 'Can dost kaydi olusturulamadi.'));
+    }
   }
 
   return (

@@ -66,7 +66,7 @@ export default function PointEditScreen() {
     }
   }
 
-  function saveChanges() {
+  async function saveChanges() {
     if (!params.id) {
       Alert.alert('Hata', 'Nokta bulunamadi.');
       return;
@@ -78,18 +78,23 @@ export default function PointEditScreen() {
     }
 
     setSaving(true);
-    const updated = updateFeedingPoint(params.id, {
-      name: name.trim(),
-      photoUri: photoUri ?? undefined,
-    });
-    setSaving(false);
+    try {
+      const updated = await updateFeedingPoint(params.id, {
+        name: name.trim(),
+        photoUri: photoUri ?? undefined,
+      });
 
-    if (!updated) {
-      Alert.alert('Hata', 'Nokta guncellenemedi.');
-      return;
+      if (!updated) {
+        Alert.alert('Hata', 'Nokta guncellenemedi.');
+        return;
+      }
+
+      router.back();
+    } catch (error: any) {
+      Alert.alert('Supabase kayit hatasi', String(error?.message ?? 'Nokta guncellenemedi.'));
+    } finally {
+      setSaving(false);
     }
-
-    router.back();
   }
 
   if (!point) {

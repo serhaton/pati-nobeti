@@ -9,9 +9,9 @@ export default function Profile() {
   const { currentUser, signOut } = useAuth();
   const { selectedCommunity, clearSelectedCommunity } = useCommunity();
 
-  function handleLogout() {
+  async function handleLogout() {
     clearSelectedCommunity();
-    signOut();
+    await signOut();
     router.replace('/');
   }
 

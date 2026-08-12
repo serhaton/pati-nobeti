@@ -160,7 +160,7 @@ export default function AnimalEditScreen() {
     setTreatmentSchedule((prev) => prev.filter((event) => event.id !== eventId));
   }
 
-  function saveAnimal() {
+  async function saveAnimal() {
     if (!params.id) return;
 
     if (!name.trim()) {
@@ -178,25 +178,29 @@ export default function AnimalEditScreen() {
       return;
     }
 
-    const updated = updateAnimal(params.id, {
-      name: name.trim(),
-      type,
-      breed: breed.trim(),
-      gender,
-      isSterilized,
-      birthDate: formatDate(birthDate),
-      location: location.trim(),
-      vaccinationSchedule,
-      treatmentSchedule,
-      photoUris,
-    });
+    try {
+      const updated = await updateAnimal(params.id, {
+        name: name.trim(),
+        type,
+        breed: breed.trim(),
+        gender,
+        isSterilized,
+        birthDate: formatDate(birthDate),
+        location: location.trim(),
+        vaccinationSchedule,
+        treatmentSchedule,
+        photoUris,
+      });
 
-    if (!updated) {
-      Alert.alert('Hata', 'Can dost güncellenemedi.');
-      return;
+      if (!updated) {
+        Alert.alert('Hata', 'Can dost güncellenemedi.');
+        return;
+      }
+
+      router.replace({ pathname: '/animal-detail', params: { id: updated.id } });
+    } catch (error: any) {
+      Alert.alert('Supabase kayit hatasi', String(error?.message ?? 'Can dost guncellenemedi.'));
     }
-
-    router.replace({ pathname: '/animal-detail', params: { id: updated.id } });
   }
 
   return (

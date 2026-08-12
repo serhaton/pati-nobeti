@@ -65,7 +65,7 @@ export default function PointCreateScreen() {
     }
   }
 
-  function savePoint() {
+  async function savePoint() {
     if (!selectedCommunity) {
       Alert.alert('Topluluk secilmedi', 'Nokta kaydi icin once topluluk secmelisin.');
       return;
@@ -82,23 +82,28 @@ export default function PointCreateScreen() {
     }
 
     setSaving(true);
-    const createdPoint = addCustomFeedingPoint({
-      communityId: selectedCommunity.id,
-      name: name.trim(),
-      lat: latitude,
-      lng: longitude,
-      photoUri: photoUri ?? undefined,
-    });
-    setSaving(false);
-    router.replace({
-      pathname: '/map',
-      params: {
-        focusLat: String(createdPoint.lat),
-        focusLng: String(createdPoint.lng),
-        focusId: createdPoint.id,
-        refresh: String(Date.now()),
-      },
-    });
+    try {
+      const createdPoint = await addCustomFeedingPoint({
+        communityId: selectedCommunity.id,
+        name: name.trim(),
+        lat: latitude,
+        lng: longitude,
+        photoUri: photoUri ?? undefined,
+      });
+      router.replace({
+        pathname: '/map',
+        params: {
+          focusLat: String(createdPoint.lat),
+          focusLng: String(createdPoint.lng),
+          focusId: createdPoint.id,
+          refresh: String(Date.now()),
+        },
+      });
+    } catch (error: any) {
+      Alert.alert('Supabase kayit hatasi', String(error?.message ?? 'Nokta kaydedilemedi.'));
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (

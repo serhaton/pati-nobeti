@@ -5,13 +5,15 @@ import { Card } from '../src/components/Card';
 import { Logo } from '../src/components/Logo';
 import { useCommunity } from '../src/context/CommunityContext';
 import { colors } from '../src/theme';
-import { animals, expenses } from '../src/data/mock';
+import { expenses } from '../src/data/mock';
+import { getTodayFeedingRecordCountByCommunity } from '../src/data/feedingPointStore';
 
 export default function Home() {
   const { selectedCommunity } = useCommunity();
   const { currentUser } = useAuth();
   const totalDebt = expenses.reduce((s, x) => s + x.amount - x.paid, 0);
   const isCommunityAdmin = !!currentUser && selectedCommunity?.adminUserIds.includes(currentUser.id);
+  const todayFedCount = selectedCommunity ? getTodayFeedingRecordCountByCommunity(selectedCommunity.id) : 0;
 
   if (!selectedCommunity) return null;
 
@@ -33,16 +35,20 @@ export default function Home() {
       </View>
 
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
-        <Card style={{ flex: 1 }}>
-          <Text style={{ fontSize: 25 }}>🐾</Text>
-          <Text style={{ fontSize: 24, fontWeight: '800', color: colors.text, marginTop: 7 }}>12</Text>
-          <Text style={{ color: colors.muted }}>Bugün beslenen</Text>
-        </Card>
-        <Card style={{ flex: 1 }}>
-          <Text style={{ fontSize: 25 }}>💳</Text>
-          <Text style={{ fontSize: 24, fontWeight: '800', color: colors.text, marginTop: 7 }}>{totalDebt.toLocaleString('tr-TR')} ₺</Text>
-          <Text style={{ color: colors.muted }}>Açık borç</Text>
-        </Card>
+        <TouchableOpacity onPress={() => router.push('/feeding')} style={{ flex: 1 }}>
+          <Card style={{ flex: 1 }}>
+            <Text style={{ fontSize: 25 }}>🥣</Text>
+            <Text style={{ fontSize: 24, fontWeight: '800', color: colors.text, marginTop: 7 }}>{todayFedCount}</Text>
+            <Text style={{ color: colors.muted }}>Bugünkü besleme kaydı</Text>
+          </Card>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/expenses')} style={{ flex: 1 }}>
+          <Card style={{ flex: 1 }}>
+            <Text style={{ fontSize: 25 }}>💳</Text>
+            <Text style={{ fontSize: 24, fontWeight: '800', color: colors.text, marginTop: 7 }}>{totalDebt.toLocaleString('tr-TR')} ₺</Text>
+            <Text style={{ color: colors.muted }}>Açık borç</Text>
+          </Card>
+        </TouchableOpacity>
       </View>
 
       <Text style={{ fontSize: 19, fontWeight: '800', color: colors.text, marginTop: 18, marginBottom: 12 }}>Hızlı işlemler</Text>
@@ -78,24 +84,6 @@ export default function Home() {
           </TouchableOpacity>
         </>
       ) : null}
-
-      <Text style={{ fontSize: 19, fontWeight: '800', color: colors.text, marginTop: 25, marginBottom: 12 }}>Bugünün canları</Text>
-      {animals.map(a => (
-        <Card key={a.id} style={{ marginBottom: 10 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={{ width: 52, height: 52, borderRadius: 17, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 27 }}>{a.type === 'Kedi' ? '🐱' : '🐶'}</Text>
-            </View>
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={{ fontWeight: '800', color: colors.text }}>{a.name}</Text>
-              <Text style={{ color: colors.muted }}>{a.cins} · {a.location}</Text>
-            </View>
-            <Text style={{ color: a.fedToday ? colors.primary : colors.accent, fontWeight: '700' }}>
-              {a.fedToday ? '✓ Beslendi' : '• Bekliyor'}
-            </Text>
-          </View>
-        </Card>
-      ))}
     </ScrollView>
   );
 }

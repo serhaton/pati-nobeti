@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, View, Text, TouchableOpacity } from 'react-native';
 import MapView, { LongPressEvent, Marker } from 'react-native-maps';
 import { FeedingPoint, FeedingRecord, getAllFeedingPoints, getRecentFeedingRecords } from '../src/data/feedingPointStore';
+import { useCommunity } from '../src/context/CommunityContext';
 import { colors } from '../src/theme';
 
 const SHEET_HEIGHT = 300;
@@ -26,6 +27,7 @@ function FeedingBowlIcon() {
 }
 
 export default function MapScreen() {
+  const { selectedCommunity } = useCommunity();
   const params = useLocalSearchParams<{ focusLat?: string; focusLng?: string; focusId?: string; refresh?: string }>();
   const mapRef = useRef<MapView | null>(null);
   const hasUserInteractedRef = useRef(false);
@@ -43,6 +45,17 @@ export default function MapScreen() {
     if (!selectedPoint) return [];
     return getRecentFeedingRecords(selectedPoint.id, 5);
   }, [selectedPoint]);
+  const defaultCenter = useMemo(
+    () => ({
+      latitude: selectedCommunity?.latitude ?? 41.018101,
+      longitude: selectedCommunity?.longitude ?? 29.125607,
+    }),
+    [selectedCommunity?.latitude, selectedCommunity?.longitude]
+  );
+  const defaultMapDelta = useMemo(() => {
+    const zoom = selectedCommunity?.defaultZoom ?? 17;
+    return 360 / Math.pow(2, zoom);
+  }, [selectedCommunity?.defaultZoom]);
 
   useFocusEffect(
     useCallback(() => {
@@ -183,7 +196,7 @@ export default function MapScreen() {
   useEffect(() => {
     let mounted = true;
 
-    async function zoomToCurrentLocation() {
+    async function loadCurrentLocationWithoutAutoCenter() {
       if (Number.isFinite(focusLatitude) && Number.isFinite(focusLongitude)) return;
 
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -199,19 +212,9 @@ export default function MapScreen() {
         longitude: position.coords.longitude,
       };
       setCurrentLocation(coords);
-
-      mapRef.current?.animateToRegion(
-        {
-          latitude: coords.latitude,
-          longitude: coords.longitude,
-          latitudeDelta: 0.008,
-          longitudeDelta: 0.008,
-        },
-        700
-      );
     }
 
-    zoomToCurrentLocation();
+    loadCurrentLocationWithoutAutoCenter();
 
     return () => {
       mounted = false;
@@ -233,7 +236,12 @@ export default function MapScreen() {
           hasUserInteractedRef.current = true;
         }}
         onLongPress={openCreatePointFromPress}
-        initialRegion={{ latitude: 40.987, longitude: 29.026, latitudeDelta: 0.025, longitudeDelta: 0.025 }}
+        initialRegion={{
+          latitude: defaultCenter.latitude,
+          longitude: defaultCenter.longitude,
+          latitudeDelta: defaultMapDelta,
+          longitudeDelta: defaultMapDelta,
+        }}
       >
         {currentLocation && (
           <Marker coordinate={currentLocation} anchor={{ x: 0.5, y: 1 }} tracksViewChanges={false}>

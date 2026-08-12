@@ -1,4 +1,5 @@
 import { animals } from './mock';
+import { getAppDataSource, isSupabaseDataEnabled, supabase } from '../services/supabase';
 
 export type AnimalType = 'Kedi' | 'Köpek';
 export type AnimalGender = 'Dişi' | 'Erkek' | 'Bilinmiyor';
@@ -20,7 +21,6 @@ export type CommunityAnimal = {
   isSterilized: boolean;
   birthDate: string;
   location: string;
-  fedToday: boolean;
   vaccinationSchedule: AnimalHealthEvent[];
   treatmentSchedule: AnimalHealthEvent[];
   photoUris: string[];
@@ -66,7 +66,7 @@ export const DOG_BREEDS: string[] = [
   'Alaca',
 ];
 
-const allAnimals: CommunityAnimal[] = animals.map((item, index) => ({
+let allAnimals: CommunityAnimal[] = getAppDataSource() === 'mock' ? animals.map((item, index) => ({
   id: item.id,
   communityId: item.communityId,
   name: item.name,
@@ -76,7 +76,6 @@ const allAnimals: CommunityAnimal[] = animals.map((item, index) => ({
   isSterilized: index % 2 === 0,
   birthDate: index % 2 === 0 ? '2022-03-10' : '2021-09-24',
   location: item.location,
-  fedToday: item.fedToday,
   vaccinationSchedule: [
     { id: `vac-${item.id}-1`, name: 'Kuduz', date: '2025-04-15' },
     { id: `vac-${item.id}-2`, name: 'Karma', date: '2025-02-01' },
@@ -85,7 +84,11 @@ const allAnimals: CommunityAnimal[] = animals.map((item, index) => ({
     { id: `tr-${item.id}-1`, name: 'Parazit tedavisi', date: '2025-06-03', note: 'Damla uygulandi' },
   ],
   photoUris: [],
-}));
+})) : [];
+
+export function setAnimalsData(items: CommunityAnimal[]) {
+  allAnimals = items.map((animal) => cloneAnimal(animal));
+}
 
 function cloneAnimal(animal: CommunityAnimal): CommunityAnimal {
   return {
@@ -133,9 +136,40 @@ export type SaveAnimalInput = {
   photoUris?: string[];
 };
 
-export function addAnimal(input: SaveAnimalInput): CommunityAnimal {
+function formatPersistenceError(error: any, fallback: string): Error {
+  const parts = [error?.message, error?.details, error?.hint].filter(Boolean);
+  if (parts.length === 0) return new Error(fallback);
+  return new Error(parts.join(' - '));
+}
+
+export async function addAnimal(input: SaveAnimalInput): Promise<CommunityAnimal> {
+  let animalId = `animal-${Date.now()}`;
+
+  if (isSupabaseDataEnabled()) {
+    const { data, error } = await supabase
+      .from('animals')
+      .insert({
+        community_id: input.communityId,
+        name: input.name,
+        animal_type: input.type === 'Köpek' ? 'dog' : 'cat',
+        color: input.breed,
+        gender: input.gender,
+        neutered: input.isSterilized,
+        notes: input.location,
+        photo_url: input.photoUris?.[0] ?? null,
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      throw formatPersistenceError(error, 'Can dost Supabase veritabanina kaydedilemedi.');
+    }
+
+    animalId = String(data.id);
+  }
+
   const created: CommunityAnimal = {
-    id: `animal-${Date.now()}`,
+    id: animalId,
     communityId: input.communityId,
     name: input.name,
     type: input.type,
@@ -144,19 +178,44 @@ export function addAnimal(input: SaveAnimalInput): CommunityAnimal {
     isSterilized: input.isSterilized,
     birthDate: input.birthDate,
     location: input.location,
-    fedToday: false,
     vaccinationSchedule: input.vaccinationSchedule.map((event) => ({ ...event })),
     treatmentSchedule: input.treatmentSchedule.map((event) => ({ ...event })),
     photoUris: input.photoUris ? [...input.photoUris] : [],
   };
 
   allAnimals.unshift(created);
+
   return cloneAnimal(created);
 }
 
-export function updateAnimal(id: string, input: Omit<SaveAnimalInput, 'communityId'>): CommunityAnimal | null {
+export async function updateAnimal(id: string, input: Omit<SaveAnimalInput, 'communityId'>): Promise<CommunityAnimal | null> {
   const index = allAnimals.findIndex((animal) => animal.id === id);
   if (index < 0) return null;
+
+  if (isSupabaseDataEnabled()) {
+    const { data, error } = await supabase
+      .from('animals')
+      .update({
+        name: input.name,
+        animal_type: input.type === 'Köpek' ? 'dog' : 'cat',
+        color: input.breed,
+        gender: input.gender,
+        neutered: input.isSterilized,
+        notes: input.location,
+        photo_url: input.photoUris?.[0] ?? null,
+      })
+      .eq('id', id)
+      .select('id')
+      .maybeSingle();
+
+    if (error) {
+      throw formatPersistenceError(error, 'Can dost Supabase veritabaninda guncellenemedi.');
+    }
+
+    if (!data) {
+      throw new Error('Supabase kaydi bulunamadi. Listeyi yenileyip tekrar deneyin.');
+    }
+  }
 
   allAnimals[index] = {
     ...allAnimals[index],
