@@ -13,6 +13,7 @@ export type ExpenseRecord = {
   communityVeterinarianId: string | null;
   expenseAt: string;
   amount: number;
+  dueAmount: number;
   note: string;
   receiptUrl: string;
   receiptUrls: string[];
@@ -83,6 +84,7 @@ function mapRow(row: any): ExpenseRecord {
     communityVeterinarianId: row.community_veterinarian_id ? String(row.community_veterinarian_id) : null,
     expenseAt: toIso(row.expense_at, createdAt),
     amount: toNumber(row.amount),
+    dueAmount: toNumber(row.due_amount ?? row.amount),
     note: String(row.note ?? ''),
     receiptUrl: primaryReceiptUrl,
     receiptUrls,
@@ -107,6 +109,7 @@ let mockExpenseRecords: ExpenseRecord[] = mockExpenses.map((item) => {
     communityVeterinarianId: null,
     expenseAt: nowIso,
     amount: Number(item.amount),
+    dueAmount: Number(item.amount - item.paid),
     note: '',
     receiptUrl: 'mock://receipt',
     receiptUrls: ['mock://receipt'],
@@ -127,7 +130,7 @@ export async function getApprovedExpensesByCommunity(communityId: string): Promi
 
   const { data, error } = await supabase
     .from('expenses')
-    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, note, receipt_url, receipt_urls, approval_status, submitted_by, approved_by, approved_at, created_at')
+    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, due_amount, note, receipt_url, receipt_urls, approval_status, submitted_by, approved_by, approved_at, created_at')
     .eq('community_id', communityId)
     .eq('approval_status', 'approved')
     .order('expense_at', { ascending: false });
@@ -148,7 +151,7 @@ export async function getPendingExpensesForCommunity(communityId: string): Promi
 
   const { data, error } = await supabase
     .from('expenses')
-    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, note, receipt_url, receipt_urls, approval_status, submitted_by, approved_by, approved_at, created_at')
+    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, due_amount, note, receipt_url, receipt_urls, approval_status, submitted_by, approved_by, approved_at, created_at')
     .eq('community_id', communityId)
     .eq('approval_status', 'pending')
     .order('created_at', { ascending: false });
@@ -191,6 +194,7 @@ export async function createExpense(input: {
       communityVeterinarianId: input.communityVeterinarianId ?? null,
       expenseAt: input.expenseAtIso,
       amount: normalizedAmount,
+      dueAmount: normalizedAmount,
       note: String(input.note ?? '').trim(),
       receiptUrl: primaryReceiptUrl,
       receiptUrls: normalizedReceiptUrls,
@@ -228,7 +232,7 @@ export async function createExpense(input: {
       approved_at: input.isCommunityAdmin ? nowIso : null,
       paid_by: effectiveSubmittedBy,
     })
-    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, note, receipt_url, receipt_urls, approval_status, submitted_by, approved_by, approved_at, created_at')
+    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, due_amount, note, receipt_url, receipt_urls, approval_status, submitted_by, approved_by, approved_at, created_at')
     .single();
 
   if (error) {
@@ -267,6 +271,7 @@ export async function updateExpense(input: {
       title: input.title,
       type: input.type,
       amount: normalizedAmount,
+      dueAmount: normalizedAmount,
       expenseAt: input.expenseAtIso,
       note: String(input.note ?? '').trim(),
       receiptUrl: primaryReceiptUrl,
@@ -300,7 +305,7 @@ export async function updateExpense(input: {
     })
     .eq('id', input.expenseId)
     .eq('community_id', input.communityId)
-    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, note, receipt_url, receipt_urls, approval_status, submitted_by, approved_by, approved_at, created_at')
+    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, due_amount, note, receipt_url, receipt_urls, approval_status, submitted_by, approved_by, approved_at, created_at')
     .single();
 
   if (error) {

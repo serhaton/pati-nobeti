@@ -1,19 +1,68 @@
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, View, Text, TouchableOpacity } from 'react-native';
 import { useAuth } from '../src/context/AuthContext';
 import { Card } from '../src/components/Card';
 import { Logo } from '../src/components/Logo';
 import { useCommunity } from '../src/context/CommunityContext';
 import { colors } from '../src/theme';
-import { expenses } from '../src/data/mock';
 import { getTodayFeedingRecordCountByCommunity } from '../src/data/feedingPointStore';
+import { ExpenseRecord, getApprovedExpensesByCommunity } from '../src/services/expenseService';
+import { ContributionRecord, getContributionsByCommunity } from '../src/services/contributionService';
 
 export default function Home() {
   const { selectedCommunity } = useCommunity();
   const { currentUser } = useAuth();
-  const totalDebt = expenses.reduce((s, x) => s + x.amount - x.paid, 0);
+  const [approvedExpenses, setApprovedExpenses] = useState<ExpenseRecord[]>([]);
+  const [contributions, setContributions] = useState<ContributionRecord[]>([]);
+
   const isCommunityAdmin = !!currentUser && selectedCommunity?.adminUserIds.includes(currentUser.id);
   const todayFedCount = selectedCommunity ? getTodayFeedingRecordCountByCommunity(selectedCommunity.id) : 0;
+
+  const openDebt = useMemo(
+    () => approvedExpenses.reduce((total, item) => total + item.dueAmount, 0),
+    [approvedExpenses]
+  );
+
+  const approvedContributionRemainingTotal = useMemo(
+    () => contributions
+      .filter((item) => item.approvalStatus === 'approved')
+      .reduce((total, item) => total + item.remainingAmount, 0),
+    [contributions]
+  );
+
+  const debtCreditBalance = useMemo(
+    () => approvedContributionRemainingTotal - openDebt,
+    [approvedContributionRemainingTotal, openDebt]
+  );
+
+  const loadFinanceSummary = useCallback(async () => {
+    if (!selectedCommunity?.id) {
+      setApprovedExpenses([]);
+      setContributions([]);
+      return;
+    }
+
+    try {
+      const [approvedRows, contributionRows] = await Promise.all([
+        getApprovedExpensesByCommunity(selectedCommunity.id),
+        getContributionsByCommunity(selectedCommunity.id),
+      ]);
+
+      setApprovedExpenses(approvedRows);
+      setContributions(contributionRows);
+    } catch {
+      setApprovedExpenses([]);
+      setContributions([]);
+    }
+  }, [selectedCommunity?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadFinanceSummary();
+    }, [loadFinanceSummary])
+  );
 
   if (!selectedCommunity) return null;
 
@@ -45,8 +94,17 @@ export default function Home() {
         <TouchableOpacity onPress={() => router.push('/expenses')} style={{ flex: 1 }}>
           <Card style={{ flex: 1 }}>
             <Text style={{ fontSize: 25 }}>💳</Text>
-            <Text style={{ fontSize: 24, fontWeight: '800', color: colors.text, marginTop: 7 }}>{totalDebt.toLocaleString('tr-TR')} ₺</Text>
-            <Text style={{ color: colors.muted }}>Açık borç</Text>
+            <Text
+              style={{
+                fontSize: 24,
+                fontWeight: '800',
+                color: debtCreditBalance >= 0 ? '#2F7A44' : colors.danger,
+                marginTop: 7,
+              }}
+            >
+              {debtCreditBalance >= 0 ? '+' : '-'}{Math.abs(debtCreditBalance).toLocaleString('tr-TR')} ₺
+            </Text>
+            <Text style={{ color: colors.muted }}>Borç / Alacak</Text>
           </Card>
         </TouchableOpacity>
       </View>
@@ -57,7 +115,8 @@ export default function Home() {
           ['🗺️','Haritayı aç','/map'],
           ['🐱','Can dost ekle','/animal'],
           ['🍚','Besleme kaydı','/feeding'],
-          ['🧾','Masraf ekle','/expenses']
+          ['🧾','Masraf ekle','/expenses'],
+          ['🤝','Pati Uzat','/pati-uzat']
         ].map(([icon, label, path]) => (
           <TouchableOpacity key={label} onPress={() => router.push(path as any)} style={{ width: '48%' }}>
             <Card>

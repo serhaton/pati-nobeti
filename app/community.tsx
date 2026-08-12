@@ -17,8 +17,17 @@ import {
 import {
   approveExpense,
   ExpenseRecord,
+  getApprovedExpensesByCommunity,
   getPendingExpensesForCommunity,
 } from '../src/services/expenseService';
+import {
+  allocateContributionToExpenses,
+  ContributionRecord,
+  getContributionsByCommunity,
+  getAllocatableContributionsForCommunity,
+  getContributorDisplayName,
+  getPendingContributionsForCommunity,
+} from '../src/services/contributionService';
 import { isSupabaseDataEnabled } from '../src/services/supabase';
 
 export default function Community() {
@@ -26,10 +35,17 @@ export default function Community() {
   const { currentUser } = useAuth();
   const [pendingRequests, setPendingRequests] = useState<PendingJoinRequest[]>([]);
   const [pendingExpenseApprovals, setPendingExpenseApprovals] = useState<ExpenseRecord[]>([]);
+  const [pendingContributionApprovals, setPendingContributionApprovals] = useState<ContributionRecord[]>([]);
+  const [allocatableContributions, setAllocatableContributions] = useState<ContributionRecord[]>([]);
+  const [openApprovedExpenses, setOpenApprovedExpenses] = useState<ExpenseRecord[]>([]);
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
   const [isLoadingExpenseApprovals, setIsLoadingExpenseApprovals] = useState(false);
+  const [isLoadingContributionApprovals, setIsLoadingContributionApprovals] = useState(false);
+  const [debtCreditBalance, setDebtCreditBalance] = useState(0);
   const [actioningRequestId, setActioningRequestId] = useState<string | null>(null);
   const [actioningExpenseId, setActioningExpenseId] = useState<string | null>(null);
+  const [actioningContributionId, setActioningContributionId] = useState<string | null>(null);
+  const [selectedExpenseByContributionId, setSelectedExpenseByContributionId] = useState<Record<string, string>>({});
   const selectedCommunityId = selectedCommunity?.id ?? null;
   const isCommunityAdmin = !!currentUser && selectedCommunity?.adminUserIds.includes(currentUser.id);
   const communityMenuItems = [
@@ -40,6 +56,7 @@ export default function Community() {
     ['🗺️', 'Harita ve besleme noktalari', '/map'],
     ['🐾', 'Can dostlar', '/animal'],
     ['💰', 'Gelir / gider ve borclar', '/expenses'],
+    ['🤝', 'Pati Uzat', '/pati-uzat'],
   ] as const;
   const memberCount = useMemo(() => {
     if (!selectedCommunity) return 0;
@@ -72,19 +89,64 @@ export default function Community() {
   const loadPendingExpenseApprovals = useCallback(async () => {
     if (!selectedCommunityId || !isCommunityAdmin || !isSupabaseDataEnabled()) {
       setPendingExpenseApprovals([]);
+      setPendingContributionApprovals([]);
+      setAllocatableContributions([]);
+      setOpenApprovedExpenses([]);
       return;
     }
 
     setIsLoadingExpenseApprovals(true);
+    setIsLoadingContributionApprovals(true);
     try {
-      const rows = await getPendingExpensesForCommunity(selectedCommunityId);
-      setPendingExpenseApprovals(rows);
+      const [expenseRows, pendingContributionRows, allocatableContributionRows, approvedExpenseRows] = await Promise.all([
+        getPendingExpensesForCommunity(selectedCommunityId),
+        getPendingContributionsForCommunity(selectedCommunityId),
+        getAllocatableContributionsForCommunity(selectedCommunityId),
+        getApprovedExpensesByCommunity(selectedCommunityId),
+      ]);
+      setPendingExpenseApprovals(expenseRows);
+      setPendingContributionApprovals(pendingContributionRows);
+      setAllocatableContributions(allocatableContributionRows);
+      setOpenApprovedExpenses(approvedExpenseRows.filter((item) => item.dueAmount > 0));
+
+      const selectedMap: Record<string, string> = {};
+      for (const contribution of [...pendingContributionRows, ...allocatableContributionRows]) {
+        const firstOpenExpense = approvedExpenseRows.find((item) => item.dueAmount > 0);
+        if (firstOpenExpense) {
+          selectedMap[contribution.id] = firstOpenExpense.id;
+        }
+      }
+      setSelectedExpenseByContributionId(selectedMap);
     } catch (error: any) {
       Alert.alert('Masraf okuma hatası', String(error?.message ?? 'Bekleyen masraflar okunamadı.'));
     } finally {
       setIsLoadingExpenseApprovals(false);
+      setIsLoadingContributionApprovals(false);
     }
   }, [isCommunityAdmin, selectedCommunityId]);
+
+  const loadFinanceKpi = useCallback(async () => {
+    if (!selectedCommunityId) {
+      setDebtCreditBalance(0);
+      return;
+    }
+
+    try {
+      const [approvedExpenseRows, contributionRows] = await Promise.all([
+        getApprovedExpensesByCommunity(selectedCommunityId),
+        getContributionsByCommunity(selectedCommunityId),
+      ]);
+
+      const openDebt = approvedExpenseRows.reduce((total, item) => total + item.dueAmount, 0);
+      const approvedContributionRemaining = contributionRows
+        .filter((item) => item.approvalStatus === 'approved')
+        .reduce((total, item) => total + item.remainingAmount, 0);
+
+      setDebtCreditBalance(approvedContributionRemaining - openDebt);
+    } catch {
+      setDebtCreditBalance(0);
+    }
+  }, [selectedCommunityId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -93,7 +155,7 @@ export default function Community() {
       async function refreshScreenData() {
         await refreshCommunities();
         if (!mounted) return;
-        await Promise.all([loadPendingRequests(), loadPendingExpenseApprovals()]);
+        await Promise.all([loadPendingRequests(), loadPendingExpenseApprovals(), loadFinanceKpi()]);
       }
 
       refreshScreenData();
@@ -101,7 +163,7 @@ export default function Community() {
       return () => {
         mounted = false;
       };
-    }, [loadPendingExpenseApprovals, loadPendingRequests, refreshCommunities])
+    }, [loadFinanceKpi, loadPendingExpenseApprovals, loadPendingRequests, refreshCommunities])
   );
 
   async function onApprove(request: PendingJoinRequest) {
@@ -157,6 +219,33 @@ export default function Community() {
     }
   }
 
+  async function onAllocateContribution(contribution: ContributionRecord) {
+    if (!selectedCommunityId || !currentUser) return;
+
+    const selectedExpenseId = selectedExpenseByContributionId[contribution.id];
+    if (!selectedExpenseId) {
+      Alert.alert('Eksik bilgi', 'Lütfen önce yardımın uygulanacağı masrafı seç.');
+      return;
+    }
+
+    setActioningContributionId(contribution.id);
+    try {
+      await allocateContributionToExpenses({
+        contributionId: contribution.id,
+        communityId: selectedCommunityId,
+        approvedBy: currentUser.id,
+        primaryExpenseId: selectedExpenseId,
+        autoDistributeRemaining: true,
+      });
+      await refreshCommunities();
+      await loadPendingExpenseApprovals();
+    } catch (error: any) {
+      Alert.alert('Uygulama hatası', String(error?.message ?? 'Pati uzatma kaydı masraflara uygulanamadı.'));
+    } finally {
+      setActioningContributionId(null);
+    }
+  }
+
   if (!selectedCommunity) return null;
 
   return (
@@ -166,10 +255,24 @@ export default function Community() {
       <Text style={{ color: colors.muted, marginTop: 5 }}>{selectedCommunity.neighborhood} · {memberCount} üye · {animalCount} can dost</Text>
 
       <View style={{ flexDirection: 'row', gap: 9, marginTop: 22 }}>
-        {[
-          [String(animalCount),'Can Dost'],
-          [`${selectedCommunity.debt.toLocaleString('tr-TR')} ₺`,'Açık Borc']
-        ].map(([v,l]) => <Card key={l} style={{ flex: 1, padding: 13 }}><Text style={{ fontWeight: '800', fontSize: 18, color: colors.text }}>{v}</Text><Text style={{ color: colors.muted, marginTop: 3, fontSize: 12 }}>{l}</Text></Card>)}
+        <Card style={{ flex: 1, padding: 13 }}>
+          <Text style={{ fontWeight: '800', fontSize: 18, color: colors.text }}>{String(animalCount)}</Text>
+          <Text style={{ color: colors.muted, marginTop: 3, fontSize: 12 }}>Can Dost</Text>
+        </Card>
+        <Card
+          style={{
+            flex: 1,
+            padding: 13,
+            backgroundColor: debtCreditBalance >= 0 ? '#EAF7EC' : '#FDECEC',
+            borderWidth: 1,
+            borderColor: debtCreditBalance >= 0 ? '#B8DEBF' : '#F3B7B2',
+          }}
+        >
+          <Text style={{ fontWeight: '800', fontSize: 18, color: debtCreditBalance >= 0 ? '#2F7A44' : '#9B3A34' }}>
+            {debtCreditBalance >= 0 ? '+' : '-'}{Math.abs(debtCreditBalance).toLocaleString('tr-TR')} ₺
+          </Text>
+          <Text style={{ color: colors.muted, marginTop: 3, fontSize: 12 }}>Borç / Alacak</Text>
+        </Card>
       </View>
 
       {isCommunityAdmin ? (
@@ -263,6 +366,154 @@ export default function Community() {
               </View>
             ))}
           </Card>
+
+          <Card style={{ marginTop: 12 }}>
+            <Text style={{ fontWeight: '800', color: colors.text, fontSize: 16 }}>
+              {pendingContributionApprovals.length} Pati Uzat kaydı onay bekliyor
+            </Text>
+
+            {isLoadingContributionApprovals ? (
+              <View style={{ marginTop: 12, alignItems: 'center' }}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            ) : null}
+
+            {!isLoadingContributionApprovals && pendingContributionApprovals.length === 0 ? (
+              <Text style={{ color: colors.muted, marginTop: 10 }}>Bekleyen Pati Uzat kaydı yok.</Text>
+            ) : null}
+
+            {!isLoadingContributionApprovals && openApprovedExpenses.length === 0 ? (
+              <Text style={{ color: colors.muted, marginTop: 10 }}>
+                Yardımı uygulayacak açık onaylı masraf bulunmuyor.
+              </Text>
+            ) : null}
+
+            {pendingContributionApprovals.map((contribution) => (
+              <View key={contribution.id} style={{ paddingTop: 15, marginTop: 13, borderTopWidth: 1, borderTopColor: colors.border }}>
+                <Text style={{ fontWeight: '800', color: colors.text }}>
+                  {contribution.amount.toLocaleString('tr-TR')} ₺ yardım
+                </Text>
+                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 3 }}>
+                  Kalan: {contribution.remainingAmount.toLocaleString('tr-TR')} ₺
+                </Text>
+                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 3 }}>
+                  Üye: {getContributorDisplayName(contribution.communityId, contribution.contributorUserId)}
+                </Text>
+                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 3 }}>
+                  Tarih: {new Date(contribution.transferAt).toLocaleString('tr-TR')}
+                </Text>
+
+                <View style={{ marginTop: 9, borderWidth: 1, borderColor: colors.border, borderRadius: 10, backgroundColor: '#fff' }}>
+                  {openApprovedExpenses.map((expense) => {
+                    const isSelected = selectedExpenseByContributionId[contribution.id] === expense.id;
+                    return (
+                      <TouchableOpacity
+                        key={`${contribution.id}-${expense.id}`}
+                        onPress={() => setSelectedExpenseByContributionId((prev) => ({ ...prev, [contribution.id]: expense.id }))}
+                        style={{
+                          padding: 10,
+                          borderTopWidth: 1,
+                          borderTopColor: colors.border,
+                          backgroundColor: isSelected ? '#EEF5EE' : '#fff',
+                        }}
+                      >
+                        <Text style={{ color: colors.text, fontWeight: isSelected ? '800' : '600' }}>{expense.title}</Text>
+                        <Text style={{ color: colors.muted, marginTop: 2 }}>
+                          Kalan borç: {expense.dueAmount.toLocaleString('tr-TR')} ₺
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <TouchableOpacity
+                  disabled={actioningContributionId === contribution.id || openApprovedExpenses.length === 0}
+                  onPress={() => onAllocateContribution(contribution)}
+                  style={{
+                    marginTop: 11,
+                    backgroundColor: colors.primary,
+                    borderRadius: 12,
+                    padding: 11,
+                    opacity: actioningContributionId === contribution.id || openApprovedExpenses.length === 0 ? 0.6 : 1,
+                  }}
+                >
+                  <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '700' }}>Onayla ve Dağıt</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </Card>
+
+          <Card style={{ marginTop: 12 }}>
+            <Text style={{ fontWeight: '800', color: colors.text, fontSize: 16 }}>
+              {allocatableContributions.length} kalan yardım yeniden dağıtılabilir
+            </Text>
+
+            {allocatableContributions.length === 0 ? (
+              <Text style={{ color: colors.muted, marginTop: 10 }}>Kalan yardım bulunmuyor.</Text>
+            ) : null}
+
+            {allocatableContributions.map((contribution) => (
+              <View key={`allocatable-${contribution.id}`} style={{ paddingTop: 15, marginTop: 13, borderTopWidth: 1, borderTopColor: colors.border }}>
+                <Text style={{ fontWeight: '800', color: colors.text }}>
+                  {contribution.amount.toLocaleString('tr-TR')} ₺ yardım
+                </Text>
+                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 3 }}>
+                  Kalan: {contribution.remainingAmount.toLocaleString('tr-TR')} ₺
+                </Text>
+                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 3 }}>
+                  Üye: {getContributorDisplayName(contribution.communityId, contribution.contributorUserId)}
+                </Text>
+
+                {contribution.allocations.length > 0 ? (
+                  <View style={{ marginTop: 6 }}>
+                    {contribution.allocations.map((allocation) => (
+                      <Text key={allocation.id} style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>
+                        • {allocation.expenseTitle}: {allocation.amount.toLocaleString('tr-TR')} ₺
+                      </Text>
+                    ))}
+                  </View>
+                ) : null}
+
+                <View style={{ marginTop: 9, borderWidth: 1, borderColor: colors.border, borderRadius: 10, backgroundColor: '#fff' }}>
+                  {openApprovedExpenses.map((expense) => {
+                    const isSelected = selectedExpenseByContributionId[contribution.id] === expense.id;
+                    return (
+                      <TouchableOpacity
+                        key={`${contribution.id}-${expense.id}`}
+                        onPress={() => setSelectedExpenseByContributionId((prev) => ({ ...prev, [contribution.id]: expense.id }))}
+                        style={{
+                          padding: 10,
+                          borderTopWidth: 1,
+                          borderTopColor: colors.border,
+                          backgroundColor: isSelected ? '#EEF5EE' : '#fff',
+                        }}
+                      >
+                        <Text style={{ color: colors.text, fontWeight: isSelected ? '800' : '600' }}>{expense.title}</Text>
+                        <Text style={{ color: colors.muted, marginTop: 2 }}>
+                          Kalan borç: {expense.dueAmount.toLocaleString('tr-TR')} ₺
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <TouchableOpacity
+                  disabled={actioningContributionId === contribution.id || openApprovedExpenses.length === 0 || contribution.remainingAmount <= 0}
+                  onPress={() => onAllocateContribution(contribution)}
+                  style={{
+                    marginTop: 11,
+                    backgroundColor: colors.primary,
+                    borderRadius: 12,
+                    padding: 11,
+                    opacity: actioningContributionId === contribution.id || openApprovedExpenses.length === 0 || contribution.remainingAmount <= 0 ? 0.6 : 1,
+                  }}
+                >
+                  <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '700' }}>Kalan Yardımı Masrafa Dağıt</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </Card>
+
         </>
       ) : null}
 

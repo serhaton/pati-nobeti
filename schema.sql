@@ -100,11 +100,62 @@ create table if not exists contributions (
   id uuid primary key default gen_random_uuid(),
   community_id uuid not null references communities(id) on delete cascade,
   user_id uuid references profiles(id),
+  contributor_user_id uuid references profiles(id) on delete set null,
+  created_by uuid references profiles(id) on delete set null,
   amount numeric(12,2) not null,
+  transfer_at timestamptz not null default now(),
+  receipt_url text,
+  receipt_urls jsonb not null default '[]'::jsonb,
+  approval_status text not null default 'pending' check (approval_status in ('pending', 'approved', 'rejected')),
+  approved_by uuid references profiles(id) on delete set null,
+  approved_at timestamptz,
   expense_id uuid references expenses(id) on delete set null,
   note text,
   created_at timestamptz not null default now()
 );
+
+create table if not exists contribution_allocations (
+  id uuid primary key default gen_random_uuid(),
+  community_id uuid not null references communities(id) on delete cascade,
+  contribution_id uuid not null references contributions(id) on delete cascade,
+  expense_id uuid not null references expenses(id) on delete cascade,
+  amount numeric(12,2) not null check (amount > 0),
+  allocated_by uuid references profiles(id) on delete set null,
+  allocated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+alter table contributions
+  add column if not exists contributor_user_id uuid references profiles(id) on delete set null,
+  add column if not exists created_by uuid references profiles(id) on delete set null,
+  add column if not exists transfer_at timestamptz not null default now(),
+  add column if not exists receipt_url text,
+  add column if not exists receipt_urls jsonb not null default '[]'::jsonb,
+  add column if not exists approval_status text not null default 'pending' check (approval_status in ('pending', 'approved', 'rejected')),
+  add column if not exists approved_by uuid references profiles(id) on delete set null,
+  add column if not exists approved_at timestamptz;
+
+update contributions
+set contributor_user_id = user_id
+where contributor_user_id is null
+  and user_id is not null;
+
+update contributions
+set receipt_urls = jsonb_build_array(receipt_url)
+where receipt_url is not null
+  and receipt_url <> ''
+  and receipt_urls = '[]'::jsonb;
+
+insert into contribution_allocations (community_id, contribution_id, expense_id, amount)
+select c.community_id, c.id, c.expense_id, round(c.amount::numeric, 2)
+from contributions c
+where c.expense_id is not null
+  and c.approval_status = 'approved'
+  and not exists (
+    select 1
+    from contribution_allocations ca
+    where ca.contribution_id = c.id
+  );
 
 create table if not exists community_join_requests (
   id uuid primary key default gen_random_uuid(),
@@ -188,6 +239,12 @@ create index if not exists idx_feeding_logs_fed_at on feeding_logs (fed_at desc)
 create index if not exists idx_expenses_community_id on expenses (community_id);
 create index if not exists idx_expenses_approval_status on expenses (approval_status);
 create index if not exists idx_expenses_community_veterinarian_id on expenses (community_veterinarian_id);
+create index if not exists idx_contributions_community_id on contributions (community_id);
+create index if not exists idx_contributions_approval_status on contributions (approval_status);
+create index if not exists idx_contributions_expense_id on contributions (expense_id);
+create index if not exists idx_contribution_allocations_community_id on contribution_allocations (community_id);
+create index if not exists idx_contribution_allocations_contribution_id on contribution_allocations (contribution_id);
+create index if not exists idx_contribution_allocations_expense_id on contribution_allocations (expense_id);
 create index if not exists idx_global_veterinarians_active on global_veterinarians (is_active);
 create index if not exists idx_global_veterinarians_location on global_veterinarians (latitude, longitude);
 create index if not exists idx_community_veterinarians_community_id on community_veterinarians (community_id);

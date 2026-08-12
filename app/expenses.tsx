@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Linking, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
@@ -10,18 +10,17 @@ import { useAuth } from '../src/context/AuthContext';
 import { useCommunity } from '../src/context/CommunityContext';
 import { colors } from '../src/theme';
 import {
-  approveExpense,
   createExpense,
   deleteExpense,
   ExpenseRecord,
   ExpenseType,
   getApprovedExpensesByCommunity,
-  getPendingExpensesForCommunity,
   updateExpense,
 } from '../src/services/expenseService';
 import { getVeterinariansByCommunity, VeterinarianRecord } from '../src/services/veterinarianService';
 import { uploadExpenseReceiptsIfNeeded } from '../src/services/supabaseStorage';
 import { getCommunityMembers } from '../src/data/mock';
+import { ContributionRecord, getContributionsByCommunity } from '../src/services/contributionService';
 
 type LocalReceiptFile = {
   uri: string;
@@ -73,6 +72,26 @@ function expenseTypeLabel(type: ExpenseType): string {
   return 'Mama';
 }
 
+function contributionStatusLabel(status: ContributionRecord['approvalStatus']): string {
+  if (status === 'approved') return 'Onaylandı';
+  if (status === 'rejected') return 'Reddedildi';
+  return 'Onay bekliyor';
+}
+
+function getClosurePercent(amount: number, dueAmount: number): number {
+  if (amount <= 0) return 0;
+  const raw = ((amount - dueAmount) / amount) * 100;
+  const bounded = Math.min(100, Math.max(0, raw));
+  return Math.round(bounded);
+}
+
+function getAllocationPercent(amount: number, remainingAmount: number): number {
+  if (amount <= 0) return 0;
+  const raw = ((amount - remainingAmount) / amount) * 100;
+  const bounded = Math.min(100, Math.max(0, raw));
+  return Math.round(bounded);
+}
+
 function isPdfFile(value: string): boolean {
   return /\.pdf($|\?)/i.test(value);
 }
@@ -91,19 +110,24 @@ export default function Expenses() {
   const isCommunityAdmin = !!currentUser && !!selectedCommunity?.adminUserIds.includes(currentUser.id);
 
   const [approvedExpenses, setApprovedExpenses] = useState<ExpenseRecord[]>([]);
-  const [pendingExpenses, setPendingExpenses] = useState<ExpenseRecord[]>([]);
+  const [contributions, setContributions] = useState<ContributionRecord[]>([]);
   const [communityVets, setCommunityVets] = useState<VeterinarianRecord[]>([]);
   const [communityMembers, setCommunityMembers] = useState<MemberOption[]>([]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [approvingExpenseId, setApprovingExpenseId] = useState<string | null>(null);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showVetPicker, setShowVetPicker] = useState(false);
   const [showPerformerPicker, setShowPerformerPicker] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
+  const [selectedContribution, setSelectedContribution] = useState<ContributionRecord | null>(null);
+  const [selectedReadonlyExpense, setSelectedReadonlyExpense] = useState<ExpenseRecord | null>(null);
+  const [pendingReadonlyExpense, setPendingReadonlyExpense] = useState<ExpenseRecord | null>(null);
+  const [showCompletedFinanceItems, setShowCompletedFinanceItems] = useState(false);
+  const [visibleFinanceCount, setVisibleFinanceCount] = useState(4);
+  const [isPagingFinance, setIsPagingFinance] = useState(false);
 
   const [title, setTitle] = useState('');
   const [expenseType, setExpenseType] = useState<ExpenseType>('veteriner');
@@ -121,19 +145,91 @@ export default function Expenses() {
   );
 
   const openDebt = useMemo(
-    () => approvedExpenses.reduce((total, item) => total + item.amount, 0),
+    () => approvedExpenses.reduce((total, item) => total + item.dueAmount, 0),
     [approvedExpenses]
+  );
+
+  const approvedContributionRemainingTotal = useMemo(
+    () => contributions
+      .filter((item) => item.approvalStatus === 'approved')
+      .reduce((total, item) => total + item.remainingAmount, 0),
+    [contributions]
+  );
+
+  const debtCreditBalance = useMemo(
+    () => approvedContributionRemainingTotal - openDebt,
+    [approvedContributionRemainingTotal, openDebt]
   );
 
   const memberNameById = useMemo(() => {
     return new Map(communityMembers.map((item) => [item.userId, item.fullName]));
   }, [communityMembers]);
 
-  const visiblePendingExpenses = useMemo(() => {
-    if (isCommunityAdmin) return pendingExpenses;
-    if (!currentUser) return [];
-    return pendingExpenses.filter((item) => item.submittedBy === currentUser.id);
-  }, [currentUser, isCommunityAdmin, pendingExpenses]);
+  const approvedExpenseById = useMemo(() => {
+    return new Map(approvedExpenses.map((item) => [item.id, item]));
+  }, [approvedExpenses]);
+
+  const allocatedExpenseIdSet = useMemo(() => {
+    const set = new Set<string>();
+    for (const contribution of contributions) {
+      for (const allocation of contribution.allocations) {
+        set.add(allocation.expenseId);
+      }
+    }
+    return set;
+  }, [contributions]);
+
+  const visibleApprovedExpenses = useMemo(() => {
+    if (!isCommunityAdmin || showCompletedFinanceItems) return approvedExpenses;
+    return approvedExpenses.filter((item) => item.dueAmount > 0);
+  }, [approvedExpenses, isCommunityAdmin, showCompletedFinanceItems]);
+
+  const visibleApprovedContributions = useMemo(() => {
+    const approvedRows = contributions.filter((item) => item.approvalStatus === 'approved');
+    if (!isCommunityAdmin || showCompletedFinanceItems) return approvedRows;
+    return approvedRows.filter((item) => item.remainingAmount > 0);
+  }, [contributions, isCommunityAdmin, showCompletedFinanceItems]);
+
+  const financeTimeline = useMemo(() => {
+    if (!isCommunityAdmin) return [] as Array<
+      | { kind: 'expense'; id: string; date: string; expense: ExpenseRecord }
+      | { kind: 'contribution'; id: string; date: string; contribution: ContributionRecord }
+    >;
+
+    const expenseRows = visibleApprovedExpenses.map((expense) => ({
+      kind: 'expense' as const,
+      id: `expense-${expense.id}`,
+      date: expense.expenseAt,
+      expense,
+    }));
+
+    const contributionRows = visibleApprovedContributions.map((contribution) => ({
+      kind: 'contribution' as const,
+      id: `contribution-${contribution.id}`,
+      date: contribution.transferAt,
+      contribution,
+    }));
+
+    return [...expenseRows, ...contributionRows].sort((left, right) => right.date.localeCompare(left.date));
+  }, [isCommunityAdmin, visibleApprovedContributions, visibleApprovedExpenses]);
+
+  const visibleFinanceTimeline = useMemo(
+    () => financeTimeline.slice(0, visibleFinanceCount),
+    [financeTimeline, visibleFinanceCount]
+  );
+
+  const hasMoreFinanceTimeline = visibleFinanceCount < financeTimeline.length;
+
+  useEffect(() => {
+    if (selectedContribution || !pendingReadonlyExpense) return;
+
+    const timer = setTimeout(() => {
+      setSelectedReadonlyExpense(pendingReadonlyExpense);
+      setPendingReadonlyExpense(null);
+    }, 120);
+
+    return () => clearTimeout(timer);
+  }, [pendingReadonlyExpense, selectedContribution]);
 
   const selectedPerformerName = useMemo(() => {
     if (performedByUserId) {
@@ -147,7 +243,7 @@ export default function Expenses() {
   const loadExpenseData = useCallback(async () => {
     if (!selectedCommunityId) {
       setApprovedExpenses([]);
-      setPendingExpenses([]);
+      setContributions([]);
       setCommunityVets([]);
       setCommunityMembers([]);
       return;
@@ -155,9 +251,9 @@ export default function Expenses() {
 
     setIsLoading(true);
     try {
-      const [approvedRows, pendingRows, vets] = await Promise.all([
+      const [approvedRows, contributionRows, vets] = await Promise.all([
         getApprovedExpensesByCommunity(selectedCommunityId),
-        getPendingExpensesForCommunity(selectedCommunityId),
+        getContributionsByCommunity(selectedCommunityId),
         getVeterinariansByCommunity(selectedCommunityId),
       ]);
 
@@ -169,15 +265,30 @@ export default function Expenses() {
         }));
 
       setApprovedExpenses(approvedRows);
-      setPendingExpenses(pendingRows);
+      setContributions(contributionRows);
       setCommunityVets(vets);
       setCommunityMembers(members);
+      setVisibleFinanceCount(4);
     } catch (error: any) {
       Alert.alert('Masraf listesi hatası', String(error?.message ?? 'Masraf bilgileri okunamadı.'));
     } finally {
       setIsLoading(false);
     }
-  }, [selectedCommunityId]);
+  }, [isCommunityAdmin, selectedCommunityId]);
+
+  function onMainScroll(event: any) {
+    if (!isCommunityAdmin || !hasMoreFinanceTimeline || isPagingFinance) return;
+
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const isNearBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 140;
+    if (!isNearBottom) return;
+
+    setIsPagingFinance(true);
+    setVisibleFinanceCount((current) => current + 4);
+    setTimeout(() => {
+      setIsPagingFinance(false);
+    }, 160);
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -242,6 +353,7 @@ export default function Expenses() {
 
   function canEditExpense(item: ExpenseRecord): boolean {
     if (!currentUser) return false;
+    if (allocatedExpenseIdSet.has(item.id)) return false;
     if (isCommunityAdmin) return true;
     return item.approvalStatus === 'pending' && item.submittedBy === currentUser.id;
   }
@@ -474,24 +586,6 @@ export default function Expenses() {
     }
   }
 
-  async function onApproveExpense(item: ExpenseRecord) {
-    if (!selectedCommunityId || !currentUser || !isCommunityAdmin) return;
-
-    setApprovingExpenseId(item.id);
-    try {
-      await approveExpense({
-        expenseId: item.id,
-        communityId: selectedCommunityId,
-        approvedBy: currentUser.id,
-      });
-      await loadExpenseData();
-    } catch (error: any) {
-      Alert.alert('Onay hatası', String(error?.message ?? 'Masraf onaylanamadı.'));
-    } finally {
-      setApprovingExpenseId(null);
-    }
-  }
-
   function openReceipt(url: string) {
     if (!isPdfFile(url)) {
       setPreviewImageUri(url);
@@ -526,6 +620,11 @@ export default function Expenses() {
   }
 
   function openExpenseActions(item: ExpenseRecord) {
+    if (allocatedExpenseIdSet.has(item.id)) {
+      setSelectedReadonlyExpense(item);
+      return;
+    }
+
     const actions: Array<{ text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' }> = [
       {
         text: 'Fişleri Görüntüle',
@@ -554,7 +653,12 @@ export default function Expenses() {
   if (!selectedCommunity) return null;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}
+      onScroll={onMainScroll}
+      scrollEventThrottle={16}
+    >
       <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
         <View>
@@ -566,61 +670,40 @@ export default function Expenses() {
         </TouchableOpacity>
       </View>
 
-      <Card style={{ marginTop: 20, backgroundColor: colors.primary }}>
-        <Text style={{ color: '#DCE9DE' }}>Toplam açık borç</Text>
-        <Text style={{ color: '#fff', fontSize: 32, fontWeight: '900', marginTop: 5 }}>{openDebt.toLocaleString('tr-TR')} ₺</Text>
-        <Text style={{ color: '#DCE9DE', marginTop: 6 }}>Yalnızca onaylanan masraflar</Text>
+      <Card
+        style={{
+          marginTop: 20,
+          backgroundColor: debtCreditBalance >= 0 ? '#2F7A44' : '#A94842',
+        }}
+      >
+        <Text style={{ color: '#DCE9DE' }}>Borç / Alacak</Text>
+        <Text style={{ color: '#fff', fontSize: 32, fontWeight: '900', marginTop: 5 }}>
+          {debtCreditBalance >= 0 ? '+' : '-'}{Math.abs(debtCreditBalance).toLocaleString('tr-TR')} ₺
+        </Text>
+        <Text style={{ color: '#DCE9DE', marginTop: 6 }}>
+          {debtCreditBalance >= 0
+            ? 'Alacak pozisyonu (kalan Pati Uzat bakiyesi açık borçtan fazla)'
+            : 'Borç pozisyonu (açık borç, kalan Pati Uzat bakiyesinden fazla)'}
+        </Text>
       </Card>
 
-      <>
-        <Text style={{ marginTop: 18, marginBottom: 8, fontWeight: '800', color: colors.text }}>
-          {isCommunityAdmin ? 'Onay Bekleyen Masraflar' : 'Onay Bekleyen Masraflarım'}
-        </Text>
+      <Text style={{ marginTop: 18, marginBottom: 8, fontWeight: '800', color: colors.text }}>
+        {isCommunityAdmin ? 'Kasa Borç / Alacak Akışı' : 'Onaylı Masraflar'}
+      </Text>
 
-        {visiblePendingExpenses.length === 0 ? (
-          <Card>
-            <Text style={{ color: colors.muted }}>Onay bekleyen masraf kaydı yok.</Text>
-          </Card>
-        ) : null}
-
-        {visiblePendingExpenses.map((item) => (
-          <TouchableOpacity key={`pending-${item.id}`} onPress={() => openExpenseActions(item)} activeOpacity={0.9}>
-            <Card style={{ marginBottom: 10 }}>
-              <Text style={{ fontWeight: '800', color: colors.text }}>{item.title}</Text>
-              <Text style={{ color: colors.muted, marginTop: 4 }}>
-                {expenseTypeLabel(item.type)} · {item.vendorName}
-              </Text>
-              <Text style={{ color: colors.muted, marginTop: 2 }}>
-                Yapan: {item.submittedBy ? (memberNameById.get(item.submittedBy) ?? item.submittedBy) : 'Belirtilmedi'}
-              </Text>
-              <Text style={{ color: colors.muted, marginTop: 2 }}>
-                {new Date(item.expenseAt).toLocaleString('tr-TR')} · {item.amount.toLocaleString('tr-TR')} ₺
-              </Text>
-              {item.note ? <Text style={{ color: colors.muted, marginTop: 2 }}>Not: {item.note}</Text> : null}
-
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-                <TouchableOpacity
-                  onPress={() => openReceipts(item.receiptUrls.length ? item.receiptUrls : [item.receiptUrl])}
-                  style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 9, backgroundColor: '#fff' }}
-                >
-                  <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri Görüntüle</Text>
-                </TouchableOpacity>
-                {isCommunityAdmin ? (
-                  <TouchableOpacity
-                    onPress={() => onApproveExpense(item)}
-                    disabled={approvingExpenseId === item.id}
-                    style={{ flex: 1, borderRadius: 10, padding: 9, backgroundColor: colors.primary, opacity: approvingExpenseId === item.id ? 0.7 : 1 }}
-                  >
-                    <Text style={{ textAlign: 'center', color: '#fff', fontWeight: '800' }}>Onayla</Text>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-            </Card>
-          </TouchableOpacity>
-        ))}
-      </>
-
-      <Text style={{ marginTop: 18, marginBottom: 8, fontWeight: '800', color: colors.text }}>Onaylı Masraflar</Text>
+      {isCommunityAdmin ? (
+        <TouchableOpacity
+          onPress={() => {
+            setShowCompletedFinanceItems((current) => !current);
+            setVisibleFinanceCount(4);
+          }}
+          style={{ alignSelf: 'flex-start', marginBottom: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: showCompletedFinanceItems ? '#EEF5EE' : '#fff' }}
+        >
+          <Text style={{ color: colors.text, fontWeight: '700', fontSize: 12 }}>
+            {showCompletedFinanceItems ? 'Tamamlananları gizle' : 'Kapananlar / Tam Dağıtılanları göster'}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
 
       {isLoading ? (
         <Card>
@@ -628,17 +711,25 @@ export default function Expenses() {
         </Card>
       ) : null}
 
-      {!isLoading && approvedExpenses.length === 0 ? (
+      {!isLoading && !isCommunityAdmin && approvedExpenses.length === 0 ? (
         <Card>
           <Text style={{ color: colors.muted }}>Onaylanmış masraf bulunmuyor.</Text>
         </Card>
       ) : null}
 
-      {!isLoading && approvedExpenses.map((item) => (
+      {!isLoading && !isCommunityAdmin && approvedExpenses.map((item) => (
         <TouchableOpacity key={item.id} onPress={() => openExpenseActions(item)} activeOpacity={0.9}>
-        <Card style={{ marginTop: 11 }}>
+        <Card
+          style={{
+            marginTop: 11,
+            backgroundColor: item.dueAmount <= 0 ? '#EAF7EC' : '#FDECEC',
+            borderWidth: 1,
+            borderColor: item.dueAmount <= 0 ? '#B8DEBF' : '#F3B7B2',
+          }}
+        >
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <View style={{ flex: 1 }}>
+              <Text style={{ alignSelf: 'flex-start', fontSize: 11, fontWeight: '800', color: '#245A88', backgroundColor: '#E6F1FB', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>MASRAF</Text>
               <Text style={{ fontWeight: '800', color: colors.text }}>{item.title}</Text>
               <Text style={{ color: colors.muted, marginTop: 4 }}>{item.vendorName} · {new Date(item.expenseAt).toLocaleString('tr-TR')}</Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>{expenseTypeLabel(item.type)}</Text>
@@ -646,7 +737,59 @@ export default function Expenses() {
                 Yapan: {item.submittedBy ? (memberNameById.get(item.submittedBy) ?? item.submittedBy) : 'Belirtilmedi'}
               </Text>
             </View>
-            <Text style={{ fontWeight: '900', color: colors.danger }}>{item.amount.toLocaleString('tr-TR')} ₺</Text>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={{ fontWeight: '900', color: item.dueAmount <= 0 ? '#2F7A44' : colors.danger }}>{item.amount.toLocaleString('tr-TR')} ₺</Text>
+              <Text
+                style={{
+                  marginTop: 6,
+                  fontSize: 11,
+                  fontWeight: '800',
+                  color: item.dueAmount <= 0 ? '#2F7A44' : '#9B3A34',
+                  backgroundColor: item.dueAmount <= 0 ? '#D8F0DE' : '#FAD9D6',
+                  borderRadius: 999,
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                }}
+              >
+                {item.dueAmount <= 0 ? 'KAPANDI' : 'AÇIK BORÇ'}
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={{
+              marginTop: 10,
+              borderWidth: 1,
+              borderColor: item.dueAmount <= 0 ? '#B8DEBF' : '#F3B7B2',
+              borderRadius: 12,
+              padding: 10,
+              backgroundColor: '#FFFFFFD0',
+            }}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+              <View>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: colors.muted }}>Kapanma Oranı</Text>
+                <Text style={{ marginTop: 2, fontSize: 24, fontWeight: '900', color: item.dueAmount <= 0 ? '#2F7A44' : '#9B3A34' }}>
+                  %{getClosurePercent(item.amount, item.dueAmount)}
+                </Text>
+              </View>
+
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: colors.muted }}>Kalan Borç</Text>
+                <Text style={{ marginTop: 2, fontSize: 20, fontWeight: '900', color: item.dueAmount <= 0 ? '#2F7A44' : '#9B3A34' }}>
+                  {item.dueAmount.toLocaleString('tr-TR')} ₺
+                </Text>
+              </View>
+            </View>
+            <View style={{ height: 8, borderRadius: 999, backgroundColor: '#E8EBE7', overflow: 'hidden', marginTop: 8 }}>
+              <View
+                style={{
+                  width: `${getClosurePercent(item.amount, item.dueAmount)}%`,
+                  height: '100%',
+                  backgroundColor: item.dueAmount <= 0 ? '#3E9755' : '#D56A61',
+                }}
+              />
+            </View>
           </View>
 
           {item.note ? <Text style={{ color: colors.muted, marginTop: 8 }}>Not: {item.note}</Text> : null}
@@ -660,6 +803,211 @@ export default function Expenses() {
         </Card>
         </TouchableOpacity>
       ))}
+
+      {isCommunityAdmin ? (
+        <>
+          {!isLoading && visibleFinanceTimeline.length === 0 ? (
+            <Card>
+              <Text style={{ color: colors.muted }}>
+                {showCompletedFinanceItems
+                  ? 'Kasa akışında gösterilecek kayıt bulunmuyor.'
+                  : 'Açık borç veya kalan bakiyesi olan kayıt bulunmuyor.'}
+              </Text>
+            </Card>
+          ) : null}
+
+          {visibleFinanceTimeline.map((timelineItem) => {
+            if (timelineItem.kind === 'expense') {
+              const item = timelineItem.expense;
+              return (
+                <TouchableOpacity key={timelineItem.id} onPress={() => openExpenseActions(item)} activeOpacity={0.9}>
+                  <Card
+                    style={{
+                      marginTop: 11,
+                      backgroundColor: item.dueAmount <= 0 ? '#EAF7EC' : '#FDECEC',
+                      borderWidth: 1,
+                      borderColor: item.dueAmount <= 0 ? '#B8DEBF' : '#F3B7B2',
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ alignSelf: 'flex-start', fontSize: 11, fontWeight: '800', color: '#245A88', backgroundColor: '#E6F1FB', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>MASRAF</Text>
+                        <Text style={{ fontWeight: '800', color: colors.text }}>{item.title}</Text>
+                        <Text style={{ color: colors.muted, marginTop: 4 }}>{item.vendorName} · {new Date(item.expenseAt).toLocaleString('tr-TR')}</Text>
+                        <Text style={{ color: colors.muted, marginTop: 2 }}>{expenseTypeLabel(item.type)}</Text>
+                        <Text style={{ color: colors.muted, marginTop: 2 }}>
+                          Yapan: {item.submittedBy ? (memberNameById.get(item.submittedBy) ?? item.submittedBy) : 'Belirtilmedi'}
+                        </Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ fontWeight: '900', color: item.dueAmount <= 0 ? '#2F7A44' : colors.danger }}>{item.amount.toLocaleString('tr-TR')} ₺</Text>
+                        <Text
+                          style={{
+                            marginTop: 6,
+                            fontSize: 11,
+                            fontWeight: '800',
+                            color: item.dueAmount <= 0 ? '#2F7A44' : '#9B3A34',
+                            backgroundColor: item.dueAmount <= 0 ? '#D8F0DE' : '#FAD9D6',
+                            borderRadius: 999,
+                            paddingHorizontal: 8,
+                            paddingVertical: 4,
+                          }}
+                        >
+                          {item.dueAmount <= 0 ? 'KAPANDI' : 'AÇIK BORÇ'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View
+                      style={{
+                        marginTop: 10,
+                        borderWidth: 1,
+                        borderColor: item.dueAmount <= 0 ? '#B8DEBF' : '#F3B7B2',
+                        borderRadius: 12,
+                        padding: 10,
+                        backgroundColor: '#FFFFFFD0',
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                        <View>
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: colors.muted }}>Kapanma Oranı</Text>
+                          <Text style={{ marginTop: 2, fontSize: 24, fontWeight: '900', color: item.dueAmount <= 0 ? '#2F7A44' : '#9B3A34' }}>
+                            %{getClosurePercent(item.amount, item.dueAmount)}
+                          </Text>
+                        </View>
+
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: colors.muted }}>Kalan Borç</Text>
+                          <Text style={{ marginTop: 2, fontSize: 20, fontWeight: '900', color: item.dueAmount <= 0 ? '#2F7A44' : '#9B3A34' }}>
+                            {item.dueAmount.toLocaleString('tr-TR')} ₺
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={{ height: 8, borderRadius: 999, backgroundColor: '#E8EBE7', overflow: 'hidden', marginTop: 8 }}>
+                        <View
+                          style={{
+                            width: `${getClosurePercent(item.amount, item.dueAmount)}%`,
+                            height: '100%',
+                            backgroundColor: item.dueAmount <= 0 ? '#3E9755' : '#D56A61',
+                          }}
+                        />
+                      </View>
+                    </View>
+
+                    {item.note ? <Text style={{ color: colors.muted, marginTop: 8 }}>Not: {item.note}</Text> : null}
+
+                    <TouchableOpacity
+                      onPress={() => openReceipts(item.receiptUrls.length ? item.receiptUrls : [item.receiptUrl])}
+                      style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, backgroundColor: '#fff' }}
+                    >
+                      <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri Görüntüle</Text>
+                    </TouchableOpacity>
+                  </Card>
+                </TouchableOpacity>
+              );
+            }
+
+            const item = timelineItem.contribution;
+            return (
+              <TouchableOpacity key={timelineItem.id} onPress={() => setSelectedContribution(item)} activeOpacity={0.9}>
+                <Card
+                  style={{
+                    marginBottom: 10,
+                    backgroundColor: item.remainingAmount > 0 ? '#FFF7E9' : '#EAF7EC',
+                    borderWidth: 1,
+                    borderColor: item.remainingAmount > 0 ? '#EAC891' : '#B8DEBF',
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ alignSelf: 'flex-start', fontSize: 11, fontWeight: '800', color: '#7A5318', backgroundColor: '#FCECC8', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>PATI UZAT</Text>
+                      <Text style={{ fontWeight: '800', color: colors.text }}>{item.amount.toLocaleString('tr-TR')} ₺</Text>
+                      <Text style={{ color: colors.muted, marginTop: 3 }}>
+                        Üye: {item.contributorUserId ? (memberNameById.get(item.contributorUserId) ?? item.contributorUserId) : 'Belirtilmedi'}
+                      </Text>
+                      <Text style={{ color: colors.muted, marginTop: 2 }}>{new Date(item.transferAt).toLocaleString('tr-TR')}</Text>
+                      <Text style={{ color: colors.muted, marginTop: 2 }}>{contributionStatusLabel(item.approvalStatus)}</Text>
+                    </View>
+                    <Text
+                      style={{
+                        marginLeft: 8,
+                        fontSize: 11,
+                        fontWeight: '800',
+                        color: item.remainingAmount > 0 ? '#9A6720' : '#2F7A44',
+                        backgroundColor: item.remainingAmount > 0 ? '#F8E4BF' : '#D8F0DE',
+                        borderRadius: 999,
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
+                      }}
+                    >
+                      {item.remainingAmount > 0 ? 'BAKİYE VAR' : 'TAMAMEN DAĞITILDI'}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={{
+                      marginTop: 10,
+                      borderWidth: 1,
+                      borderColor: item.remainingAmount > 0 ? '#EAC891' : '#B8DEBF',
+                      borderRadius: 12,
+                      padding: 10,
+                      backgroundColor: '#FFFFFFD0',
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                      <View>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: colors.muted }}>Dağıtım Oranı</Text>
+                        <Text style={{ marginTop: 2, fontSize: 24, fontWeight: '900', color: item.remainingAmount > 0 ? '#9A6720' : '#2F7A44' }}>
+                          %{getAllocationPercent(item.amount, item.remainingAmount)}
+                        </Text>
+                      </View>
+
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: colors.muted }}>Kalan Bakiye</Text>
+                        <Text style={{ marginTop: 2, fontSize: 20, fontWeight: '900', color: item.remainingAmount > 0 ? '#9A6720' : '#2F7A44' }}>
+                          {item.remainingAmount.toLocaleString('tr-TR')} ₺
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={{ height: 8, borderRadius: 999, backgroundColor: '#E8EBE7', overflow: 'hidden', marginTop: 8 }}>
+                      <View
+                        style={{
+                          width: `${getAllocationPercent(item.amount, item.remainingAmount)}%`,
+                          height: '100%',
+                          backgroundColor: item.remainingAmount > 0 ? '#D09A4D' : '#3E9755',
+                        }}
+                      />
+                    </View>
+                  </View>
+
+                  <Text style={{ color: colors.muted, marginTop: 8 }}>
+                    Dağıtılan: {item.allocatedAmount.toLocaleString('tr-TR')} ₺ · Kalan: {item.remainingAmount.toLocaleString('tr-TR')} ₺
+                  </Text>
+
+                  {item.allocations.length > 0 ? (
+                    <View style={{ marginTop: 6 }}>
+                      {item.allocations.map((allocation) => (
+                        <Text key={allocation.id} style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>
+                          • {allocation.expenseTitle}: {allocation.amount.toLocaleString('tr-TR')} ₺
+                        </Text>
+                      ))}
+                    </View>
+                  ) : null}
+                </Card>
+              </TouchableOpacity>
+            );
+          })}
+
+          {!isLoading && hasMoreFinanceTimeline ? (
+            <Card style={{ marginTop: 8 }}>
+              <Text style={{ color: colors.muted, textAlign: 'center' }}>
+                Aşağı kaydırdıkça yeni kayıtlar yükleniyor...
+              </Text>
+            </Card>
+          ) : null}
+        </>
+      ) : null}
 
       <Modal visible={showCreateModal} animationType="slide" onRequestClose={() => setShowCreateModal(false)}>
         <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
@@ -917,6 +1265,133 @@ export default function Expenses() {
             </TouchableOpacity>
           </View>
         </View>
+      </Modal>
+
+      <Modal visible={!!selectedReadonlyExpense} animationType="slide" onRequestClose={() => setSelectedReadonlyExpense(null)}>
+        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+          <TouchableOpacity onPress={() => setSelectedReadonlyExpense(null)}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+          <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Masraf Görüntüleme</Text>
+
+          {selectedReadonlyExpense ? (
+            <Card style={{ marginTop: 18 }}>
+              <Text style={{ fontWeight: '800', color: colors.text }}>{selectedReadonlyExpense.title}</Text>
+              <Text style={{ color: colors.muted, marginTop: 4 }}>
+                {expenseTypeLabel(selectedReadonlyExpense.type)} · {selectedReadonlyExpense.vendorName}
+              </Text>
+              <Text style={{ color: colors.muted, marginTop: 2 }}>
+                Tarih: {new Date(selectedReadonlyExpense.expenseAt).toLocaleString('tr-TR')}
+              </Text>
+              <Text style={{ color: colors.muted, marginTop: 2 }}>
+                Yapan: {selectedReadonlyExpense.submittedBy ? (memberNameById.get(selectedReadonlyExpense.submittedBy) ?? selectedReadonlyExpense.submittedBy) : 'Belirtilmedi'}
+              </Text>
+
+              <View style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 10, backgroundColor: '#fff' }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: colors.muted }}>Kapanma Oranı</Text>
+                <Text style={{ marginTop: 2, fontSize: 24, fontWeight: '900', color: selectedReadonlyExpense.dueAmount <= 0 ? '#2F7A44' : '#9B3A34' }}>
+                  %{getClosurePercent(selectedReadonlyExpense.amount, selectedReadonlyExpense.dueAmount)}
+                </Text>
+                <Text style={{ marginTop: 2, color: colors.muted }}>
+                  Kalan borç: {selectedReadonlyExpense.dueAmount.toLocaleString('tr-TR')} ₺
+                </Text>
+              </View>
+
+              <Text style={{ color: colors.text, marginTop: 10, fontWeight: '800' }}>
+                Tutar: {selectedReadonlyExpense.amount.toLocaleString('tr-TR')} ₺
+              </Text>
+              {selectedReadonlyExpense.note ? <Text style={{ color: colors.muted, marginTop: 6 }}>Not: {selectedReadonlyExpense.note}</Text> : null}
+
+              <TouchableOpacity
+                onPress={() => openReceipts(selectedReadonlyExpense.receiptUrls.length ? selectedReadonlyExpense.receiptUrls : [selectedReadonlyExpense.receiptUrl])}
+                style={{ marginTop: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, backgroundColor: '#fff' }}
+              >
+                <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri Görüntüle</Text>
+              </TouchableOpacity>
+            </Card>
+          ) : null}
+        </ScrollView>
+      </Modal>
+
+      <Modal visible={!!selectedContribution} animationType="slide" onRequestClose={() => setSelectedContribution(null)}>
+        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+          <TouchableOpacity onPress={() => setSelectedContribution(null)}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+          <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Pati Uzat Detayı</Text>
+
+          {selectedContribution ? (
+            <Card style={{ marginTop: 18 }}>
+              <Text style={{ fontWeight: '800', color: colors.text }}>Pati uzatan üye</Text>
+              <Text style={{ color: colors.muted, marginTop: 4 }}>
+                {selectedContribution.contributorUserId ? (memberNameById.get(selectedContribution.contributorUserId) ?? selectedContribution.contributorUserId) : 'Belirtilmedi'}
+              </Text>
+
+              <Text style={{ fontWeight: '800', color: colors.text, marginTop: 14 }}>Pati uzatma tarihi</Text>
+              <Text style={{ color: colors.muted, marginTop: 4 }}>{new Date(selectedContribution.transferAt).toLocaleString('tr-TR')}</Text>
+
+              <Text style={{ fontWeight: '800', color: colors.text, marginTop: 14 }}>Tutar</Text>
+              <Text style={{ color: colors.muted, marginTop: 4 }}>{selectedContribution.amount.toLocaleString('tr-TR')} ₺</Text>
+
+              <Text style={{ fontWeight: '800', color: colors.text, marginTop: 14 }}>Onay durumu</Text>
+              <Text style={{ color: colors.muted, marginTop: 4 }}>{contributionStatusLabel(selectedContribution.approvalStatus)}</Text>
+
+              <Text style={{ fontWeight: '800', color: colors.text, marginTop: 14 }}>Not</Text>
+              <Text style={{ color: colors.muted, marginTop: 4 }}>{selectedContribution.note || 'Not girilmemiş.'}</Text>
+
+              <Text style={{ fontWeight: '800', color: colors.text, marginTop: 14 }}>Yardım dağıtımı</Text>
+              <Text style={{ color: colors.muted, marginTop: 4 }}>
+                Dağıtılan: {selectedContribution.allocatedAmount.toLocaleString('tr-TR')} ₺ · Kalan: {selectedContribution.remainingAmount.toLocaleString('tr-TR')} ₺
+              </Text>
+
+              {selectedContribution.allocations.length === 0 ? (
+                <Text style={{ color: colors.muted, marginTop: 6 }}>Henüz bir masrafa dağıtılmadı.</Text>
+              ) : (
+                <View style={{ marginTop: 8 }}>
+                  {selectedContribution.allocations.map((allocation) => {
+                    const linkedExpense = approvedExpenseById.get(allocation.expenseId);
+                    return (
+                      <TouchableOpacity
+                        key={allocation.id}
+                        onPress={() => {
+                          if (linkedExpense) {
+                            // Queue expense opening, then close contribution modal.
+                            setPendingReadonlyExpense(linkedExpense);
+                            setSelectedContribution(null);
+                          } else {
+                            Alert.alert('Kayıt bulunamadı', 'Bağlı masraf kaydı görüntülenemedi.');
+                          }
+                        }}
+                        style={{
+                          marginTop: 6,
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                          borderRadius: 12,
+                          backgroundColor: '#fff',
+                          paddingHorizontal: 12,
+                          paddingVertical: 10,
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <View style={{ flex: 1, paddingRight: 8 }}>
+                            <Text style={{ color: colors.text, fontWeight: '700' }}>{allocation.expenseTitle}</Text>
+                            <Text style={{ color: colors.muted, marginTop: 2 }}>
+                              {allocation.amount.toLocaleString('tr-TR')} ₺ · {new Date(allocation.allocatedAt).toLocaleString('tr-TR')}
+                            </Text>
+                          </View>
+                          <Text style={{ color: colors.muted, fontSize: 18 }}>›</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+
+              <TouchableOpacity
+                onPress={() => openReceipts(selectedContribution.receiptUrls.length ? selectedContribution.receiptUrls : [selectedContribution.receiptUrl])}
+                style={{ marginTop: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, backgroundColor: '#fff' }}
+              >
+                <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Dekontları Görüntüle</Text>
+              </TouchableOpacity>
+            </Card>
+          ) : null}
+        </ScrollView>
       </Modal>
     </ScrollView>
   );

@@ -79,6 +79,7 @@ alter table public.animals enable row level security;
 alter table public.feeding_logs enable row level security;
 alter table public.expenses enable row level security;
 alter table public.contributions enable row level security;
+alter table public.contribution_allocations enable row level security;
 alter table public.community_join_requests enable row level security;
 alter table public.global_veterinarians enable row level security;
 alter table public.community_veterinarians enable row level security;
@@ -380,7 +381,16 @@ create policy contributions_select
 on public.contributions
 for select
 to authenticated
-using (public.is_community_member(community_id));
+using (
+  public.is_community_admin(community_id)
+  or (
+    public.is_community_member(community_id)
+    and (
+      approval_status = 'approved'
+      or contributor_user_id = auth.uid()
+    )
+  )
+);
 
 create policy contributions_insert
 on public.contributions
@@ -388,7 +398,15 @@ for insert
 to authenticated
 with check (
   public.is_community_member(community_id)
-  and (user_id is null or user_id = auth.uid())
+  and (
+    (public.is_community_admin(community_id) and contributor_user_id is not null)
+    or ((not public.is_community_admin(community_id)) and contributor_user_id = auth.uid())
+  )
+  and (
+    receipt_url is not null
+    or jsonb_array_length(coalesce(receipt_urls, '[]'::jsonb)) > 0
+  )
+  and approval_status = 'pending'
 );
 
 create policy contributions_update_self
@@ -396,12 +414,10 @@ on public.contributions
 for update
 to authenticated
 using (
-  user_id = auth.uid()
-  and public.is_community_member(community_id)
+  public.is_community_admin(community_id)
 )
 with check (
-  user_id = auth.uid()
-  and public.is_community_member(community_id)
+  public.is_community_admin(community_id)
 );
 
 create policy contributions_delete_admin
@@ -409,6 +425,57 @@ on public.contributions
 for delete
 to authenticated
 using (public.is_community_admin(community_id));
+
+drop policy if exists contribution_allocations_select on public.contribution_allocations;
+drop policy if exists contribution_allocations_insert on public.contribution_allocations;
+drop policy if exists contribution_allocations_update on public.contribution_allocations;
+drop policy if exists contribution_allocations_delete on public.contribution_allocations;
+
+create policy contribution_allocations_select
+on public.contribution_allocations
+for select
+to authenticated
+using (
+  public.is_community_admin(community_id)
+  or exists (
+    select 1
+    from public.contributions c
+    where c.id = contribution_allocations.contribution_id
+      and c.community_id = contribution_allocations.community_id
+      and public.is_community_member(contribution_allocations.community_id)
+      and (
+        c.approval_status = 'approved'
+        or c.contributor_user_id = auth.uid()
+      )
+  )
+);
+
+create policy contribution_allocations_insert
+on public.contribution_allocations
+for insert
+to authenticated
+with check (
+  public.is_community_admin(community_id)
+);
+
+create policy contribution_allocations_update
+on public.contribution_allocations
+for update
+to authenticated
+using (
+  public.is_community_admin(community_id)
+)
+with check (
+  public.is_community_admin(community_id)
+);
+
+create policy contribution_allocations_delete
+on public.contribution_allocations
+for delete
+to authenticated
+using (
+  public.is_community_admin(community_id)
+);
 
 drop policy if exists community_join_requests_select on public.community_join_requests;
 drop policy if exists community_join_requests_insert on public.community_join_requests;
