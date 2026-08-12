@@ -21,7 +21,7 @@ export default function Profile() {
       <View style={{ alignItems: 'center', marginTop: 20 }}>
         <View style={{ width: 78, height: 78, borderRadius: 28, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 36 }}>👤</Text></View>
         <Text style={{ fontSize: 23, fontWeight: '800', color: colors.text, marginTop: 12 }}>{currentUser?.fullName ?? 'Gonullu'}</Text>
-        <Text style={{ color: colors.muted }}>Secili: {selectedCommunity?.name ?? '-'}</Text>
+        <Text style={{ color: colors.muted }}>Seçili: {selectedCommunity?.name ?? '-'}</Text>
       </View>
       <Card style={{ marginTop: 25 }}>
         {['Topluluklarim','Bildirimler','Odeme hesaplarim','Ayarlar'].map(x => (
@@ -44,7 +44,7 @@ export default function Profile() {
         }}
         style={{ marginTop: 14, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 13 }}
       >
-        <Text style={{ color: colors.text, fontWeight: '700', textAlign: 'center' }}>Topluluk Secimini Sifirla</Text>
+        <Text style={{ color: colors.text, fontWeight: '700', textAlign: 'center' }}>Topluluk Seçimini Sıfırla</Text>
       </TouchableOpacity>
 
       <TouchableOpacity

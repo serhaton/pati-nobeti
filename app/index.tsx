@@ -12,7 +12,7 @@ export default function Welcome() {
 
   function validateEmailPassword(): boolean {
     if (!email.trim()) {
-      Alert.alert('Eksik bilgi', 'Lutfen e-posta adresini gir.');
+      Alert.alert('Eksik bilgi', 'Lütfen e-posta adresini gir.');
       return false;
     }
 
@@ -29,7 +29,7 @@ export default function Welcome() {
       await signInWithProvider(provider);
       router.replace('/community-select');
     } catch (error: any) {
-      Alert.alert('Giris basarisiz', error?.message ?? 'Saglayici girisi tamamlanamadi.');
+      Alert.alert('Giriş başarısız', error?.message ?? 'Sağlayıcı girişi tamamlanamadı.');
     }
   }
 
@@ -40,7 +40,7 @@ export default function Welcome() {
       await signInWithEmail(email, password);
       router.replace('/community-select');
     } catch (error: any) {
-      Alert.alert('Giris basarisiz', error?.message ?? 'E-posta veya sifre gecersiz.');
+      Alert.alert('Giris başarısız', error?.message ?? 'E-posta veya sifre gecersiz.');
     }
   }
 
@@ -49,10 +49,10 @@ export default function Welcome() {
 
     try {
       await signUpWithEmail(email, password);
-      Alert.alert('Kayit basarili', 'Hesap olusturuldu. Dogrudan giris yapabilir veya e-posta dogrulamasi sonrasinda devam edebilirsin.');
+      Alert.alert('Kayıt başarılı', 'Hesap oluşturuldu. Doğrudan giriş yapabilir veya e-posta doğrulaması sonrasında devam edebilirsin.');
       router.replace('/community-select');
     } catch (error: any) {
-      Alert.alert('Kayit basarisiz', error?.message ?? 'Hesap olusturulamadi.');
+      Alert.alert('Kayıt başarısız', error?.message ?? 'Hesap oluşturulamadı.');
     }
   }
 
@@ -87,13 +87,13 @@ export default function Welcome() {
       <TouchableOpacity onPress={continueWithEmail} disabled={isAuthLoading} style={{
         backgroundColor: colors.primary, padding: 17, borderRadius: 16, marginBottom: 10, opacity: isAuthLoading ? 0.7 : 1,
       }}>
-        <Text style={{ color: '#fff', textAlign: 'center', fontSize: 16, fontWeight: '800' }}>{isAuthLoading ? 'Bekleniyor...' : 'E-posta ile giris yap'}</Text>
+        <Text style={{ color: '#fff', textAlign: 'center', fontSize: 16, fontWeight: '800' }}>{isAuthLoading ? 'Bekleniyor...' : 'E-posta ile giriş yap'}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={createAccountWithEmail} disabled={isAuthLoading} style={{
         backgroundColor: '#fff', padding: 17, borderRadius: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.primary, opacity: isAuthLoading ? 0.7 : 1,
       }}>
-        <Text style={{ color: colors.primary, textAlign: 'center', fontSize: 16, fontWeight: '800' }}>E-posta ile hesap olustur</Text>
+        <Text style={{ color: colors.primary, textAlign: 'center', fontSize: 16, fontWeight: '800' }}>E-posta ile hesap oluştur</Text>
       </TouchableOpacity>
 
     </View>

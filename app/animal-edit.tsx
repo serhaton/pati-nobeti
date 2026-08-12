@@ -199,7 +199,7 @@ export default function AnimalEditScreen() {
 
       router.replace({ pathname: '/animal-detail', params: { id: updated.id } });
     } catch (error: any) {
-      Alert.alert('Supabase kayit hatasi', String(error?.message ?? 'Can dost guncellenemedi.'));
+      Alert.alert('Supabase kayıt hatası', String(error?.message ?? 'Can dost güncellenemedi.'));
     }
   }
 

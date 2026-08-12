@@ -120,7 +120,7 @@ export async function getVeterinariansByCommunity(communityId: string): Promise<
     .order('created_at', { ascending: false });
 
   if (error) {
-    throw formatError(error, 'Veteriner listesi okunamadi.');
+    throw formatError(error, 'Veteriner listesi okunamadı.');
   }
 
   return (data ?? []).map(mergeVeterinarianRow);
@@ -162,7 +162,7 @@ export async function getGlobalVeterinarians(input?: {
     .order('clinic_name', { ascending: true });
 
   if (error) {
-    throw formatError(error, 'Global veteriner listesi okunamadi.');
+    throw formatError(error, 'Global veteriner listesi okunamadı.');
   }
 
   const records = (data ?? []).map((row: any) => {
@@ -213,7 +213,7 @@ export async function upsertCommunityVeterinarian(input: {
 
     const globalVet = mockGlobalVeterinarians.find((item) => item.id === input.globalVeterinarianId);
     if (!globalVet) {
-      throw new Error('Global veteriner kaydi bulunamadi.');
+      throw new Error('Global veteriner kaydı bulunamadı.');
     }
 
     const timestamp = new Date().toISOString();
@@ -291,6 +291,6 @@ export async function deleteCommunityVeterinarianSelection(input: {
     .eq('global_veterinarian_id', input.globalVeterinarianId);
 
   if (error) {
-    throw formatError(error, 'Topluluk veterineri kaydi silinemedi.');
+    throw formatError(error, 'Topluluk veterineri kaydı silinemedi.');
   }
 }

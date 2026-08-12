@@ -79,7 +79,7 @@ export default function VeterinariansScreen() {
       const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coordinates)}`;
       await Linking.openURL(googleMapsUrl);
     } catch {
-      Alert.alert('Harita acilamadi', 'Harita uygulamasi acilamadi.');
+      Alert.alert('Harita açılamadı', 'Harita uygulaması açılamadı.');
     }
   }
 
@@ -94,7 +94,7 @@ export default function VeterinariansScreen() {
       const rows = await getVeterinariansByCommunity(selectedCommunityId);
       setItems(rows);
     } catch (error: any) {
-      Alert.alert('Veteriner listesi hatasi', String(error?.message ?? 'Veterinerler yuklenemedi.'));
+      Alert.alert('Veteriner listesi hatası', String(error?.message ?? 'Veterinerler yüklenemedi.'));
     } finally {
       setIsLoading(false);
     }
@@ -118,7 +118,7 @@ export default function VeterinariansScreen() {
       setGlobalItems(rows);
       return rows;
     } catch (error: any) {
-      Alert.alert('Global liste hatasi', String(error?.message ?? 'Global veteriner listesi okunamadi.'));
+      Alert.alert('Global liste hatası', String(error?.message ?? 'Global veteriner listesi okunamadi.'));
       return [];
     } finally {
       setIsLoadingGlobal(false);
@@ -182,7 +182,7 @@ export default function VeterinariansScreen() {
     const phoneOverride = trimmedPhone || undefined;
 
     if (trimmedPhone && !/^\+?[0-9\s()\-]{7,}$/.test(trimmedPhone)) {
-      Alert.alert('Gecersiz telefon', 'Telefon numarasini daha gecerli bir formatta gir.');
+      Alert.alert('Geçersiz telefon', 'Telefon numarasini daha gecerli bir formatta gir.');
       return;
     }
 
@@ -199,7 +199,7 @@ export default function VeterinariansScreen() {
       setShowOverrideModal(false);
       await loadVeterinarians();
     } catch (error: any) {
-      Alert.alert('Kayit hatasi', String(error?.message ?? 'Community veteriner secimi kaydedilemedi.'));
+      Alert.alert('Kayıt hatası', String(error?.message ?? 'Community veteriner seçimi kaydedilemedi.'));
     } finally {
       setIsSaving(false);
     }
@@ -209,8 +209,8 @@ export default function VeterinariansScreen() {
     if (!selectedCommunityId || !selectedGlobalVeterinarian) return;
 
     Alert.alert(
-      'Kaydi sil',
-      'Bu topluluk icin secili veteriner kaydi silinecek. Emin misin?',
+      'Kaydı sil',
+      'Bu topluluk için seçili veteriner kaydı silinecek. Emin misin?',
       [
         { text: 'Vazgec', style: 'cancel' },
         {
@@ -225,7 +225,7 @@ export default function VeterinariansScreen() {
               setShowOverrideModal(false);
               await loadVeterinarians();
             } catch (error: any) {
-              Alert.alert('Silme hatasi', String(error?.message ?? 'Kayit silinemedi.'));
+              Alert.alert('Silme hatası', String(error?.message ?? 'Kayıt silinemedi.'));
             }
           },
         },
@@ -241,7 +241,7 @@ export default function VeterinariansScreen() {
       <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Veterinerler</Text>
       <Text style={{ color: colors.muted, marginTop: 5 }}>{selectedCommunity.name}</Text>
       <Text style={{ color: colors.muted, marginTop: 4 }}>
-        Bu liste global veteriner havuzundan secilir. Community admin yalnizca hekim, telefon ve not alanlarini override edebilir.
+        Bu liste global veteriner havuzundan seçilir. Community admin yalnızca hekim, telefon ve not alanlarını override edebilir.
       </Text>
 
       {isCommunityAdmin ? (
@@ -249,25 +249,25 @@ export default function VeterinariansScreen() {
           onPress={openSelectModal}
           style={{ marginTop: 14, backgroundColor: colors.primary, borderRadius: 12, padding: 12 }}
         >
-          <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>Global Listeden Veteriner Sec</Text>
+          <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>Global Listeden Veteriner Seç</Text>
         </TouchableOpacity>
       ) : (
         <Card style={{ marginTop: 14 }}>
-          <Text style={{ color: colors.muted }}>Veteriner secimi ve override sadece topluluk yoneticilerine aciktir.</Text>
+          <Text style={{ color: colors.muted }}>Veteriner seçimi ve override sadece topluluk yöneticilerine açıktır.</Text>
         </Card>
       )}
 
-      <Text style={{ fontWeight: '800', color: colors.text, marginTop: 18, marginBottom: 10 }}>Kayitli Veterinerler</Text>
+      <Text style={{ fontWeight: '800', color: colors.text, marginTop: 18, marginBottom: 10 }}>Kayıtlı Veterinerler</Text>
 
       {isLoading ? (
         <Card>
-          <Text style={{ color: colors.muted }}>Veterinerler yukleniyor...</Text>
+          <Text style={{ color: colors.muted }}>Veterinerler yükleniyor...</Text>
         </Card>
       ) : null}
 
       {!isLoading && items.length === 0 ? (
         <Card>
-          <Text style={{ color: colors.muted }}>Bu topluluk icin secilmis veteriner yok.</Text>
+          <Text style={{ color: colors.muted }}>Bu topluluk için seçilmiş veteriner yok.</Text>
         </Card>
       ) : null}
 
@@ -303,10 +303,10 @@ export default function VeterinariansScreen() {
           scrollEventThrottle={100}
         >
           <TouchableOpacity onPress={() => setShowSelectModal(false)}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
-          <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Global Listeden Sec</Text>
+          <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Global Listeden Seç</Text>
 
           <Card style={{ marginTop: 20 }}>
-            <Text style={{ fontWeight: '800', color: colors.text }}>Yakin veterinerlerde ara</Text>
+            <Text style={{ fontWeight: '800', color: colors.text }}>Yakın veterinerlerde ara</Text>
             <TextInput
               value={searchText}
               onChangeText={setSearchText}
@@ -314,9 +314,9 @@ export default function VeterinariansScreen() {
               style={{ marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: '#fff', padding: 12 }}
             />
 
-            {isLoadingGlobal ? <Text style={{ color: colors.muted, marginTop: 10 }}>Global liste yukleniyor...</Text> : null}
+            {isLoadingGlobal ? <Text style={{ color: colors.muted, marginTop: 10 }}>Global liste yükleniyor...</Text> : null}
             {!isLoadingGlobal && filteredGlobalItems.length === 0 ? (
-              <Text style={{ color: colors.muted, marginTop: 10 }}>Kayitli global veteriner bulunamadi.</Text>
+              <Text style={{ color: colors.muted, marginTop: 10 }}>Kayıtlı global veteriner bulunamadı.</Text>
             ) : null}
 
             {!isLoadingGlobal && filteredGlobalItems.length > 0 ? (
@@ -337,13 +337,13 @@ export default function VeterinariansScreen() {
                           onPress={() => chooseVeterinarianAndContinue(item)}
                           style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 9, backgroundColor: '#fff' }}
                         >
-                          <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>{isSelected ? 'Secildi' : 'Sec'}</Text>
+                          <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>{isSelected ? 'Seçildi' : 'Seç'}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           onPress={() => openMapLocation(item)}
                           style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 9, backgroundColor: '#fff' }}
                         >
-                          <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Haritada Gor</Text>
+                          <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Haritada Gör</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -351,13 +351,13 @@ export default function VeterinariansScreen() {
                 })}
                 <Text style={{ color: colors.muted, textAlign: 'center', paddingVertical: 8 }}>
                   {visibleGlobalItems.length < filteredGlobalItems.length
-                    ? `${visibleGlobalItems.length}/${filteredGlobalItems.length} gosteriliyor, asagi kaydirarak devam et`
-                    : `${filteredGlobalItems.length} kaydin tamami gosteriliyor`}
+                    ? `${visibleGlobalItems.length}/${filteredGlobalItems.length} gösteriliyor, aşağı kaydırarak devam et`
+                    : `${filteredGlobalItems.length} kaydın tamamı gösteriliyor`}
                 </Text>
               </View>
             ) : null}
 
-            <Text style={{ color: colors.muted, marginTop: 8 }}>Listeden veteriner secince override ekranina gecilir.</Text>
+            <Text style={{ color: colors.muted, marginTop: 8 }}>Listeden veteriner seçince override ekranına geçilir.</Text>
           </Card>
         </ScrollView>
       </Modal>
@@ -368,7 +368,7 @@ export default function VeterinariansScreen() {
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Topluluk Veterineri Bilgileri</Text>
 
           <Card style={{ marginTop: 20 }}>
-            <Text style={{ fontWeight: '800', color: colors.text }}>Secilen klinik</Text>
+            <Text style={{ fontWeight: '800', color: colors.text }}>Seçilen klinik</Text>
             <Text style={{ color: colors.text, marginTop: 6 }}>{selectedGlobalVeterinarian?.clinicName ?? '-'}</Text>
             <Text style={{ color: colors.muted, marginTop: 2 }}>{selectedGlobalVeterinarian?.locationLabel ?? '-'}</Text>
 
@@ -393,7 +393,7 @@ export default function VeterinariansScreen() {
             <TextInput
               value={overrideNotes}
               onChangeText={setOverrideNotes}
-              placeholder="Community ozel notlar"
+              placeholder="Community özel notlar"
               multiline
               style={{ marginTop: 8, minHeight: 80, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: '#fff', padding: 12, textAlignVertical: 'top' }}
             />
@@ -405,7 +405,7 @@ export default function VeterinariansScreen() {
             style={{ marginTop: 16, backgroundColor: colors.primary, borderRadius: 12, padding: 12, opacity: isSaving ? 0.7 : 1 }}
           >
             <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>
-              {isSaving ? 'Kaydediliyor...' : 'Secimi Kaydet'}
+              {isSaving ? 'Kaydediliyor...' : 'Seçimi Kaydet'}
             </Text>
           </TouchableOpacity>
 

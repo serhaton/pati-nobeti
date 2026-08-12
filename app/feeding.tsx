@@ -116,8 +116,8 @@ export default function Feeding() {
       <TouchableOpacity onPress={() => router.replace('/home')}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
         <View>
-          <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text }}>Besleme Kayitlari</Text>
-          <Text style={{ color: colors.muted }}>{visibleRecords.length}/{records.length} kayit gosteriliyor</Text>
+          <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text }}>Besleme Kayıtları</Text>
+          <Text style={{ color: colors.muted }}>{visibleRecords.length}/{records.length} kayıt gösteriliyor</Text>
         </View>
         <TouchableOpacity onPress={() => router.push('/feeding-create')} style={{ backgroundColor: colors.primary, padding: 13, borderRadius: 15 }}>
           <Text style={{ color: '#fff', fontWeight: '800' }}>＋</Text>
@@ -127,16 +127,16 @@ export default function Feeding() {
       <Card style={{ marginTop: 22 }}>
         <Text style={{ fontWeight: '800', color: colors.text }}>Filtreler</Text>
 
-        <Text style={{ fontWeight: '700', color: colors.text, marginTop: 14 }}>Mama noktasi (opsiyonel)</Text>
+        <Text style={{ fontWeight: '700', color: colors.text, marginTop: 14 }}>Mama noktası (opsiyonel)</Text>
         <TouchableOpacity
           onPress={() => setShowPointPicker((value) => !value)}
           style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
         >
           <Text style={{ color: selectedPoint ? colors.text : colors.muted, fontWeight: selectedPoint ? '700' : '500' }}>
-            {selectedPoint ? selectedPoint.name : 'Tum noktalar'}
+            {selectedPoint ? selectedPoint.name : 'Tüm noktalar'}
           </Text>
           <Text style={{ color: colors.muted, marginTop: 4, fontSize: 12 }}>
-            {showPointPicker ? 'Listeyi kapat ▲' : 'Nokta secmek icin dokun ▼'}
+            {showPointPicker ? 'Listeyi kapat ▲' : 'Nokta seçmek için dokun ▼'}
           </Text>
         </TouchableOpacity>
 
@@ -149,12 +149,12 @@ export default function Feeding() {
           >
             <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.25)', justifyContent: 'center', padding: 20 }}>
               <Card style={{ borderRadius: 14, maxHeight: '75%' }}>
-                <Text style={{ fontWeight: '800', color: colors.text, fontSize: 16 }}>Topluluk Noktasi Filtresi</Text>
+                <Text style={{ fontWeight: '800', color: colors.text, fontSize: 16 }}>Topluluk Noktası Filtresi</Text>
 
                 <TextInput
                   value={pointSearchText}
                   onChangeText={setPointSearchText}
-                  placeholder="Topluluk noktalari icinde ara"
+                  placeholder="Topluluk noktalari içinde ara"
                   style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
                 />
 
@@ -171,7 +171,7 @@ export default function Feeding() {
                     }}
                     style={{ paddingHorizontal: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: !selectedPointId ? colors.primarySoft : '#fff' }}
                   >
-                    <Text style={{ color: colors.text, fontWeight: '700' }}>Tum noktalar</Text>
+                    <Text style={{ color: colors.text, fontWeight: '700' }}>Tüm noktalar</Text>
                   </TouchableOpacity>
 
                   {communityPoints.length > 0 ? (
@@ -195,7 +195,7 @@ export default function Feeding() {
                       </TouchableOpacity>
                     ))
                   ) : (
-                    <Text style={{ color: colors.muted, padding: 12 }}>Bu toplulukta aramaya uygun nokta bulunamadi.</Text>
+                    <Text style={{ color: colors.muted, padding: 12 }}>Bu toplulukta aramaya uygun nokta bulunamadı.</Text>
                   )}
                 </ScrollView>
 
@@ -216,10 +216,10 @@ export default function Feeding() {
           style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
         >
           <Text style={{ color: feederFilter ? colors.text : colors.muted, fontWeight: feederFilter ? '700' : '500' }}>
-            {feederFilter || 'Tum uyeler'}
+            {feederFilter || 'Tüm üyeler'}
           </Text>
           <Text style={{ color: colors.muted, marginTop: 4, fontSize: 12 }}>
-            {showFeederPicker ? 'Listeyi kapat ▲' : 'Uyeler listesinden sec ▼'}
+            {showFeederPicker ? 'Listeyi kapat ▲' : 'Üyeler listesinden seç ▼'}
           </Text>
         </TouchableOpacity>
 
@@ -237,7 +237,7 @@ export default function Feeding() {
                 <TextInput
                   value={feederSearchText}
                   onChangeText={setFeederSearchText}
-                  placeholder="Uyelerde ara"
+                  placeholder="Üyelerde ara"
                   style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
                 />
 
@@ -254,7 +254,7 @@ export default function Feeding() {
                     }}
                     style={{ minHeight: 44, paddingHorizontal: 12, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: !feederFilter ? colors.primarySoft : '#fff', justifyContent: 'center' }}
                   >
-                    <Text style={{ color: colors.text, fontWeight: '700' }}>Tum uyeler</Text>
+                    <Text style={{ color: colors.text, fontWeight: '700' }}>Tüm üyeler</Text>
                   </TouchableOpacity>
 
                   {filteredCommunityMembers.length > 0 ? (
@@ -279,7 +279,7 @@ export default function Feeding() {
                       </TouchableOpacity>
                     ))
                   ) : (
-                    <Text style={{ color: colors.muted, padding: 12 }}>Aramaya uygun topluluk uyesi bulunamadi.</Text>
+                    <Text style={{ color: colors.muted, padding: 12 }}>Aramaya uygun topluluk üyesi bulunamadı.</Text>
                   )}
                 </ScrollView>
 
@@ -307,7 +307,7 @@ export default function Feeding() {
                   <Text style={{ fontWeight: '800', color: colors.text }}>{point?.name ?? 'Bilinmeyen nokta'}</Text>
                   <Text style={{ color: colors.muted, marginTop: 5 }}>{item.fedAt}</Text>
                 </View>
-                <Text style={{ color: colors.primary, fontWeight: '700' }}>Duzenle</Text>
+                <Text style={{ color: colors.primary, fontWeight: '700' }}>Düzenle</Text>
               </View>
               <Text style={{ color: colors.text, marginTop: 10 }}>Besleyen: {item.feederName}</Text>
               {item.note ? <Text style={{ color: colors.muted, marginTop: 4 }}>Not: {item.note}</Text> : null}
@@ -317,7 +317,7 @@ export default function Feeding() {
       }}
       ListEmptyComponent={(
         <Card style={{ marginTop: 14 }}>
-          <Text style={{ color: colors.muted }}>Filtreye uygun besleme kaydi bulunamadi.</Text>
+          <Text style={{ color: colors.muted }}>Filtreye uygun besleme kaydı bulunamadı.</Text>
         </Card>
       )}
     />

@@ -26,7 +26,7 @@ export default function PointEditScreen() {
   async function pickFromLibrary() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Izin gerekli', 'Galeriden secmek icin fotograf izni vermelisin.');
+      Alert.alert('İzin gerekli', 'Galeriden seçmek için fotoğraf izni vermelisin.');
       return;
     }
 
@@ -45,7 +45,7 @@ export default function PointEditScreen() {
   async function takePhoto() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Izin gerekli', 'Fotograf cekmek icin kamera izni vermelisin.');
+      Alert.alert('İzin gerekli', 'Fotograf cekmek için kamera izni vermelisin.');
       return;
     }
 
@@ -63,27 +63,27 @@ export default function PointEditScreen() {
     } catch (error: any) {
       const message = String(error?.message ?? '').toLowerCase();
       if (message.includes('camera not available') || message.includes('simulator')) {
-        Alert.alert('Kamera kullanilamiyor', 'Simulator ortaminda kamera yerine galeriden secim aciliyor.');
+        Alert.alert('Kamera kullanılamıyor', 'Simulator ortamında kamera yerine galeriden seçim açılıyor.');
         await pickFromLibrary();
         return;
       }
-      Alert.alert('Kamera hatasi', 'Fotograf alinirken bir hata olustu.');
+      Alert.alert('Kamera hatası', 'Fotograf alinirken bir hata oluştu.');
     }
   }
 
   async function saveChanges() {
     if (!isCommunityAdmin) {
-      Alert.alert('Yetki gerekli', 'Mama noktalarini sadece topluluk yoneticileri guncelleyebilir.');
+      Alert.alert('Yetki gerekli', 'Mama noktalarını sadece topluluk yöneticileri güncelleyebilir.');
       return;
     }
 
     if (!params.id) {
-      Alert.alert('Hata', 'Nokta bulunamadi.');
+      Alert.alert('Hata', 'Nokta bulunamadı.');
       return;
     }
 
     if (!name.trim()) {
-      Alert.alert('Eksik bilgi', 'Lutfen nokta ismi gir.');
+      Alert.alert('Eksik bilgi', 'Lütfen nokta ismi gir.');
       return;
     }
 
@@ -96,13 +96,13 @@ export default function PointEditScreen() {
       });
 
       if (!updated) {
-        Alert.alert('Hata', 'Nokta guncellenemedi.');
+        Alert.alert('Hata', 'Nokta güncellenemedi.');
         return;
       }
 
       router.back();
     } catch (error: any) {
-      Alert.alert('Supabase kayit hatasi', String(error?.message ?? 'Nokta guncellenemedi.'));
+      Alert.alert('Supabase kayıt hatası', String(error?.message ?? 'Nokta güncellenemedi.'));
     } finally {
       setSaving(false);
     }
@@ -114,7 +114,7 @@ export default function PointEditScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={{ fontSize: 30 }}>‹</Text>
         </TouchableOpacity>
-        <Text style={{ fontSize: 24, fontWeight: '800', color: colors.text, marginTop: 16 }}>Nokta bulunamadi</Text>
+        <Text style={{ fontSize: 24, fontWeight: '800', color: colors.text, marginTop: 16 }}>Nokta bulunamadı</Text>
       </View>
     );
   }
@@ -127,7 +127,7 @@ export default function PointEditScreen() {
         </TouchableOpacity>
         <Text style={{ fontSize: 24, fontWeight: '800', color: colors.text, marginTop: 16 }}>Yetki gerekli</Text>
         <Text style={{ color: colors.muted, marginTop: 8 }}>
-          Mama noktalarini guncelleme islemi sadece topluluk yoneticileri icin acik.
+          Mama noktalarını güncelleme işlemi sadece topluluk yöneticileri için açık.
         </Text>
       </View>
     );
@@ -139,8 +139,8 @@ export default function PointEditScreen() {
         <Text style={{ fontSize: 30 }}>‹</Text>
       </TouchableOpacity>
 
-      <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Mama Noktasini Duzenle</Text>
-      <Text style={{ color: colors.muted, marginTop: 5 }}>Isim ve fotograf bilgisini guncelleyebilirsin.</Text>
+      <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Mama Noktasini Düzenle</Text>
+      <Text style={{ color: colors.muted, marginTop: 5 }}>İsim ve fotoğraf bilgisini güncelleyebilirsin.</Text>
 
       <Card style={{ marginTop: 22 }}>
         <Text style={{ fontWeight: '800', color: colors.text }}>Konum</Text>
@@ -148,7 +148,7 @@ export default function PointEditScreen() {
 
         <Text style={{ fontWeight: '800', color: colors.text, marginTop: 18 }}>Nokta ismi</Text>
         <TextInput
-          placeholder="Orn. Park ici mama noktasi"
+          placeholder="Orn. Park ici mama noktası"
           value={name}
           onChangeText={setName}
           style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
@@ -159,14 +159,14 @@ export default function PointEditScreen() {
           onPress={takePhoto}
           style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
         >
-          <Text style={{ color: colors.text, fontWeight: '700' }}>{photoUri ? 'Fotografi yenile' : 'Kamera ile fotograf cek'}</Text>
+          <Text style={{ color: colors.text, fontWeight: '700' }}>{photoUri ? 'Fotografi yenile' : 'Kamera ile fotoğraf cek'}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={pickFromLibrary}
           style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
         >
-          <Text style={{ color: colors.text, fontWeight: '700' }}>Galeriden sec</Text>
+          <Text style={{ color: colors.text, fontWeight: '700' }}>Galeriden seç</Text>
         </TouchableOpacity>
 
         {photoUri && (

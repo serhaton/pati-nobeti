@@ -112,7 +112,7 @@ export default function CommunitySelectScreen() {
         const permission = await Location.requestForegroundPermissionsAsync();
         if (permission.status !== 'granted') {
           if (mounted) {
-            setLocationError('Konum izni verilmedi. Yakin topluluk onerileri gosterilemiyor.');
+            setLocationError('Konum izni verilmedi. Yakın topluluk önerileri gosterilemiyor.');
           }
           return;
         }
@@ -133,7 +133,7 @@ export default function CommunitySelectScreen() {
         }));
       } catch {
         if (mounted) {
-          setLocationError('Konum alinirken bir hata olustu.');
+          setLocationError('Konum alinirken bir hata oluştu.');
         }
       } finally {
         if (mounted) setIsLocating(false);
@@ -178,7 +178,7 @@ export default function CommunitySelectScreen() {
         setMembershipRolesByCommunity(nextRoles);
       } catch (error: any) {
         if (!mounted) return;
-        Alert.alert('Uyelik hatasi', String(error?.message ?? 'Uyelik durumlari okunamadi.'));
+        Alert.alert('Üyelik hatası', String(error?.message ?? 'Üyelik durumlari okunamadi.'));
       }
     }
 
@@ -266,7 +266,7 @@ export default function CommunitySelectScreen() {
     if (!currentUser || !targetCommunity) return;
 
     if (!joinNote.trim()) {
-      Alert.alert('Eksik bilgi', 'Topluluga katilim icin kisa bir not yazmalisin.');
+      Alert.alert('Eksik bilgi', 'Topluluğa katılım için kısa bir not yazmalısın.');
       return;
     }
 
@@ -284,9 +284,9 @@ export default function CommunitySelectScreen() {
         [targetCommunity.id]: 'pending',
       }));
       setShowJoinModal(false);
-      Alert.alert('Istek gonderildi', 'Katilim istegin topluluk admininin onayina dustu.');
+      Alert.alert('İstek gonderildi', 'Katılım isteğin topluluk admininin onayına düştü.');
     } catch (error: any) {
-      Alert.alert('Istek hatasi', String(error?.message ?? 'Katilim istegi gonderilemedi.'));
+      Alert.alert('İstek hatası', String(error?.message ?? 'Katılım isteği gonderilemedi.'));
     } finally {
       setIsSendingJoinRequest(false);
     }
@@ -306,7 +306,7 @@ export default function CommunitySelectScreen() {
     }
 
     if (!communityCenter) {
-      Alert.alert('Eksik bilgi', 'Haritadan topluluk merkezini secmelisin.');
+      Alert.alert('Eksik bilgi', 'Haritadan topluluk merkezini seçmelisin.');
       return;
     }
 
@@ -327,7 +327,7 @@ export default function CommunitySelectScreen() {
       setShowCreateModal(false);
       router.replace('/home');
     } catch (error: any) {
-      Alert.alert('Topluluk olusturma hatasi', String(error?.message ?? 'Topluluk olusturulamadi.'));
+      Alert.alert('Topluluk oluşturma hatası', String(error?.message ?? 'Topluluk oluşturulamadı.'));
     } finally {
       setIsCreatingCommunity(false);
     }
@@ -347,12 +347,12 @@ export default function CommunitySelectScreen() {
     }
 
     if (membership === 'pending') {
-      Alert.alert('Bekleyen istek', 'Bu topluluk icin katilim istegin zaten beklemede.');
+      Alert.alert('Bekleyen istek', 'Bu topluluk için katılım isteğin zaten beklemede.');
       return;
     }
 
     if (membership === 'rejected') {
-      Alert.alert('Istek reddedildi', 'Bu topluluk istegini yeniden gonderebilirsin.');
+      Alert.alert('İstek reddedildi', 'Bu topluluk isteğini yeniden gonderebilirsin.');
     }
 
     openJoinRequest(communityId);
@@ -410,7 +410,7 @@ export default function CommunitySelectScreen() {
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (permission.status !== 'granted') {
-        setLocationError('Konum izni verilmedi. Yakin topluluk onerileri gosterilemiyor.');
+        setLocationError('Konum izni verilmedi. Yakın topluluk önerileri gosterilemiyor.');
         return;
       }
 
@@ -426,7 +426,7 @@ export default function CommunitySelectScreen() {
         longitude: coords.longitude,
       }));
     } catch {
-      setLocationError('Konum alinirken bir hata olustu.');
+      setLocationError('Konum alinirken bir hata oluştu.');
     } finally {
       setIsLocating(false);
     }
@@ -435,20 +435,20 @@ export default function CommunitySelectScreen() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 32 }}>
       <Logo small />
-      <Text style={{ color: colors.text, fontSize: 26, fontWeight: '800', marginTop: 18 }}>Topluluk Secimi</Text>
-      <Text style={{ color: colors.muted, marginTop: 7 }}>Konumuna 10 km icindeki topluluklar listelenir.</Text>
+      <Text style={{ color: colors.text, fontSize: 26, fontWeight: '800', marginTop: 18 }}>Topluluk Seçimi</Text>
+      <Text style={{ color: colors.muted, marginTop: 7 }}>Konumuna 10 km içindeki topluluklar listelenir.</Text>
 
       <View style={{ marginTop: 22 }}>
         {communityLoadError ? (
           <Card style={{ borderColor: colors.danger, borderWidth: 1 }}>
-            <Text style={{ fontWeight: '800', color: colors.danger, fontSize: 16 }}>Veritabani Hatasi</Text>
+            <Text style={{ fontWeight: '800', color: colors.danger, fontSize: 16 }}>Veritabani Hatası</Text>
             <Text style={{ color: colors.text, marginTop: 6 }}>{communityLoadError}</Text>
           </Card>
         ) : null}
 
         {isLocating ? (
           <Card>
-            <Text style={{ color: colors.text, fontWeight: '700' }}>Konum aliniyor...</Text>
+            <Text style={{ color: colors.text, fontWeight: '700' }}>Konum alınıyor...</Text>
           </Card>
         ) : null}
 
@@ -473,7 +473,7 @@ export default function CommunitySelectScreen() {
 
         {!communityLoadError && !isLocating && memberCommunities.length === 0 ? (
           <Card style={{ marginBottom: 10 }}>
-            <Text style={{ color: colors.muted }}>Henuz aktif oldugun bir topluluk yok.</Text>
+            <Text style={{ color: colors.muted }}>Henüz aktif oldugun bir topluluk yok.</Text>
           </Card>
         ) : null}
 
@@ -485,10 +485,10 @@ export default function CommunitySelectScreen() {
           const actionLabel = membershipStatus === 'active' || membershipStatus === 'approved' || membershipStatus === 'passive'
             ? 'Bu Toplulukla Devam Et'
             : membershipStatus === 'pending'
-              ? 'Katilim istegi beklemede'
+              ? 'Katılım isteği beklemede'
               : membershipStatus === 'rejected'
-                ? 'Yeniden katilim istegi gonder'
-                : 'Topluluga katilim istegi gonder';
+                ? 'Yeniden katılım isteği gonder'
+                : 'Topluluğa katılım isteği gonder';
 
           return (
             <TouchableOpacity key={community.id} onPress={() => onCommunityPress(community.id)}>
@@ -496,12 +496,12 @@ export default function CommunitySelectScreen() {
                 <Text style={{ fontWeight: '800', color: colors.text, fontSize: 17 }}>{community.name}</Text>
                 <Text style={{ color: colors.muted, marginTop: 5 }}>{community.neighborhood}</Text>
                 <Text style={{ color: colors.muted, marginTop: 2 }}>
-                  {community.members} uye · {community.animals} can{community.distanceKm !== null ? ` · ${community.distanceKm.toFixed(1)} km` : ''}
+                  {community.members} üye · {community.animals} can{community.distanceKm !== null ? ` · ${community.distanceKm.toFixed(1)} km` : ''}
                 </Text>
 
                 {isSupabaseDataEnabled() ? (
                   <Text style={{ color: colors.muted, marginTop: 7, fontSize: 12 }}>
-                    Uyelik durumu: {membershipStatus}{membershipRole !== 'none' ? ` · Rol: ${membershipRole}` : ''}
+                    Üyelik durumu: {membershipStatus}{membershipRole !== 'none' ? ` · Rol: ${membershipRole}` : ''}
                   </Text>
                 ) : null}
 
@@ -522,13 +522,13 @@ export default function CommunitySelectScreen() {
 
         {!communityLoadError && !isLocating ? (
           <Text style={{ marginTop: 12, marginBottom: 8, color: colors.text, fontWeight: '800' }}>
-            10 km Yakinindaki Diger Topluluklar
+            10 km Yakinindaki Diğer Topluluklar
           </Text>
         ) : null}
 
         {!communityLoadError && !isLocating && nearbyNonMemberCommunities.length === 0 ? (
           <Card style={{ marginBottom: 10 }}>
-            <Text style={{ color: colors.muted }}>10 km yakininda katilabilecegin topluluk bulunamadi.</Text>
+            <Text style={{ color: colors.muted }}>10 km yakınında katılabileceğin topluluk bulunamadı.</Text>
           </Card>
         ) : null}
 
@@ -538,10 +538,10 @@ export default function CommunitySelectScreen() {
           const membershipRole = getMembershipRole(community.id);
 
           const actionLabel = membershipStatus === 'pending'
-            ? 'Katilim istegi beklemede'
+            ? 'Katılım isteği beklemede'
             : membershipStatus === 'rejected'
-              ? 'Yeniden katilim istegi gonder'
-              : 'Topluluga katilim istegi gonder';
+              ? 'Yeniden katılım isteği gonder'
+              : 'Topluluğa katılım isteği gonder';
 
           return (
             <TouchableOpacity key={community.id} onPress={() => onCommunityPress(community.id)}>
@@ -549,12 +549,12 @@ export default function CommunitySelectScreen() {
                 <Text style={{ fontWeight: '800', color: colors.text, fontSize: 17 }}>{community.name}</Text>
                 <Text style={{ color: colors.muted, marginTop: 5 }}>{community.neighborhood}</Text>
                 <Text style={{ color: colors.muted, marginTop: 2 }}>
-                  {community.members} uye · {community.animals} can{community.distanceKm !== null ? ` · ${community.distanceKm.toFixed(1)} km` : ''}
+                  {community.members} üye · {community.animals} can{community.distanceKm !== null ? ` · ${community.distanceKm.toFixed(1)} km` : ''}
                 </Text>
 
                 {isSupabaseDataEnabled() ? (
                   <Text style={{ color: colors.muted, marginTop: 7, fontSize: 12 }}>
-                    Uyelik durumu: {membershipStatus}{membershipRole !== 'none' ? ` · Rol: ${membershipRole}` : ''}
+                    Üyelik durumu: {membershipStatus}{membershipRole !== 'none' ? ` · Rol: ${membershipRole}` : ''}
                   </Text>
                 ) : null}
 
@@ -575,13 +575,13 @@ export default function CommunitySelectScreen() {
 
         {!communityLoadError && !isLocating ? (
           <Text style={{ marginTop: 12, marginBottom: 8, color: colors.text, fontWeight: '800' }}>
-            Tum Topluluklar (Uye Olmadiklarin)
+            Tüm Topluluklar (Üye Olmadiklarin)
           </Text>
         ) : null}
 
         {!communityLoadError && !isLocating && allNonMemberCommunities.length === 0 ? (
           <Card style={{ marginBottom: 10 }}>
-            <Text style={{ color: colors.muted }}>Uye olmadigin topluluk bulunamadi.</Text>
+            <Text style={{ color: colors.muted }}>Üye olmadığın topluluk bulunamadı.</Text>
           </Card>
         ) : null}
 
@@ -591,10 +591,10 @@ export default function CommunitySelectScreen() {
           const membershipRole = getMembershipRole(community.id);
 
           const actionLabel = membershipStatus === 'pending'
-            ? 'Katilim istegi beklemede'
+            ? 'Katılım isteği beklemede'
             : membershipStatus === 'rejected'
-              ? 'Yeniden katilim istegi gonder'
-              : 'Topluluga katilim istegi gonder';
+              ? 'Yeniden katılım isteği gonder'
+              : 'Topluluğa katılım isteği gonder';
 
           return (
             <TouchableOpacity key={`all-${community.id}`} onPress={() => onCommunityPress(community.id)}>
@@ -602,12 +602,12 @@ export default function CommunitySelectScreen() {
                 <Text style={{ fontWeight: '800', color: colors.text, fontSize: 17 }}>{community.name}</Text>
                 <Text style={{ color: colors.muted, marginTop: 5 }}>{community.neighborhood}</Text>
                 <Text style={{ color: colors.muted, marginTop: 2 }}>
-                  {community.members} uye · {community.animals} can{community.distanceKm !== null ? ` · ${community.distanceKm.toFixed(1)} km` : ''}
+                  {community.members} üye · {community.animals} can{community.distanceKm !== null ? ` · ${community.distanceKm.toFixed(1)} km` : ''}
                 </Text>
 
                 {isSupabaseDataEnabled() ? (
                   <Text style={{ color: colors.muted, marginTop: 7, fontSize: 12 }}>
-                    Uyelik durumu: {membershipStatus}{membershipRole !== 'none' ? ` · Rol: ${membershipRole}` : ''}
+                    Üyelik durumu: {membershipStatus}{membershipRole !== 'none' ? ` · Rol: ${membershipRole}` : ''}
                   </Text>
                 ) : null}
 
@@ -631,7 +631,7 @@ export default function CommunitySelectScreen() {
             onPress={openCreateModal}
             style={{ marginTop: 10, backgroundColor: colors.primary, borderRadius: 12, padding: 12 }}
           >
-            <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>Yeni Topluluk Olustur</Text>
+            <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>Yeni Topluluk Oluştur</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -639,15 +639,15 @@ export default function CommunitySelectScreen() {
       <Modal visible={showJoinModal} transparent animationType="fade" onRequestClose={() => setShowJoinModal(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.25)', justifyContent: 'center', padding: 20 }}>
           <Card>
-            <Text style={{ fontWeight: '800', color: colors.text, fontSize: 17 }}>Katilim istegi gonder</Text>
+            <Text style={{ fontWeight: '800', color: colors.text, fontSize: 17 }}>Katılım isteği gonder</Text>
             <Text style={{ color: colors.muted, marginTop: 6 }}>
-              {targetCommunity ? `${targetCommunity.name} topluluguna katilim notunu yaz.` : ''}
+              {targetCommunity ? `${targetCommunity.name} topluluguna katılım notunu yaz.` : ''}
             </Text>
 
             <TextInput
               value={joinNote}
               onChangeText={setJoinNote}
-              placeholder="Neden katilmak istedigini kisaca yaz"
+              placeholder="Neden katılmak istediğini kısaca yaz"
               multiline
               style={{ marginTop: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: '#fff', padding: 12, minHeight: 90, textAlignVertical: 'top' }}
             />
@@ -662,7 +662,7 @@ export default function CommunitySelectScreen() {
                 style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 12, padding: 11, opacity: isSendingJoinRequest ? 0.7 : 1 }}
               >
                 <Text style={{ textAlign: 'center', color: '#fff', fontWeight: '800' }}>
-                  {isSendingJoinRequest ? 'Gonderiliyor...' : 'Istek Gonder'}
+                  {isSendingJoinRequest ? 'Gonderiliyor...' : 'İstek Gonder'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -683,7 +683,7 @@ export default function CommunitySelectScreen() {
       >
         <View style={{ flex: 1, backgroundColor: colors.background }}>
           <View style={{ paddingHorizontal: 16, paddingTop: 54, paddingBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text }}>Topluluk Merkezi Secimi</Text>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text }}>Topluluk Merkezi Seçimi</Text>
             <TouchableOpacity
               onPress={() => {
                 setShowLocationPicker(false);
@@ -723,7 +723,7 @@ export default function CommunitySelectScreen() {
 
           <View style={{ padding: 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: colors.border }}>
             <Text style={{ color: colors.muted, marginBottom: 8 }}>
-              Haritayi surukleyip orta noktayi belirle veya uzun basarak nokta sec.
+              Haritayı surukleyip orta noktayi belirle veya uzun basarak nokta seç.
             </Text>
             <TouchableOpacity
               onPress={async () => {
@@ -748,8 +748,8 @@ export default function CommunitySelectScreen() {
       <Modal visible={showCreateModal} animationType="slide" onRequestClose={() => setShowCreateModal(false)}>
         <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
           <TouchableOpacity onPress={() => setShowCreateModal(false)}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
-          <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Yeni Topluluk Olustur</Text>
-          <Text style={{ color: colors.muted, marginTop: 5 }}>Isim gir, merkez sec ve aciklama ekle.</Text>
+          <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Yeni Topluluk Oluştur</Text>
+          <Text style={{ color: colors.muted, marginTop: 5 }}>İsim gir, merkez seç ve açıklama ekle.</Text>
 
           <Card style={{ marginTop: 20 }}>
             <Text style={{ marginTop: 2, fontWeight: '700', color: colors.text }}>Topluluk ismi</Text>
@@ -767,7 +767,7 @@ export default function CommunitySelectScreen() {
               <Text style={{ color: colors.text, fontWeight: '700' }}>
                 {communityCenter
                   ? `Merkez: ${communityCenter.latitude.toFixed(5)}, ${communityCenter.longitude.toFixed(5)}`
-                  : 'Haritadan topluluk merkezini sec'}
+                  : 'Haritadan topluluk merkezini seç'}
               </Text>
               {userCoords ? (
                 <Text style={{ color: colors.muted, marginTop: 4, fontSize: 12 }}>Haritada mavi marker konumunu gosterecek.</Text>
@@ -799,15 +799,15 @@ export default function CommunitySelectScreen() {
             <TextInput
               value={communityNeighborhood}
               onChangeText={setCommunityNeighborhood}
-              placeholder={isResolvingAddress ? 'Adres cozuluyor...' : 'Haritadan secince otomatik dolar'}
+              placeholder={isResolvingAddress ? 'Adres çözülüyor...' : 'Haritadan seçince otomatik dolar'}
               style={{ marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: '#fff', padding: 12 }}
             />
 
-            <Text style={{ marginTop: 12, fontWeight: '700', color: colors.text }}>Aciklama (opsiyonel)</Text>
+            <Text style={{ marginTop: 12, fontWeight: '700', color: colors.text }}>Açıklama (opsiyonel)</Text>
             <TextInput
               value={communityDescription}
               onChangeText={setCommunityDescription}
-              placeholder="Toplulugun amacini kisaca yaz"
+              placeholder="Topluluğun amacını kısaca yaz"
               multiline
               style={{ marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: '#fff', padding: 12, minHeight: 90, textAlignVertical: 'top' }}
             />
@@ -819,7 +819,7 @@ export default function CommunitySelectScreen() {
             style={{ marginTop: 14, backgroundColor: colors.primary, borderRadius: 12, padding: 12, opacity: isCreatingCommunity ? 0.7 : 1 }}
           >
             <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>
-              {isCreatingCommunity ? 'Olusturuluyor...' : 'Toplulugu Olustur'}
+              {isCreatingCommunity ? 'Olusturuluyor...' : 'Topluluğu Oluştur'}
             </Text>
           </TouchableOpacity>
         </ScrollView>

@@ -168,7 +168,7 @@ export default function AnimalCreateScreen() {
 
       router.replace({ pathname: '/animal-detail', params: { id: created.id } });
     } catch (error: any) {
-      Alert.alert('Supabase kayit hatasi', String(error?.message ?? 'Can dost kaydi olusturulamadi.'));
+      Alert.alert('Supabase kayıt hatası', String(error?.message ?? 'Can dost kaydı oluşturulamadı.'));
     }
   }
 

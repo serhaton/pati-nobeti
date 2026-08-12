@@ -30,7 +30,7 @@ export default function PointCreateScreen() {
         </TouchableOpacity>
         <Text style={{ marginTop: 14, color: colors.text, fontSize: 24, fontWeight: '800' }}>Yetki gerekli</Text>
         <Text style={{ marginTop: 8, color: colors.muted }}>
-          Haritadan mama noktasi ekleme islemi sadece topluluk yoneticileri icin acik.
+          Haritadan mama noktası ekleme işlemi sadece topluluk yöneticileri için açık.
         </Text>
       </View>
     );
@@ -41,7 +41,7 @@ export default function PointCreateScreen() {
   async function pickFromLibrary() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Izin gerekli', 'Galeriden secmek icin fotograf izni vermelisin.');
+      Alert.alert('İzin gerekli', 'Galeriden seçmek için fotoğraf izni vermelisin.');
       return;
     }
 
@@ -60,7 +60,7 @@ export default function PointCreateScreen() {
   async function takePhoto() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Izin gerekli', 'Fotograf cekmek icin kamera izni vermelisin.');
+      Alert.alert('İzin gerekli', 'Fotograf cekmek için kamera izni vermelisin.');
       return;
     }
 
@@ -78,22 +78,22 @@ export default function PointCreateScreen() {
     } catch (error: any) {
       const message = String(error?.message ?? '').toLowerCase();
       if (message.includes('camera not available') || message.includes('simulator')) {
-        Alert.alert('Kamera kullanilamiyor', 'Simulator ortaminda kamera yerine galeriden secim aciliyor.');
+        Alert.alert('Kamera kullanılamıyor', 'Simulator ortamında kamera yerine galeriden seçim açılıyor.');
         await pickFromLibrary();
         return;
       }
-      Alert.alert('Kamera hatasi', 'Fotograf alinirken bir hata olustu.');
+      Alert.alert('Kamera hatası', 'Fotograf alinirken bir hata oluştu.');
     }
   }
 
   async function savePoint() {
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-      Alert.alert('Konum hatasi', 'Uzun basarak tekrar nokta sec.');
+      Alert.alert('Konum hatası', 'Uzun basarak tekrar nokta seç.');
       return;
     }
 
     if (!name.trim()) {
-      Alert.alert('Eksik bilgi', 'Lutfen nokta ismi gir.');
+      Alert.alert('Eksik bilgi', 'Lütfen nokta ismi gir.');
       return;
     }
 
@@ -116,7 +116,7 @@ export default function PointCreateScreen() {
         },
       });
     } catch (error: any) {
-      Alert.alert('Supabase kayit hatasi', String(error?.message ?? 'Nokta kaydedilemedi.'));
+      Alert.alert('Supabase kayıt hatası', String(error?.message ?? 'Nokta kaydedilemedi.'));
     } finally {
       setSaving(false);
     }
@@ -128,20 +128,20 @@ export default function PointCreateScreen() {
         <Text style={{ fontSize: 30 }}>‹</Text>
       </TouchableOpacity>
 
-      <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Mama Noktasi Ekle</Text>
-      <Text style={{ color: colors.muted, marginTop: 5 }}>Nokta adini yaz, istersen fotograf ekleyip kaydet.</Text>
+      <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Mama Noktası Ekle</Text>
+      <Text style={{ color: colors.muted, marginTop: 5 }}>Nokta adini yaz, istersen fotoğraf ekleyip kaydet.</Text>
 
       <Card style={{ marginTop: 22 }}>
-        <Text style={{ fontWeight: '800', color: colors.text }}>Secilen konum</Text>
+        <Text style={{ fontWeight: '800', color: colors.text }}>Seçilen konum</Text>
         <Text style={{ marginTop: 8, color: colors.muted }}>
           {Number.isFinite(latitude) && Number.isFinite(longitude)
             ? `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
-            : 'Konum alinamadi'}
+            : 'Konum alınamadı'}
         </Text>
 
         <Text style={{ fontWeight: '800', color: colors.text, marginTop: 18 }}>Nokta ismi</Text>
         <TextInput
-          placeholder="Orn. Park ici mama noktasi"
+          placeholder="Orn. Park ici mama noktası"
           value={name}
           onChangeText={setName}
           style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
@@ -152,13 +152,13 @@ export default function PointCreateScreen() {
           onPress={takePhoto}
           style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
         >
-          <Text style={{ color: colors.text, fontWeight: '700' }}>{photoUri ? 'Fotografi yenile' : 'Kamera ile fotograf cek'}</Text>
+          <Text style={{ color: colors.text, fontWeight: '700' }}>{photoUri ? 'Fotografi yenile' : 'Kamera ile fotoğraf cek'}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={pickFromLibrary}
           style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
         >
-          <Text style={{ color: colors.text, fontWeight: '700' }}>Galeriden sec</Text>
+          <Text style={{ color: colors.text, fontWeight: '700' }}>Galeriden seç</Text>
         </TouchableOpacity>
 
         {photoUri && (

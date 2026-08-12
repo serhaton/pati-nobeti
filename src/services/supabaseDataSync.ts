@@ -238,7 +238,7 @@ export async function syncMockDataFromSupabase(): Promise<SupabaseSyncResult> {
           id: toStringId(row.id, `jr-${index + 1}`),
           name,
           initials,
-          note: String(row.note ?? row.status ?? 'Katilim talebi'),
+          note: String(row.note ?? row.status ?? 'Katılım talebi'),
         };
       });
       applySupabaseSnapshot({ joinRequests: mappedRequests });
@@ -269,9 +269,9 @@ export async function syncMockDataFromSupabase(): Promise<SupabaseSyncResult> {
     return {
       usedSupabaseMode: true,
       communitiesLoaded: false,
-      communitiesQueryError: raw || 'Bilinmeyen Supabase servis hatasi',
+      communitiesQueryError: raw || 'Bilinmeyen Supabase servis hatası',
       communitiesTableMissing: false,
-      syncError: raw || 'Bilinmeyen Supabase servis hatasi',
+      syncError: raw || 'Bilinmeyen Supabase servis hatası',
     };
   }
 }

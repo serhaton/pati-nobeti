@@ -95,22 +95,22 @@ export default function FeedingEditScreen() {
 
   async function saveFeedingLog() {
     if (!record?.id) {
-      Alert.alert('Kayit bulunamadi', 'Duzenlenecek besleme kaydi bulunamadi.');
+      Alert.alert('Kayıt bulunamadı', 'Duzenlenecek besleme kaydı bulunamadı.');
       return;
     }
 
     if (!selectedPointId) {
-      Alert.alert('Nokta secilmedi', 'Lutfen bir besleme noktasi sec.');
+      Alert.alert('Nokta seçilmedi', 'Lütfen bir besleme noktası seç.');
       return;
     }
 
     if (!selectedFeederName.trim()) {
-      Alert.alert('Eksik bilgi', 'Lutfen topluluk uyelerinden besleme yapan kisiyi sec.');
+      Alert.alert('Eksik bilgi', 'Lütfen topluluk uyelerinden besleme yapan kisiyi seç.');
       return;
     }
 
     if (feedingDateTime.getTime() > Date.now()) {
-      Alert.alert('Gecersiz tarih', 'Ileri tarihli besleme kaydi guncelleyemezsin.');
+      Alert.alert('Geçersiz tarih', 'İleri tarihli besleme kaydı güncelleyemezsin.');
       return;
     }
 
@@ -124,13 +124,13 @@ export default function FeedingEditScreen() {
       });
 
       if (!updated) {
-        Alert.alert('Kayit hatasi', 'Besleme kaydi guncellenemedi.');
+        Alert.alert('Kayıt hatası', 'Besleme kaydı güncellenemedi.');
         return;
       }
 
       router.replace('/feeding');
     } catch (error: any) {
-      Alert.alert('Supabase kayit hatasi', String(error?.message ?? 'Besleme kaydi guncellenemedi.'));
+      Alert.alert('Supabase kayıt hatası', String(error?.message ?? 'Besleme kaydı güncellenemedi.'));
     }
   }
 
@@ -140,7 +140,7 @@ export default function FeedingEditScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, padding: 20, paddingTop: 58 }}>
         <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
-        <Text style={{ marginTop: 14, color: colors.text, fontSize: 24, fontWeight: '800' }}>Besleme kaydi bulunamadi</Text>
+        <Text style={{ marginTop: 14, color: colors.text, fontSize: 24, fontWeight: '800' }}>Besleme kaydı bulunamadı</Text>
       </View>
     );
   }
@@ -148,20 +148,20 @@ export default function FeedingEditScreen() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 34 }}>
       <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
-      <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Besleme Kaydi Duzenle</Text>
-      <Text style={{ color: colors.muted, marginTop: 5 }}>Secili kaydin bilgilerini guncelle.</Text>
+      <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Besleme Kaydı Düzenle</Text>
+      <Text style={{ color: colors.muted, marginTop: 5 }}>Seçili kaydın bilgilerini güncelle.</Text>
 
       <Card style={{ marginTop: 22 }}>
-        <Text style={{ fontWeight: '800', color: colors.text }}>Besleme noktasi</Text>
+        <Text style={{ fontWeight: '800', color: colors.text }}>Besleme noktası</Text>
         <TouchableOpacity
           onPress={() => setShowPointPicker((value) => !value)}
           style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
         >
           <Text style={{ color: selectedPoint ? colors.text : colors.muted, fontWeight: selectedPoint ? '700' : '500' }}>
-            {selectedPoint ? selectedPoint.name : 'Besleme noktasi sec'}
+            {selectedPoint ? selectedPoint.name : 'Besleme noktası seç'}
           </Text>
           <Text style={{ color: colors.muted, marginTop: 4, fontSize: 12 }}>
-            {showPointPicker ? 'Listeyi kapat ▲' : 'Listeden secmek icin dokun ▼'}
+            {showPointPicker ? 'Listeyi kapat ▲' : 'Listeden seçmek için dokun ▼'}
           </Text>
         </TouchableOpacity>
 
@@ -170,7 +170,7 @@ export default function FeedingEditScreen() {
             <TextInput
               value={searchText}
               onChangeText={setSearchText}
-              placeholder="Topluluk noktalari icinde ara"
+              placeholder="Topluluk noktalari içinde ara"
               style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
             />
 
@@ -196,7 +196,7 @@ export default function FeedingEditScreen() {
                   </TouchableOpacity>
                 ))
               ) : (
-                <Text style={{ color: colors.muted, padding: 12 }}>Bu toplulukta aramaya uygun nokta bulunamadi.</Text>
+                <Text style={{ color: colors.muted, padding: 12 }}>Bu toplulukta aramaya uygun nokta bulunamadı.</Text>
               )}
             </View>
           </>
@@ -208,10 +208,10 @@ export default function FeedingEditScreen() {
           style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
         >
           <Text style={{ color: selectedFeederName ? colors.text : colors.muted, fontWeight: selectedFeederName ? '700' : '500' }}>
-            {selectedFeederName || 'Topluluk uyelerinden sec'}
+            {selectedFeederName || 'Topluluk uyelerinden seç'}
           </Text>
           <Text style={{ color: colors.muted, marginTop: 4, fontSize: 12 }}>
-            {showFeederPicker ? 'Listeyi kapat ▲' : 'Uyeler listesini ac ▼'}
+            {showFeederPicker ? 'Listeyi kapat ▲' : 'Üyeler listesini ac ▼'}
           </Text>
         </TouchableOpacity>
 
@@ -220,7 +220,7 @@ export default function FeedingEditScreen() {
             <TextInput
               value={feederSearchText}
               onChangeText={setFeederSearchText}
-              placeholder="Uyelerde ara"
+              placeholder="Üyelerde ara"
               style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
             />
 
@@ -245,7 +245,7 @@ export default function FeedingEditScreen() {
                   </TouchableOpacity>
                 ))
               ) : (
-                <Text style={{ color: colors.muted, padding: 12 }}>Aramaya uygun topluluk uyesi bulunamadi.</Text>
+                <Text style={{ color: colors.muted, padding: 12 }}>Aramaya uygun topluluk üyesi bulunamadı.</Text>
               )}
             </View>
           </>
@@ -275,13 +275,13 @@ export default function FeedingEditScreen() {
         <TextInput
           value={note}
           onChangeText={setNote}
-          placeholder="Istege bagli"
+          placeholder="İsteğe bağlı"
           style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
         />
       </Card>
 
       <TouchableOpacity onPress={saveFeedingLog} style={{ backgroundColor: colors.primary, borderRadius: 15, padding: 17, marginTop: 15 }}>
-        <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>Besleme Kaydini Guncelle</Text>
+        <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>Besleme Kaydini Güncelle</Text>
       </TouchableOpacity>
     </ScrollView>
   );

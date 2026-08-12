@@ -26,7 +26,7 @@ export default function Community() {
   const isCommunityAdmin = !!currentUser && selectedCommunity?.adminUserIds.includes(currentUser.id);
   const communityMenuItems = [
     ...(isCommunityAdmin ? [
-      ['🛡️', 'Uye Listesi ve Yetkiler', '/community-members'],
+      ['🛡️', 'Üye Listesi ve Yetkiler', '/community-members'],
       ['🩺', 'Veterinerler', '/veterinarians'],
     ] : []),
     ['🗺️', 'Harita ve besleme noktalari', '/map'],
@@ -56,7 +56,7 @@ export default function Community() {
       const rows = await getPendingJoinRequestsForCommunity(selectedCommunityId);
       setPendingRequests(rows);
     } catch (error: any) {
-      Alert.alert('Istek okuma hatasi', String(error?.message ?? 'Katilim istekleri yuklenemedi.'));
+      Alert.alert('İstek okuma hatası', String(error?.message ?? 'Katılım istekleri yüklenemedi.'));
     } finally {
       setIsLoadingRequests(false);
     }
@@ -91,7 +91,7 @@ export default function Community() {
       await refreshCommunities();
       await loadPendingRequests();
     } catch (error: any) {
-      Alert.alert('Onay hatasi', String(error?.message ?? 'Istek onaylanamadi.'));
+      Alert.alert('Onay hatası', String(error?.message ?? 'İstek onaylanamadi.'));
     } finally {
       setActioningRequestId(null);
     }
@@ -108,7 +108,7 @@ export default function Community() {
       await refreshCommunities();
       await loadPendingRequests();
     } catch (error: any) {
-      Alert.alert('Red hatasi', String(error?.message ?? 'Istek reddedilemedi.'));
+      Alert.alert('Red hatası', String(error?.message ?? 'İstek reddedilemedi.'));
     } finally {
       setActioningRequestId(null);
     }
@@ -120,13 +120,13 @@ export default function Community() {
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
       <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
       <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 12 }}>{selectedCommunity.name}</Text>
-      <Text style={{ color: colors.muted, marginTop: 5 }}>{selectedCommunity.neighborhood} · {memberCount} uye · {animalCount} can dost</Text>
+      <Text style={{ color: colors.muted, marginTop: 5 }}>{selectedCommunity.neighborhood} · {memberCount} üye · {animalCount} can dost</Text>
 
       <View style={{ flexDirection: 'row', gap: 9, marginTop: 22 }}>
         {[
           [String(animalCount),'Can Dost'],
           ['12','Besleme'],
-          [`${selectedCommunity.debt.toLocaleString('tr-TR')} ₺`,'Acik Borc']
+          [`${selectedCommunity.debt.toLocaleString('tr-TR')} ₺`,'Açık Borc']
         ].map(([v,l]) => <Card key={l} style={{ flex: 1, padding: 13 }}><Text style={{ fontWeight: '800', fontSize: 18, color: colors.text }}>{v}</Text><Text style={{ color: colors.muted, marginTop: 3, fontSize: 12 }}>{l}</Text></Card>)}
       </View>
 
@@ -135,7 +135,7 @@ export default function Community() {
           <Text style={{ fontSize: 19, fontWeight: '800', color: colors.text, marginTop: 28, marginBottom: 12 }}>Yönetici işlemleri</Text>
           <Card>
             <Text style={{ fontWeight: '800', color: colors.text, fontSize: 16 }}>
-              {pendingRequests.length} yeni katilim istegi
+              {pendingRequests.length} yeni katılım isteği
             </Text>
 
             {isLoadingRequests ? (
@@ -145,7 +145,7 @@ export default function Community() {
             ) : null}
 
             {!isLoadingRequests && pendingRequests.length === 0 ? (
-              <Text style={{ color: colors.muted, marginTop: 10 }}>Bekleyen katilim istegi yok.</Text>
+              <Text style={{ color: colors.muted, marginTop: 10 }}>Bekleyen katılım isteği yok.</Text>
             ) : null}
 
             {pendingRequests.map((r) => (

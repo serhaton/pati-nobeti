@@ -48,7 +48,7 @@ function generateGuid(): string {
 async function getUploadBodyFromUri(uri: string): Promise<ArrayBuffer | Blob> {
   const response = await fetch(uri);
   if (!response.ok) {
-    throw new Error('Gorsel dosyasi okunamadi, lutfen tekrar secip deneyin.');
+    throw new Error('Görsel dosyasi okunamadı, lütfen tekrar secip deneyin.');
   }
 
   if (typeof response.arrayBuffer === 'function') {
@@ -61,7 +61,7 @@ async function getUploadBodyFromUri(uri: string): Promise<ArrayBuffer | Blob> {
     return blob;
   }
 
-  throw new Error('Gorsel dosyasi 0 byte olarak okundu. Lutfen farkli bir gorsel secip tekrar deneyin.');
+  throw new Error('Görsel dosyasi 0 byte olarak okundu. Lütfen farkli bir görsel secip tekrar deneyin.');
 }
 
 export async function uploadImageIfNeeded(input: {
@@ -83,7 +83,7 @@ export async function uploadImageIfNeeded(input: {
 
   const normalizedCommunityId = input.communityId.trim();
   if (!normalizedCommunityId) {
-    throw new Error('Community id bulunamadi. Gorsel yuklenemedi.');
+    throw new Error('Community id bulunamadı. Görsel yüklenemedi.');
   }
 
   const extension = inferExtension(sourceUri);
@@ -103,7 +103,7 @@ export async function uploadImageIfNeeded(input: {
   if (uploadError) {
     throw formatStorageError(
       uploadError,
-      `Gorsel Supabase Storage'a yuklenemedi. Bucket: ${DEFAULT_BUCKET}`
+      `Görsel Supabase Storage'a yüklenemedi. Bucket: ${DEFAULT_BUCKET}`
     );
   }
 
@@ -111,7 +111,7 @@ export async function uploadImageIfNeeded(input: {
   const publicUrl = data?.publicUrl;
 
   if (!publicUrl) {
-    throw new Error('Gorsel yüklendi fakat public URL alinamadi.');
+    throw new Error('Görsel yüklendi fakat public URL alınamadı.');
   }
 
   return publicUrl;

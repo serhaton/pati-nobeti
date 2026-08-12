@@ -71,22 +71,22 @@ export default function FeedingCreateScreen() {
 
   async function saveFeedingLog() {
     if (!selectedCommunity) {
-      Alert.alert('Topluluk secilmedi', 'Besleme kaydi icin once topluluk secmelisin.');
+      Alert.alert('Topluluk seçilmedi', 'Besleme kaydı için önce topluluk seçmelisin.');
       return;
     }
 
     if (!selectedPoint) {
-      Alert.alert('Nokta secilmedi', 'Lutfen listeden bir besleme noktasi sec.');
+      Alert.alert('Nokta seçilmedi', 'Lütfen listeden bir besleme noktası seç.');
       return;
     }
 
     if (!selectedFeederName.trim()) {
-      Alert.alert('Eksik bilgi', 'Lutfen topluluk uyelerinden besleme yapan kisiyi sec.');
+      Alert.alert('Eksik bilgi', 'Lütfen topluluk uyelerinden besleme yapan kisiyi seç.');
       return;
     }
 
     if (feedingDateTime.getTime() > Date.now()) {
-      Alert.alert('Gecersiz tarih', 'Ileri tarihli besleme kaydi giremezsin.');
+      Alert.alert('Geçersiz tarih', 'İleri tarihli besleme kaydı giremezsin.');
       return;
     }
 
@@ -100,13 +100,13 @@ export default function FeedingCreateScreen() {
       });
 
       if (!created) {
-        Alert.alert('Kayit hatasi', 'Besleme kaydi olusturulamadi.');
+        Alert.alert('Kayıt hatası', 'Besleme kaydı oluşturulamadı.');
         return;
       }
 
       router.replace('/feeding');
     } catch (error: any) {
-      Alert.alert('Supabase kayit hatasi', String(error?.message ?? 'Besleme kaydi kaydedilemedi.'));
+      Alert.alert('Supabase kayıt hatası', String(error?.message ?? 'Besleme kaydı kaydedilemedi.'));
     }
   }
 
@@ -115,20 +115,20 @@ export default function FeedingCreateScreen() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 34 }}>
       <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
-      <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Besleme Kaydi Ekle</Text>
-      <Text style={{ color: colors.muted, marginTop: 5 }}>Yeni besleme kaydini topluluk listesine ekle.</Text>
+      <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Besleme Kaydı Ekle</Text>
+      <Text style={{ color: colors.muted, marginTop: 5 }}>Yeni besleme kaydını topluluk listesine ekle.</Text>
 
       <Card style={{ marginTop: 22 }}>
-        <Text style={{ fontWeight: '800', color: colors.text }}>Besleme noktasi</Text>
+        <Text style={{ fontWeight: '800', color: colors.text }}>Besleme noktası</Text>
         <TouchableOpacity
           onPress={() => setShowPointPicker((value) => !value)}
           style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
         >
           <Text style={{ color: selectedPoint ? colors.text : colors.muted, fontWeight: selectedPoint ? '700' : '500' }}>
-            {selectedPoint ? selectedPoint.name : 'Besleme noktasi sec'}
+            {selectedPoint ? selectedPoint.name : 'Besleme noktası seç'}
           </Text>
           <Text style={{ color: colors.muted, marginTop: 4, fontSize: 12 }}>
-            {showPointPicker ? 'Listeyi kapat ▲' : 'Listeden secmek icin dokun ▼'}
+            {showPointPicker ? 'Listeyi kapat ▲' : 'Listeden seçmek için dokun ▼'}
           </Text>
         </TouchableOpacity>
 
@@ -141,12 +141,12 @@ export default function FeedingCreateScreen() {
           >
             <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.25)', justifyContent: 'center', padding: 20 }}>
               <Card style={{ borderRadius: 14, maxHeight: '75%' }}>
-                <Text style={{ fontWeight: '800', color: colors.text, fontSize: 16 }}>Besleme Noktasi Secimi</Text>
+                <Text style={{ fontWeight: '800', color: colors.text, fontSize: 16 }}>Besleme Noktası Seçimi</Text>
 
                 <TextInput
                   value={searchText}
                   onChangeText={setSearchText}
-                  placeholder="Topluluk noktalari icinde ara"
+                  placeholder="Topluluk noktalari içinde ara"
                   style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
                 />
 
@@ -177,7 +177,7 @@ export default function FeedingCreateScreen() {
                       </TouchableOpacity>
                     ))
                   ) : (
-                    <Text style={{ color: colors.muted, padding: 12 }}>Bu toplulukta aramaya uygun nokta bulunamadi.</Text>
+                    <Text style={{ color: colors.muted, padding: 12 }}>Bu toplulukta aramaya uygun nokta bulunamadı.</Text>
                   )}
                 </ScrollView>
 
@@ -198,10 +198,10 @@ export default function FeedingCreateScreen() {
           style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
         >
           <Text style={{ color: selectedFeederName ? colors.text : colors.muted, fontWeight: selectedFeederName ? '700' : '500' }}>
-            {selectedFeederName || 'Topluluk uyelerinden sec'}
+            {selectedFeederName || 'Topluluk uyelerinden seç'}
           </Text>
           <Text style={{ color: colors.muted, marginTop: 4, fontSize: 12 }}>
-            {showFeederPicker ? 'Listeyi kapat ▲' : 'Uyeler listesini ac ▼'}
+            {showFeederPicker ? 'Listeyi kapat ▲' : 'Üyeler listesini ac ▼'}
           </Text>
         </TouchableOpacity>
 
@@ -214,12 +214,12 @@ export default function FeedingCreateScreen() {
           >
             <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.25)', justifyContent: 'center', padding: 20 }}>
               <Card style={{ borderRadius: 14, maxHeight: '75%' }}>
-                <Text style={{ fontWeight: '800', color: colors.text, fontSize: 16 }}>Besleme Yapan Secimi</Text>
+                <Text style={{ fontWeight: '800', color: colors.text, fontSize: 16 }}>Besleme Yapan Seçimi</Text>
 
                 <TextInput
                   value={feederSearchText}
                   onChangeText={setFeederSearchText}
-                  placeholder="Uyelerde ara"
+                  placeholder="Üyelerde ara"
                   style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
                 />
 
@@ -249,7 +249,7 @@ export default function FeedingCreateScreen() {
                       </TouchableOpacity>
                     ))
                   ) : (
-                    <Text style={{ color: colors.muted, padding: 12 }}>Aramaya uygun topluluk uyesi bulunamadi.</Text>
+                    <Text style={{ color: colors.muted, padding: 12 }}>Aramaya uygun topluluk üyesi bulunamadı.</Text>
                   )}
                 </ScrollView>
 
@@ -288,7 +288,7 @@ export default function FeedingCreateScreen() {
         <TextInput
           value={note}
           onChangeText={setNote}
-          placeholder="Istege bagli"
+          placeholder="İsteğe bağlı"
           style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
         />
       </Card>

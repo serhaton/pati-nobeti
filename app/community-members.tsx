@@ -51,7 +51,7 @@ export default function CommunityMembersScreen() {
       const rows = await getCommunityMembersForAdmin(selectedCommunityId);
       setMembers(rows);
     } catch (error: any) {
-      Alert.alert('Uye listesi hatasi', String(error?.message ?? 'Uyeler yuklenemedi.'));
+      Alert.alert('Üye listesi hatası', String(error?.message ?? 'Üyeler yüklenemedi.'));
     } finally {
       setIsLoading(false);
     }
@@ -67,7 +67,7 @@ export default function CommunityMembersScreen() {
     if (!selectedCommunityId) return;
 
     if (currentUser?.id === member.userId) {
-      Alert.alert('Islem engellendi', 'Kendi uyeligini bu ekrandan bloklayamazsin.');
+      Alert.alert('İşlem engellendi', 'Kendi uyeligini bu ekrandan bloklayamazsin.');
       return;
     }
 
@@ -82,7 +82,7 @@ export default function CommunityMembersScreen() {
       });
       await loadMembers();
     } catch (error: any) {
-      Alert.alert('Guncelleme hatasi', String(error?.message ?? 'Uye durumu guncellenemedi.'));
+      Alert.alert('Guncelleme hatası', String(error?.message ?? 'Üye durumu güncellenemedi.'));
     } finally {
       setActioningMemberId(null);
     }
@@ -92,12 +92,12 @@ export default function CommunityMembersScreen() {
     if (!selectedCommunityId) return;
 
     if (currentUser?.id === member.userId) {
-      Alert.alert('Islem engellendi', 'Kendi rolunu bu ekrandan degistiremezsin.');
+      Alert.alert('İşlem engellendi', 'Kendi rolünü bu ekrandan degistiremezsin.');
       return;
     }
 
     if (member.role === 'admin' && activeAdminCount <= 1) {
-      Alert.alert('Islem engellendi', 'Toplulukta en az bir admin kalmalidir.');
+      Alert.alert('İşlem engellendi', 'Toplulukta en az bir admin kalmalidir.');
       return;
     }
 
@@ -112,7 +112,7 @@ export default function CommunityMembersScreen() {
       });
       await loadMembers();
     } catch (error: any) {
-      Alert.alert('Guncelleme hatasi', String(error?.message ?? 'Uye rolu guncellenemedi.'));
+      Alert.alert('Guncelleme hatası', String(error?.message ?? 'Üye rolu güncellenemedi.'));
     } finally {
       setActioningMemberId(null);
     }
@@ -123,7 +123,7 @@ export default function CommunityMembersScreen() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
       <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
-      <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 12 }}>Uye Listesi</Text>
+      <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 12 }}>Üye Listesi</Text>
       <Text style={{ color: colors.muted, marginTop: 5 }}>{selectedCommunity.name}</Text>
 
       <TextInput
@@ -145,23 +145,23 @@ export default function CommunityMembersScreen() {
 
       {!isSupabaseDataEnabled() ? (
         <Card style={{ marginTop: 18 }}>
-          <Text style={{ color: colors.muted }}>Bu ekran yalnizca Supabase modunda aktif.</Text>
+          <Text style={{ color: colors.muted }}>Bu ekran yalnızca Supabase modunda aktif.</Text>
         </Card>
       ) : null}
 
       {!isCommunityAdmin ? (
         <Card style={{ marginTop: 18 }}>
           <Text style={{ color: colors.text, fontWeight: '800' }}>Yetki gerekli</Text>
-          <Text style={{ color: colors.muted, marginTop: 6 }}>Bu sayfayi sadece topluluk yoneticileri kullanabilir.</Text>
+          <Text style={{ color: colors.muted, marginTop: 6 }}>Bu sayfayi sadece topluluk yöneticileri kullanabilir.</Text>
         </Card>
       ) : null}
 
       {isCommunityAdmin && isSupabaseDataEnabled() ? (
         <>
           <Card style={{ marginTop: 18, marginBottom: 10 }}>
-            <Text style={{ color: colors.text, fontWeight: '800' }}>{filteredMembers.length} uye</Text>
+            <Text style={{ color: colors.text, fontWeight: '800' }}>{filteredMembers.length} üye</Text>
             <Text style={{ color: colors.muted, marginTop: 5 }}>
-              Uyeleri bloklayabilir veya rollerini guncelleyebilirsin.
+              Üyeleri bloklayabilir veya rollerini güncelleyebilirsin.
             </Text>
           </Card>
 
@@ -173,14 +173,14 @@ export default function CommunityMembersScreen() {
 
           {!isLoading && filteredMembers.length === 0 ? (
             <Card>
-              <Text style={{ color: colors.muted }}>Aramana uygun uye bulunamadi.</Text>
+              <Text style={{ color: colors.muted }}>Aramana uygun üye bulunamadı.</Text>
             </Card>
           ) : null}
 
           {!isLoading ? filteredMembers.map((member) => {
             const isBusy = actioningMemberId === member.id;
             const isBlocked = member.status === 'passive';
-            const roleLabel = member.role === 'admin' ? 'Admin' : 'Uye';
+            const roleLabel = member.role === 'admin' ? 'Admin' : 'Üye';
 
             return (
               <Card key={member.id} style={{ marginBottom: 10 }}>
@@ -202,7 +202,7 @@ export default function CommunityMembersScreen() {
                     }}
                   >
                     <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>
-                      {member.role === 'admin' ? 'Rolunu Uye Yap' : 'Rolunu Admin Yap'}
+                      {member.role === 'admin' ? 'Rolünü Üye Yap' : 'Rolünü Admin Yap'}
                     </Text>
                   </TouchableOpacity>
 
@@ -218,14 +218,14 @@ export default function CommunityMembersScreen() {
                     }}
                   >
                     <Text style={{ textAlign: 'center', color: '#fff', fontWeight: '700' }}>
-                      {isBlocked ? 'Engeli Kaldir' : 'Uyeyi Blokla'}
+                      {isBlocked ? 'Engeli Kaldır' : 'Üyeyi Blokla'}
                     </Text>
                   </TouchableOpacity>
                 </View>
 
                 {currentUser?.id === member.userId ? (
                   <Text style={{ color: colors.muted, marginTop: 8, fontSize: 12 }}>
-                    Kendi uyelik kaydini bu ekrandan degistiremezsin.
+                    Kendi üyelik kaydını bu ekrandan degistiremezsin.
                   </Text>
                 ) : null}
               </Card>

@@ -41,7 +41,7 @@ export async function getMembershipsForUser(userId: string): Promise<CommunityMe
     .select('community_id, status, role')
     .eq('user_id', userId);
 
-  if (error) throw formatError(error, 'Uyelik bilgileri okunamadi.');
+  if (error) throw formatError(error, 'Üyelik bilgileri okunamadı.');
 
   return (data ?? []).map((row: any) => ({
     communityId: String(row.community_id),
@@ -60,7 +60,7 @@ export async function createCommunityAndAssignAdmin(input: {
   userId: string;
 }): Promise<{ communityId: string }> {
   if (!isSupabaseDataEnabled()) {
-    throw new Error('Topluluk olusturma yalnizca Supabase modunda destekleniyor.');
+    throw new Error('Topluluk oluşturma yalnızca Supabase modunda destekleniyor.');
   }
 
   const { data: communityData, error: communityError } = await supabase
@@ -78,7 +78,7 @@ export async function createCommunityAndAssignAdmin(input: {
     .single();
 
   if (communityError) {
-    throw formatError(communityError, 'Topluluk olusturulamadi.');
+    throw formatError(communityError, 'Topluluk oluşturulamadı.');
   }
 
   const communityId = String(communityData.id);
@@ -93,7 +93,7 @@ export async function createCommunityAndAssignAdmin(input: {
     });
 
   if (memberError) {
-    throw formatError(memberError, 'Topluluk olusturuldu ancak admin uyeligi olusturulamadi.');
+    throw formatError(memberError, 'Topluluk oluşturuldu ancak admin üyeliği oluşturulamadı.');
   }
 
   return { communityId };
@@ -106,7 +106,7 @@ export async function sendJoinRequest(input: {
   note: string;
 }): Promise<void> {
   if (!isSupabaseDataEnabled()) {
-    throw new Error('Katilim istegi yalnizca Supabase modunda destekleniyor.');
+    throw new Error('Katılım isteği yalnızca Supabase modunda destekleniyor.');
   }
 
   // Re-request flow: remove previous request row, then create a fresh pending request.
@@ -117,7 +117,7 @@ export async function sendJoinRequest(input: {
     .eq('user_id', input.userId);
 
   if (deleteError) {
-    throw formatError(deleteError, 'Onceki katilim istegi temizlenemedi.');
+    throw formatError(deleteError, 'Önceki katılım isteği temizlenemedi.');
   }
 
   const { error: insertRequestError } = await supabase
@@ -131,7 +131,7 @@ export async function sendJoinRequest(input: {
     });
 
   if (insertRequestError) {
-    throw formatError(insertRequestError, 'Katilim istegi gonderilemedi.');
+    throw formatError(insertRequestError, 'Katılım isteği gönderilemedi.');
   }
 
   const { error: upsertMemberError } = await supabase
@@ -144,7 +144,7 @@ export async function sendJoinRequest(input: {
     }, { onConflict: 'community_id,user_id' });
 
   if (upsertMemberError) {
-    throw formatError(upsertMemberError, 'Uyelik durumu guncellenemedi.');
+    throw formatError(upsertMemberError, 'Üyelik durumu güncellenemedi.');
   }
 }
 
@@ -159,7 +159,7 @@ export async function getPendingJoinRequestsForCommunity(communityId: string): P
     .order('created_at', { ascending: false });
 
   if (error) {
-    throw formatError(error, 'Katilim istekleri okunamadi.');
+    throw formatError(error, 'Katılım istekleri okunamadı.');
   }
 
   return (data ?? []).map((row: any) => ({
@@ -179,7 +179,7 @@ export async function approveJoinRequest(input: {
   userId: string;
 }): Promise<void> {
   if (!isSupabaseDataEnabled()) {
-    throw new Error('Istek onayi yalnizca Supabase modunda destekleniyor.');
+    throw new Error('İstek onayi yalnızca Supabase modunda destekleniyor.');
   }
 
   const { error: requestError } = await supabase
@@ -188,7 +188,7 @@ export async function approveJoinRequest(input: {
     .eq('id', input.requestId);
 
   if (requestError) {
-    throw formatError(requestError, 'Katilim istegi onaylanamadi.');
+    throw formatError(requestError, 'Katılım isteği onaylanamadı.');
   }
 
   const { error: memberError } = await supabase
@@ -201,7 +201,7 @@ export async function approveJoinRequest(input: {
     }, { onConflict: 'community_id,user_id' });
 
   if (memberError) {
-    throw formatError(memberError, 'Uyelik active durumuna getirilemedi.');
+    throw formatError(memberError, 'Üyelik active durumuna getirilemedi.');
   }
 }
 
@@ -211,7 +211,7 @@ export async function rejectJoinRequest(input: {
   userId: string;
 }): Promise<void> {
   if (!isSupabaseDataEnabled()) {
-    throw new Error('Istek reddi yalnizca Supabase modunda destekleniyor.');
+    throw new Error('İstek reddi yalnızca Supabase modunda destekleniyor.');
   }
 
   const { error: requestError } = await supabase
@@ -220,7 +220,7 @@ export async function rejectJoinRequest(input: {
     .eq('id', input.requestId);
 
   if (requestError) {
-    throw formatError(requestError, 'Katilim istegi reddedilemedi.');
+    throw formatError(requestError, 'Katılım isteği reddedilemedi.');
   }
 
   const { error: memberError } = await supabase
@@ -233,7 +233,7 @@ export async function rejectJoinRequest(input: {
     }, { onConflict: 'community_id,user_id' });
 
   if (memberError) {
-    throw formatError(memberError, 'Uyelik rejected durumuna getirilemedi.');
+    throw formatError(memberError, 'Üyelik rejected durumuna getirilemedi.');
   }
 }
 
@@ -247,7 +247,7 @@ export async function getCommunityMembersForAdmin(communityId: string): Promise<
     .order('created_at', { ascending: true });
 
   if (memberError) {
-    throw formatError(memberError, 'Topluluk uyeleri okunamadi.');
+    throw formatError(memberError, 'Topluluk üyeleri okunamadı.');
   }
 
   const members = memberRows ?? [];
@@ -264,7 +264,7 @@ export async function getCommunityMembersForAdmin(communityId: string): Promise<
       .in('id', userIds);
 
     if (profileError) {
-      throw formatError(profileError, 'Uye profil bilgileri okunamadi.');
+      throw formatError(profileError, 'Üye profil bilgileri okunamadı.');
     }
 
     profileMap = new Map(
@@ -302,7 +302,7 @@ export async function updateCommunityMemberByAdmin(input: {
   status?: 'active' | 'passive' | 'pending' | 'approved' | 'rejected';
 }): Promise<void> {
   if (!isSupabaseDataEnabled()) {
-    throw new Error('Uye guncelleme yalnizca Supabase modunda destekleniyor.');
+    throw new Error('Üye güncelleme yalnızca Supabase modunda destekleniyor.');
   }
 
   const payload: Record<string, string> = {};
@@ -310,7 +310,7 @@ export async function updateCommunityMemberByAdmin(input: {
   if (input.status) payload.status = input.status;
 
   if (Object.keys(payload).length === 0) {
-    throw new Error('Guncellenecek alan bulunamadi.');
+    throw new Error('Güncellenecek alan bulunamadı.');
   }
 
   const { error } = await supabase
@@ -320,6 +320,6 @@ export async function updateCommunityMemberByAdmin(input: {
     .eq('community_id', input.communityId);
 
   if (error) {
-    throw formatError(error, 'Uye bilgisi guncellenemedi.');
+    throw formatError(error, 'Üye bilgisi güncellenemedi.');
   }
 }

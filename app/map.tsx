@@ -376,7 +376,7 @@ export default function MapScreen() {
                   onPress={() => openEditPoint(selectedPoint.id)}
                   style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 13, marginTop: 16 }}
                 >
-                  <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>Noktayi Duzenle</Text>
+                  <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>Noktayi Düzenle</Text>
                 </TouchableOpacity>
               ) : null}
 
@@ -392,14 +392,14 @@ export default function MapScreen() {
                   ))}
                 </View>
               ) : (
-                <Text style={{ color: colors.muted, marginTop: 8 }}>Bu nokta icin henuz besleme kaydi yok.</Text>
+                <Text style={{ color: colors.muted, marginTop: 8 }}>Bu nokta için henüz besleme kaydı yok.</Text>
               )}
             </>
           ) : (
             <>
               <Text style={{ fontWeight: '800', color: colors.text, fontSize: 17 }}>Mama Nokta Detayi</Text>
               <Text style={{ color: colors.muted, marginTop: 8 }}>
-                Haritadaki bir mama noktasina dokun. Detaylari burada acilir, paneli yukari kaydirarak genisletebilirsin.
+                Haritadaki bir mama noktasına dokun. Detayları burada açılır, paneli yukarı kaydırarak genişletebilirsin.
               </Text>
             </>
           )}
