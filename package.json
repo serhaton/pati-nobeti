@@ -7,7 +7,8 @@
     "start": "expo start",
     "ios": "expo start --ios",
     "android": "expo start --android",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build:istanbul-vets-sql": "node scripts/generate_istanbul_vets_sql.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.0",

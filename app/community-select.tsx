@@ -29,6 +29,7 @@ type NearbyCommunity = {
 };
 
 type MembershipStatus = 'none' | 'pending' | 'rejected' | 'approved' | 'active' | 'passive';
+type MembershipRole = 'admin' | 'member' | 'none';
 
 function toRadians(value: number) {
   return (value * Math.PI) / 180;
@@ -76,6 +77,7 @@ export default function CommunitySelectScreen() {
   const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
 
   const [membershipsByCommunity, setMembershipsByCommunity] = useState<Record<string, MembershipStatus>>({});
+  const [membershipRolesByCommunity, setMembershipRolesByCommunity] = useState<Record<string, MembershipRole>>({});
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [targetCommunityId, setTargetCommunityId] = useState<string | null>(null);
   const [joinNote, setJoinNote] = useState('');
@@ -151,6 +153,7 @@ export default function CommunitySelectScreen() {
     async function loadMemberships() {
       if (!currentUser || !isSupabaseDataEnabled()) {
         setMembershipsByCommunity({});
+        setMembershipRolesByCommunity({});
         return;
       }
 
@@ -159,15 +162,20 @@ export default function CommunitySelectScreen() {
         if (!mounted) return;
 
         const next: Record<string, MembershipStatus> = {};
+        const nextRoles: Record<string, MembershipRole> = {};
         memberships.forEach((membership) => {
           const rawStatus = membership.status.toLowerCase();
+          const rawRole = membership.role.toLowerCase();
           if (rawStatus === 'pending') next[membership.communityId] = 'pending';
           else if (rawStatus === 'rejected') next[membership.communityId] = 'rejected';
           else if (rawStatus === 'approved') next[membership.communityId] = 'approved';
           else if (rawStatus === 'passive') next[membership.communityId] = 'passive';
           else next[membership.communityId] = 'active';
+
+          nextRoles[membership.communityId] = rawRole === 'admin' ? 'admin' : 'member';
         });
         setMembershipsByCommunity(next);
+        setMembershipRolesByCommunity(nextRoles);
       } catch (error: any) {
         if (!mounted) return;
         Alert.alert('Uyelik hatasi', String(error?.message ?? 'Uyelik durumlari okunamadi.'));
@@ -242,6 +250,10 @@ export default function CommunitySelectScreen() {
 
   function getMembershipStatus(communityId: string): MembershipStatus {
     return membershipsByCommunity[communityId] ?? 'none';
+  }
+
+  function getMembershipRole(communityId: string): MembershipRole {
+    return membershipRolesByCommunity[communityId] ?? 'none';
   }
 
   function openJoinRequest(communityId: string) {
@@ -468,6 +480,7 @@ export default function CommunitySelectScreen() {
         {memberCommunities.map((community) => {
           const isSelected = selectedCommunity?.id === community.id;
           const membershipStatus = getMembershipStatus(community.id);
+          const membershipRole = getMembershipRole(community.id);
 
           const actionLabel = membershipStatus === 'active' || membershipStatus === 'approved' || membershipStatus === 'passive'
             ? 'Bu Toplulukla Devam Et'
@@ -481,13 +494,14 @@ export default function CommunitySelectScreen() {
             <TouchableOpacity key={community.id} onPress={() => onCommunityPress(community.id)}>
               <Card style={{ marginBottom: 10, borderColor: isSelected ? colors.primary : colors.border, borderWidth: isSelected ? 2 : 1 }}>
                 <Text style={{ fontWeight: '800', color: colors.text, fontSize: 17 }}>{community.name}</Text>
-                <Text style={{ color: colors.muted, marginTop: 5 }}>
-                  {community.neighborhood} · {community.members} uye · {community.animals} can{community.distanceKm !== null ? ` · ${community.distanceKm.toFixed(1)} km` : ''}
+                <Text style={{ color: colors.muted, marginTop: 5 }}>{community.neighborhood}</Text>
+                <Text style={{ color: colors.muted, marginTop: 2 }}>
+                  {community.members} uye · {community.animals} can{community.distanceKm !== null ? ` · ${community.distanceKm.toFixed(1)} km` : ''}
                 </Text>
 
                 {isSupabaseDataEnabled() ? (
                   <Text style={{ color: colors.muted, marginTop: 7, fontSize: 12 }}>
-                    Uyelik durumu: {membershipStatus}
+                    Uyelik durumu: {membershipStatus}{membershipRole !== 'none' ? ` · Rol: ${membershipRole}` : ''}
                   </Text>
                 ) : null}
 
@@ -521,6 +535,7 @@ export default function CommunitySelectScreen() {
         {nearbyNonMemberCommunities.map((community) => {
           const isSelected = selectedCommunity?.id === community.id;
           const membershipStatus = getMembershipStatus(community.id);
+          const membershipRole = getMembershipRole(community.id);
 
           const actionLabel = membershipStatus === 'pending'
             ? 'Katilim istegi beklemede'
@@ -532,13 +547,14 @@ export default function CommunitySelectScreen() {
             <TouchableOpacity key={community.id} onPress={() => onCommunityPress(community.id)}>
               <Card style={{ marginBottom: 10, borderColor: isSelected ? colors.primary : colors.border, borderWidth: isSelected ? 2 : 1 }}>
                 <Text style={{ fontWeight: '800', color: colors.text, fontSize: 17 }}>{community.name}</Text>
-                <Text style={{ color: colors.muted, marginTop: 5 }}>
-                  {community.neighborhood} · {community.members} uye · {community.animals} can{community.distanceKm !== null ? ` · ${community.distanceKm.toFixed(1)} km` : ''}
+                <Text style={{ color: colors.muted, marginTop: 5 }}>{community.neighborhood}</Text>
+                <Text style={{ color: colors.muted, marginTop: 2 }}>
+                  {community.members} uye · {community.animals} can{community.distanceKm !== null ? ` · ${community.distanceKm.toFixed(1)} km` : ''}
                 </Text>
 
                 {isSupabaseDataEnabled() ? (
                   <Text style={{ color: colors.muted, marginTop: 7, fontSize: 12 }}>
-                    Uyelik durumu: {membershipStatus}
+                    Uyelik durumu: {membershipStatus}{membershipRole !== 'none' ? ` · Rol: ${membershipRole}` : ''}
                   </Text>
                 ) : null}
 
@@ -572,6 +588,7 @@ export default function CommunitySelectScreen() {
         {allNonMemberCommunities.map((community) => {
           const isSelected = selectedCommunity?.id === community.id;
           const membershipStatus = getMembershipStatus(community.id);
+          const membershipRole = getMembershipRole(community.id);
 
           const actionLabel = membershipStatus === 'pending'
             ? 'Katilim istegi beklemede'
@@ -583,13 +600,14 @@ export default function CommunitySelectScreen() {
             <TouchableOpacity key={`all-${community.id}`} onPress={() => onCommunityPress(community.id)}>
               <Card style={{ marginBottom: 10, borderColor: isSelected ? colors.primary : colors.border, borderWidth: isSelected ? 2 : 1 }}>
                 <Text style={{ fontWeight: '800', color: colors.text, fontSize: 17 }}>{community.name}</Text>
-                <Text style={{ color: colors.muted, marginTop: 5 }}>
-                  {community.neighborhood} · {community.members} uye · {community.animals} can{community.distanceKm !== null ? ` · ${community.distanceKm.toFixed(1)} km` : ''}
+                <Text style={{ color: colors.muted, marginTop: 5 }}>{community.neighborhood}</Text>
+                <Text style={{ color: colors.muted, marginTop: 2 }}>
+                  {community.members} uye · {community.animals} can{community.distanceKm !== null ? ` · ${community.distanceKm.toFixed(1)} km` : ''}
                 </Text>
 
                 {isSupabaseDataEnabled() ? (
                   <Text style={{ color: colors.muted, marginTop: 7, fontSize: 12 }}>
-                    Uyelik durumu: {membershipStatus}
+                    Uyelik durumu: {membershipStatus}{membershipRole !== 'none' ? ` · Rol: ${membershipRole}` : ''}
                   </Text>
                 ) : null}
 

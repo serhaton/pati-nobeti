@@ -76,7 +76,8 @@ export default function Home() {
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 <View>
                   <Text style={{ fontWeight: '800', fontSize: 17, color: colors.text }}>{selectedCommunity.name}</Text>
-                  <Text style={{ color: colors.muted, marginTop: 5 }}>{selectedCommunity.neighborhood} · {selectedCommunity.members} uye · {selectedCommunity.animals} can</Text>
+                  <Text style={{ color: colors.muted, marginTop: 5 }}>{selectedCommunity.neighborhood}</Text>
+                  <Text style={{ color: colors.muted, marginTop: 2 }}>{selectedCommunity.members} uye · {selectedCommunity.animals} can</Text>
                 </View>
                 <Text style={{ fontSize: 28 }}>›</Text>
               </View>

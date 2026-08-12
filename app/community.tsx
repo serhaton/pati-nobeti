@@ -24,6 +24,16 @@ export default function Community() {
   const [actioningRequestId, setActioningRequestId] = useState<string | null>(null);
   const selectedCommunityId = selectedCommunity?.id ?? null;
   const isCommunityAdmin = !!currentUser && selectedCommunity?.adminUserIds.includes(currentUser.id);
+  const communityMenuItems = [
+    ...(isCommunityAdmin ? [
+      ['🛡️', 'Uye Listesi ve Yetkiler', '/community-members'],
+      ['🩺', 'Veterinerler', '/veterinarians'],
+    ] : []),
+    ['🗺️', 'Harita ve besleme noktalari', '/map'],
+    ['🐾', 'Can dostlar', '/animal'],
+    ['💰', 'Gelir / gider ve borclar', '/expenses'],
+    ['📣', 'Duyurular', '/community'],
+  ] as const;
   const memberCount = useMemo(() => {
     if (!selectedCommunity) return 0;
     return getCommunityMembers(selectedCommunity.id)
@@ -120,10 +130,6 @@ export default function Community() {
         ].map(([v,l]) => <Card key={l} style={{ flex: 1, padding: 13 }}><Text style={{ fontWeight: '800', fontSize: 18, color: colors.text }}>{v}</Text><Text style={{ color: colors.muted, marginTop: 3, fontSize: 12 }}>{l}</Text></Card>)}
       </View>
 
-      <TouchableOpacity onPress={() => router.push('/community-select')} style={{ marginTop: 12, backgroundColor: colors.primarySoft, borderRadius: 12, padding: 10 }}>
-        <Text style={{ color: colors.primary, textAlign: 'center', fontWeight: '800' }}>Toplulugu Degistir</Text>
-      </TouchableOpacity>
-
       {isCommunityAdmin ? (
         <>
           <Text style={{ fontSize: 19, fontWeight: '800', color: colors.text, marginTop: 28, marginBottom: 12 }}>Yönetici işlemleri</Text>
@@ -179,23 +185,12 @@ export default function Community() {
               </View>
             ))}
 
-            <TouchableOpacity
-              onPress={() => router.push('/community-members')}
-              style={{ marginTop: 14, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 11 }}
-            >
-              <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Uye Listesi ve Yetkiler</Text>
-            </TouchableOpacity>
           </Card>
         </>
       ) : null}
 
       <Text style={{ fontSize: 19, fontWeight: '800', color: colors.text, marginTop: 28, marginBottom: 12 }}>Topluluk menüsü</Text>
-      {[
-        ['🗺️','Harita ve besleme noktaları','/map'],
-        ['🐾','Can dostlar','/animal'],
-        ['💰','Gelir / gider ve borçlar','/expenses'],
-        ['📣','Duyurular','/community']
-      ].map(([icon,label,path]) => (
+      {communityMenuItems.map(([icon,label,path]) => (
         <TouchableOpacity key={label} onPress={() => router.push(path as any)}>
           <Card style={{ marginBottom: 9 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>

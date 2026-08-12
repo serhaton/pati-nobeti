@@ -96,21 +96,6 @@ export default function Welcome() {
         <Text style={{ color: colors.primary, textAlign: 'center', fontSize: 16, fontWeight: '800' }}>E-posta ile hesap olustur</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => continueWith('google')} disabled={isAuthLoading} style={{
-        backgroundColor: colors.primary, padding: 17, borderRadius: 16, marginBottom: 12, opacity: isAuthLoading ? 0.7 : 1,
-      }}>
-        <Text style={{ color: '#fff', textAlign: 'center', fontSize: 16, fontWeight: '800' }}>Google ile devam et</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => continueWith('apple')} disabled={isAuthLoading} style={{
-        backgroundColor: '#111', padding: 17, borderRadius: 16, opacity: isAuthLoading ? 0.7 : 1,
-      }}>
-        <Text style={{ color: '#fff', textAlign: 'center', fontSize: 16, fontWeight: '800' }}>Apple ile devam et</Text>
-      </TouchableOpacity>
-
-      <Text style={{ color: colors.muted, textAlign: 'center', fontSize: 12, marginTop: 20 }}>
-        Prototip: giris sonrasi once topluluk secimi zorunludur.
-      </Text>
     </View>
   );
 }

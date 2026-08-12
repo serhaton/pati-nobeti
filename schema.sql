@@ -7,9 +7,13 @@ create table if not exists profiles (
   full_name text,
   name text,
   avatar_url text,
+  is_app_admin boolean not null default false,
   status text not null default 'active' check (status in ('active', 'passive')),
   created_at timestamptz not null default now()
 );
+
+alter table profiles
+  add column if not exists is_app_admin boolean not null default false;
 
 create table if not exists communities (
   id uuid primary key default gen_random_uuid(),
@@ -112,9 +116,47 @@ create table if not exists community_join_requests (
   unique (community_id, user_id)
 );
 
+create table if not exists global_veterinarians (
+  id uuid primary key default gen_random_uuid(),
+  clinic_name text not null,
+  default_veterinarian_name text not null,
+  default_phone text not null,
+  location_label text not null,
+  latitude double precision not null,
+  longitude double precision not null,
+  city text,
+  district text,
+  source text,
+  verified boolean not null default false,
+  is_active boolean not null default true,
+  created_by uuid references profiles(id),
+  updated_by uuid references profiles(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists community_veterinarians (
+  id uuid primary key default gen_random_uuid(),
+  community_id uuid not null references communities(id) on delete cascade,
+  global_veterinarian_id uuid not null references global_veterinarians(id) on delete restrict,
+  override_veterinarian_name text,
+  override_phone text,
+  notes text,
+  is_active boolean not null default true,
+  created_by uuid references profiles(id),
+  updated_by uuid references profiles(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (community_id, global_veterinarian_id)
+);
+
 create index if not exists idx_community_members_community_id on community_members (community_id);
 create index if not exists idx_feeding_points_community_id on feeding_points (community_id);
 create index if not exists idx_animals_community_id on animals (community_id);
 create index if not exists idx_feeding_logs_community_id on feeding_logs (community_id);
 create index if not exists idx_feeding_logs_fed_at on feeding_logs (fed_at desc);
 create index if not exists idx_expenses_community_id on expenses (community_id);
+create index if not exists idx_global_veterinarians_active on global_veterinarians (is_active);
+create index if not exists idx_global_veterinarians_location on global_veterinarians (latitude, longitude);
+create index if not exists idx_community_veterinarians_community_id on community_veterinarians (community_id);
+create index if not exists idx_community_veterinarians_global_vet_id on community_veterinarians (global_veterinarian_id);

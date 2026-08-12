@@ -52,9 +52,24 @@ as $$
     );
 $$;
 
+create or replace function public.is_app_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles p
+    where p.id = auth.uid()
+      and coalesce(p.is_app_admin, false) = true
+  );
+$$;
+
 grant execute on function public.is_community_member(uuid) to authenticated;
 grant execute on function public.is_community_admin(uuid) to authenticated;
 grant execute on function public.can_access_profile(uuid) to authenticated;
+grant execute on function public.is_app_admin() to authenticated;
 
 alter table public.profiles enable row level security;
 alter table public.communities enable row level security;
@@ -65,6 +80,8 @@ alter table public.feeding_logs enable row level security;
 alter table public.expenses enable row level security;
 alter table public.contributions enable row level security;
 alter table public.community_join_requests enable row level security;
+alter table public.global_veterinarians enable row level security;
+alter table public.community_veterinarians enable row level security;
 
 drop policy if exists profiles_select on public.profiles;
 drop policy if exists profiles_insert_self on public.profiles;
@@ -383,3 +400,63 @@ using (
   user_id = auth.uid()
   or public.is_community_admin(community_id)
 );
+
+drop policy if exists global_veterinarians_select on public.global_veterinarians;
+drop policy if exists global_veterinarians_insert_app_admin on public.global_veterinarians;
+drop policy if exists global_veterinarians_update_app_admin on public.global_veterinarians;
+drop policy if exists global_veterinarians_delete_app_admin on public.global_veterinarians;
+
+create policy global_veterinarians_select
+on public.global_veterinarians
+for select
+to authenticated
+using (is_active = true or public.is_app_admin());
+
+create policy global_veterinarians_insert_app_admin
+on public.global_veterinarians
+for insert
+to authenticated
+with check (public.is_app_admin());
+
+create policy global_veterinarians_update_app_admin
+on public.global_veterinarians
+for update
+to authenticated
+using (public.is_app_admin())
+with check (public.is_app_admin());
+
+create policy global_veterinarians_delete_app_admin
+on public.global_veterinarians
+for delete
+to authenticated
+using (public.is_app_admin());
+
+drop policy if exists community_veterinarians_select on public.community_veterinarians;
+drop policy if exists community_veterinarians_insert_admin on public.community_veterinarians;
+drop policy if exists community_veterinarians_update_admin on public.community_veterinarians;
+drop policy if exists community_veterinarians_delete_admin on public.community_veterinarians;
+
+create policy community_veterinarians_select
+on public.community_veterinarians
+for select
+to authenticated
+using (public.is_community_member(community_id));
+
+create policy community_veterinarians_insert_admin
+on public.community_veterinarians
+for insert
+to authenticated
+with check (public.is_community_admin(community_id));
+
+create policy community_veterinarians_update_admin
+on public.community_veterinarians
+for update
+to authenticated
+using (public.is_community_admin(community_id))
+with check (public.is_community_admin(community_id));
+
+create policy community_veterinarians_delete_admin
+on public.community_veterinarians
+for delete
+to authenticated
+using (public.is_community_admin(community_id));
