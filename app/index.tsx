@@ -1,14 +1,18 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, TextInput, View, Text, TouchableOpacity } from 'react-native';
+import Constants from 'expo-constants';
 import { useAuth } from '../src/context/AuthContext';
 import { Logo } from '../src/components/Logo';
+import { getAuthErrorMessageTr } from '../src/services/authErrorMessage';
 import { colors } from '../src/theme';
 
 export default function Welcome() {
   const { isAuthLoading, signInWithProvider, signInWithEmail, signUpWithEmail } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
+  const currentYear = new Date().getFullYear();
 
   function validateEmailPassword(): boolean {
     if (!email.trim()) {
@@ -29,7 +33,7 @@ export default function Welcome() {
       await signInWithProvider(provider);
       router.replace('/community-select');
     } catch (error: any) {
-      Alert.alert('Giriş başarısız', error?.message ?? 'Sağlayıcı girişi tamamlanamadı.');
+      Alert.alert('Giriş başarısız', getAuthErrorMessageTr(error, 'Sağlayıcı girişi tamamlanamadı.'));
     }
   }
 
@@ -40,7 +44,7 @@ export default function Welcome() {
       await signInWithEmail(email, password);
       router.replace('/community-select');
     } catch (error: any) {
-      Alert.alert('Giris başarısız', error?.message ?? 'E-posta veya sifre gecersiz.');
+      Alert.alert('Giriş başarısız', getAuthErrorMessageTr(error, 'E-posta veya şifre geçersiz.'));
     }
   }
 
@@ -52,7 +56,7 @@ export default function Welcome() {
       Alert.alert('Kayıt başarılı', 'Hesap oluşturuldu. Doğrudan giriş yapabilir veya e-posta doğrulaması sonrasında devam edebilirsin.');
       router.replace('/community-select');
     } catch (error: any) {
-      Alert.alert('Kayıt başarısız', error?.message ?? 'Hesap oluşturulamadı.');
+      Alert.alert('Kayıt başarısız', getAuthErrorMessageTr(error, 'Hesap oluşturulamadı.'));
     }
   }
 
@@ -95,6 +99,10 @@ export default function Welcome() {
       }}>
         <Text style={{ color: colors.primary, textAlign: 'center', fontSize: 16, fontWeight: '800' }}>E-posta ile hesap oluştur</Text>
       </TouchableOpacity>
+
+      <Text style={{ color: colors.muted, textAlign: 'center', fontSize: 11, lineHeight: 16 }}>
+        v{appVersion} · © {currentYear} Pati Nöbeti. Tüm hakları saklıdır.
+      </Text>
 
     </View>
   );
