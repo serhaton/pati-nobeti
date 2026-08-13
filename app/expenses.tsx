@@ -1,9 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Linking, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { Card } from '../src/components/Card';
@@ -16,12 +15,15 @@ import {
   ExpenseRecord,
   ExpenseType,
   getApprovedExpensesByCommunity,
+  getExpensesByCommunity,
+  getExpensesBySubmitter,
   updateExpense,
 } from '../src/services/expenseService';
 import { getVeterinariansByCommunity, VeterinarianRecord } from '../src/services/veterinarianService';
 import { uploadExpenseReceiptsIfNeeded } from '../src/services/supabaseStorage';
 import { getCommunityMembers } from '../src/data/mock';
 import { ContributionRecord, getContributionsByCommunity, updateContribution } from '../src/services/contributionService';
+import { downloadAndOpenRemoteFile } from '../src/services/fileDownload';
 
 type LocalReceiptFile = {
   uri: string;
@@ -79,6 +81,12 @@ function contributionStatusLabel(status: ContributionRecord['approvalStatus']): 
   return 'Onay bekliyor';
 }
 
+function expenseStatusLabel(status: ExpenseRecord['approvalStatus']): string {
+  if (status === 'approved') return 'Onaylandı';
+  if (status === 'rejected') return 'Reddedildi';
+  return 'Onay bekliyor';
+}
+
 function getClosurePercent(amount: number, dueAmount: number): number {
   if (amount <= 0) return 0;
   const raw = ((amount - dueAmount) / amount) * 100;
@@ -100,21 +108,22 @@ function fileNameFromUri(uri: string, fallback: string): string {
   return decodeURIComponent(name);
 }
 
-function localDownloadPathFromUrl(url: string): string {
-  const fallbackName = `belge-${Date.now()}`;
-  const fileName = fileNameFromUri(url, fallbackName);
-  return `${FileSystem.cacheDirectory ?? FileSystem.documentDirectory ?? ''}${fileName}`;
-}
-
 export default function Expenses() {
   const params = useLocalSearchParams<{ mode?: string }>();
   const { currentUser } = useAuth();
   const { selectedCommunity } = useCommunity();
   const selectedCommunityId = selectedCommunity?.id ?? null;
   const isCommunityAdmin = !!currentUser && !!selectedCommunity?.adminUserIds.includes(currentUser.id);
-  const canManageRecords = isCommunityAdmin && params.mode === 'manage';
+  const isMemberHistoryMode = params.mode === 'member-history';
+  const isExpensesManageMode = isCommunityAdmin && params.mode === 'expenses-manage';
+  const isAdminFinanceView = isCommunityAdmin && !isMemberHistoryMode && !isExpensesManageMode;
+  const canManageRecords = isCommunityAdmin && (params.mode === 'manage' || params.mode === 'expenses-manage');
+  const canSelectPerformer = canManageRecords;
+  const canCreateExpense = canManageRecords || isMemberHistoryMode;
 
   const [approvedExpenses, setApprovedExpenses] = useState<ExpenseRecord[]>([]);
+  const [allCommunityExpenses, setAllCommunityExpenses] = useState<ExpenseRecord[]>([]);
+  const [memberExpenses, setMemberExpenses] = useState<ExpenseRecord[]>([]);
   const [contributions, setContributions] = useState<ContributionRecord[]>([]);
   const [communityVets, setCommunityVets] = useState<VeterinarianRecord[]>([]);
   const [communityMembers, setCommunityMembers] = useState<MemberOption[]>([]);
@@ -180,13 +189,21 @@ export default function Expenses() {
   }, [approvedExpenses]);
 
   const visibleApprovedExpenses = useMemo(() => {
+    if (isExpensesManageMode) {
+      return allCommunityExpenses;
+    }
+
+    if (isMemberHistoryMode) {
+      return memberExpenses;
+    }
+
     const base = isCommunityAdmin
       ? approvedExpenses
       : approvedExpenses.filter((item) => !!currentUser && item.submittedBy === currentUser.id);
 
     if (!isCommunityAdmin || showCompletedFinanceItems) return base;
     return base.filter((item) => item.dueAmount > 0);
-  }, [approvedExpenses, currentUser, isCommunityAdmin, showCompletedFinanceItems]);
+  }, [allCommunityExpenses, approvedExpenses, currentUser, isCommunityAdmin, isExpensesManageMode, isMemberHistoryMode, memberExpenses, showCompletedFinanceItems]);
 
   const visibleApprovedContributions = useMemo(() => {
     const base = isCommunityAdmin
@@ -245,6 +262,8 @@ export default function Expenses() {
   const loadExpenseData = useCallback(async () => {
     if (!selectedCommunityId) {
       setApprovedExpenses([]);
+      setAllCommunityExpenses([]);
+      setMemberExpenses([]);
       setContributions([]);
       setCommunityVets([]);
       setCommunityMembers([]);
@@ -253,10 +272,11 @@ export default function Expenses() {
 
     setIsLoading(true);
     try {
-      const [approvedRows, contributionRows, vets] = await Promise.all([
+      const [approvedRows, contributionRows, vets, allRows] = await Promise.all([
         getApprovedExpensesByCommunity(selectedCommunityId),
         getContributionsByCommunity(selectedCommunityId),
         getVeterinariansByCommunity(selectedCommunityId),
+        isExpensesManageMode ? getExpensesByCommunity(selectedCommunityId) : Promise.resolve([] as ExpenseRecord[]),
       ]);
 
       const members = getCommunityMembers(selectedCommunityId)
@@ -267,16 +287,30 @@ export default function Expenses() {
         }));
 
       setApprovedExpenses(approvedRows);
+      setAllCommunityExpenses(allRows);
       setContributions(contributionRows);
       setCommunityVets(vets);
       setCommunityMembers(members);
+
+      if (isMemberHistoryMode && currentUser?.id) {
+        const ownRows = await getExpensesBySubmitter({
+          communityId: selectedCommunityId,
+          submitterUserId: currentUser.id,
+        });
+        setMemberExpenses(ownRows);
+      } else {
+        setMemberExpenses([]);
+      }
+
       setVisibleFinanceCount(4);
     } catch (error: any) {
       Alert.alert('Masraf listesi hatası', String(error?.message ?? 'Masraf bilgileri okunamadı.'));
+      setAllCommunityExpenses([]);
+      setMemberExpenses([]);
     } finally {
       setIsLoading(false);
     }
-  }, [isCommunityAdmin, selectedCommunityId]);
+  }, [currentUser?.id, isExpensesManageMode, isMemberHistoryMode, selectedCommunityId]);
 
   function onMainScroll(event: any) {
     if (!hasMoreFinanceTimeline || isPagingFinance) return;
@@ -643,26 +677,12 @@ export default function Expenses() {
   }
 
   function openReceipt(url: string) {
-    const trimmed = url.trim();
-    if (!trimmed) {
-      Alert.alert('Fiş açılamadı', 'Geçerli dosya bağlantısı bulunamadı.');
-      return;
-    }
-
-    if (trimmed.startsWith('file://')) {
-      Linking.openURL(trimmed).catch(() => {
-        Alert.alert('Fiş açılamadı', 'Dosya cihazda açılamadı.');
-      });
-      return;
-    }
-
-    const destination = localDownloadPathFromUrl(trimmed);
-
-    FileSystem.downloadAsync(trimmed, destination)
-      .then((result) => Linking.openURL(result.uri))
-      .catch(() => {
-        Alert.alert('Fiş açılamadı', 'Dosya indirilemedi veya cihazda açılamadı.');
-      });
+    downloadAndOpenRemoteFile({
+      url,
+      baseName: 'masraf-fisi',
+    }).catch(() => {
+      Alert.alert('Fiş açılamadı', 'Fiş indirilemedi veya cihazda açılamadı.');
+    });
   }
 
   function openReceipts(urls: string[]) {
@@ -695,7 +715,7 @@ export default function Expenses() {
 
     const actions: Array<{ text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' }> = [
       {
-        text: 'Fişleri İndir ve Aç',
+        text: 'Fişleri İndir / Aç',
         onPress: () => openReceipts(item.receiptUrls.length ? item.receiptUrls : [item.receiptUrl]),
       },
     ];
@@ -727,7 +747,7 @@ export default function Expenses() {
     const actions: Array<{ text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' }> = [
       { text: 'Kaydı Güncelle', onPress: () => openEditContributionModal(item) },
       {
-        text: 'Dekontları İndir ve Aç',
+        text: 'Dekontları İndir / Aç',
         onPress: () => openReceipts(item.receiptUrls.length ? item.receiptUrls : [item.receiptUrl]),
       },
       { text: 'Dağıtım Detayını Gör', onPress: () => setSelectedContribution(item) },
@@ -749,38 +769,54 @@ export default function Expenses() {
       <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
         <View>
-          <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text }}>Kasa & Borçlar</Text>
-          <Text style={{ color: colors.muted }}>Yalnızca onaylı masraflar toplam borca yansır.</Text>
+          <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text }}>
+            {isExpensesManageMode ? 'Masraflar' : isMemberHistoryMode ? 'Masraf Geçmişim' : 'Kasa'}
+          </Text>
+          <Text style={{ color: colors.muted }}>
+            {isExpensesManageMode
+              ? 'Topluluktaki tüm masraf kayıtları listelenir.'
+              : isMemberHistoryMode
+              ? 'Sadece kendi masraf kayıtların listelenir.'
+              : 'Yalnızca onaylı masraflar toplam borca yansır.'}
+          </Text>
         </View>
-        {canManageRecords ? (
+        {canCreateExpense ? (
           <TouchableOpacity onPress={openCreateModal} style={{ backgroundColor: colors.primary, padding: 13, borderRadius: 15 }}>
             <Text style={{ color: '#fff', fontWeight: '800' }}>＋</Text>
           </TouchableOpacity>
         ) : null}
       </View>
 
-      <Card
-        style={{
-          marginTop: 20,
-          backgroundColor: debtCreditBalance >= 0 ? '#2F7A44' : '#A94842',
-        }}
-      >
-        <Text style={{ color: '#DCE9DE' }}>Borç / Alacak</Text>
-        <Text style={{ color: '#fff', fontSize: 32, fontWeight: '900', marginTop: 5 }}>
-          {debtCreditBalance >= 0 ? '+' : '-'}{Math.abs(debtCreditBalance).toLocaleString('tr-TR')} ₺
-        </Text>
-        <Text style={{ color: '#DCE9DE', marginTop: 6 }}>
-          {debtCreditBalance >= 0
-            ? 'Alacak pozisyonu (kalan Pati Uzat bakiyesi açık borçtan fazla)'
-            : 'Borç pozisyonu (açık borç, kalan Pati Uzat bakiyesinden fazla)'}
-        </Text>
-      </Card>
+      {!isMemberHistoryMode && !isExpensesManageMode ? (
+        <Card
+          style={{
+            marginTop: 20,
+            backgroundColor: debtCreditBalance >= 0 ? '#2F7A44' : '#A94842',
+          }}
+        >
+          <Text style={{ color: '#DCE9DE' }}>Borç / Alacak</Text>
+          <Text style={{ color: '#fff', fontSize: 32, fontWeight: '900', marginTop: 5 }}>
+            {debtCreditBalance >= 0 ? '+' : '-'}{Math.abs(debtCreditBalance).toLocaleString('tr-TR')} ₺
+          </Text>
+          <Text style={{ color: '#DCE9DE', marginTop: 6 }}>
+            {debtCreditBalance >= 0
+              ? 'Alacak pozisyonu (kalan Pati Uzat bakiyesi açık borçtan fazla)'
+              : 'Borç pozisyonu (açık borç, kalan Pati Uzat bakiyesinden fazla)'}
+          </Text>
+        </Card>
+      ) : null}
 
       <Text style={{ marginTop: 18, marginBottom: 8, fontWeight: '800', color: colors.text }}>
-        {isCommunityAdmin ? 'Kasa Borç / Alacak Akışı' : 'Onaylı Masraflar'}
+        {isExpensesManageMode
+          ? 'Tüm Masraf Kayıtları'
+          : isMemberHistoryMode
+            ? 'Masraf Geçmişim'
+            : isCommunityAdmin
+              ? 'Kasa Borç / Alacak Akışı'
+              : 'Onaylı Masraflar'}
       </Text>
 
-      {isCommunityAdmin ? (
+      {isAdminFinanceView ? (
         <TouchableOpacity
           onPress={() => {
             setShowCompletedFinanceItems((current) => !current);
@@ -800,14 +836,24 @@ export default function Expenses() {
         </Card>
       ) : null}
 
-      {!isLoading && !isCommunityAdmin && visibleApprovedExpenses.length === 0 ? (
+      {!isLoading && !isAdminFinanceView && visibleApprovedExpenses.length === 0 ? (
         <Card>
-          <Text style={{ color: colors.muted }}>Onaylanmış masraf bulunmuyor.</Text>
+          <Text style={{ color: colors.muted }}>
+            {isMemberHistoryMode ? 'Henüz masraf kaydın bulunmuyor.' : 'Onaylanmış masraf bulunmuyor.'}
+          </Text>
         </Card>
       ) : null}
 
-      {!isLoading && !isCommunityAdmin && visibleApprovedExpenses.map((item) => (
-        <TouchableOpacity key={item.id} onPress={() => openExpenseActions(item)} activeOpacity={0.9}>
+      {!isLoading && !isAdminFinanceView && visibleApprovedExpenses.map((item) => (
+        <TouchableOpacity
+          key={item.id}
+          onPress={() => {
+            if (isMemberHistoryMode) return;
+            openExpenseActions(item);
+          }}
+          activeOpacity={isMemberHistoryMode ? 1 : 0.9}
+          disabled={isMemberHistoryMode}
+        >
         <Card
           style={{
             marginTop: 11,
@@ -822,6 +868,7 @@ export default function Expenses() {
               <Text style={{ fontWeight: '800', color: colors.text }}>{item.title}</Text>
               <Text style={{ color: colors.muted, marginTop: 4 }}>{item.vendorName} · {new Date(item.expenseAt).toLocaleString('tr-TR')}</Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>{expenseTypeLabel(item.type)}</Text>
+              <Text style={{ color: colors.muted, marginTop: 2 }}>Durum: {expenseStatusLabel(item.approvalStatus)}</Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>
                 Yapan: {item.submittedBy ? (memberNameById.get(item.submittedBy) ?? item.submittedBy) : 'Belirtilmedi'}
               </Text>
@@ -887,13 +934,13 @@ export default function Expenses() {
             onPress={() => openReceipts(item.receiptUrls.length ? item.receiptUrls : [item.receiptUrl])}
             style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, backgroundColor: '#fff' }}
           >
-            <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri İndir ve Aç</Text>
+            <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri İndir / Aç</Text>
           </TouchableOpacity>
         </Card>
         </TouchableOpacity>
       ))}
 
-      {isCommunityAdmin ? (
+      {isAdminFinanceView ? (
         <>
           {!isLoading && visibleFinanceTimeline.length === 0 ? (
             <Card>
@@ -989,7 +1036,7 @@ export default function Expenses() {
                       onPress={() => openReceipts(item.receiptUrls.length ? item.receiptUrls : [item.receiptUrl])}
                       style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, backgroundColor: '#fff' }}
                     >
-                      <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri İndir ve Aç</Text>
+                      <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri İndir / Aç</Text>
                     </TouchableOpacity>
                   </Card>
                 </TouchableOpacity>
@@ -1107,7 +1154,7 @@ export default function Expenses() {
 
           <Card style={{ marginTop: 20 }}>
             <Text style={{ fontWeight: '800', color: colors.text }}>Masrafı yapan üye</Text>
-            {isCommunityAdmin ? (
+            {canSelectPerformer ? (
               <>
                 <TouchableOpacity
                   onPress={() => setShowPerformerPicker((current) => !current)}
@@ -1450,7 +1497,7 @@ export default function Expenses() {
                 onPress={() => openReceipts(selectedReadonlyExpense.receiptUrls.length ? selectedReadonlyExpense.receiptUrls : [selectedReadonlyExpense.receiptUrl])}
                 style={{ marginTop: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, backgroundColor: '#fff' }}
               >
-                <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri İndir ve Aç</Text>
+                <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri İndir / Aç</Text>
               </TouchableOpacity>
             </Card>
           ) : null}
@@ -1533,7 +1580,7 @@ export default function Expenses() {
                 onPress={() => openReceipts(selectedContribution.receiptUrls.length ? selectedContribution.receiptUrls : [selectedContribution.receiptUrl])}
                 style={{ marginTop: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, backgroundColor: '#fff' }}
               >
-                <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Dekontları İndir ve Aç</Text>
+                <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Dekontları İndir / Aç</Text>
               </TouchableOpacity>
             </Card>
           ) : null}

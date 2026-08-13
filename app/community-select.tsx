@@ -64,11 +64,12 @@ function deltaFromZoom(zoom: number): number {
 }
 
 export default function CommunitySelectScreen() {
-  const { currentUser } = useAuth();
+  const { currentUser, signOut } = useAuth();
   const {
     allCommunities,
     selectedCommunity,
     selectCommunityById,
+    clearSelectedCommunity,
     communityLoadError,
     refreshCommunities,
   } = useCommunity();
@@ -219,7 +220,7 @@ export default function CommunitySelectScreen() {
   const memberCommunityIds = useMemo(() => (
     new Set(
       Object.entries(membershipsByCommunity)
-        .filter(([, status]) => status === 'active' || status === 'approved' || status === 'passive')
+        .filter(([, status]) => status === 'active' || status === 'approved')
         .map(([communityId]) => communityId)
     )
   ), [membershipsByCommunity]);
@@ -341,7 +342,7 @@ export default function CommunitySelectScreen() {
       return;
     }
 
-    if (membership === 'active' || membership === 'approved' || membership === 'passive') {
+    if (membership === 'active' || membership === 'approved') {
       selectAndContinue(communityId);
       return;
     }
@@ -353,6 +354,10 @@ export default function CommunitySelectScreen() {
 
     if (membership === 'rejected') {
       Alert.alert('İstek reddedildi', 'Bu topluluk isteğini yeniden gonderebilirsin.');
+    }
+
+    if (membership === 'passive') {
+      Alert.alert('Pasif üyelik', 'Bu topluluktan ayrıldın. Yeniden katılmak için istek gönderebilirsin.');
     }
 
     openJoinRequest(communityId);
@@ -386,6 +391,16 @@ export default function CommunitySelectScreen() {
 
   function openCreateModal() {
     setShowCreateModal(true);
+  }
+
+  async function handleLogout() {
+    try {
+      clearSelectedCommunity();
+      await signOut();
+      router.replace('/');
+    } catch (error: any) {
+      Alert.alert('Çıkış hatası', String(error?.message ?? 'Çıkış yapılamadı.'));
+    }
   }
 
   function openLocationPickerFromCreateModal() {
@@ -434,7 +449,15 @@ export default function CommunitySelectScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 32 }}>
-      <Logo small />
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Logo small />
+        <TouchableOpacity
+          onPress={handleLogout}
+          style={{ borderWidth: 1, borderColor: colors.danger, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#fff' }}
+        >
+          <Text style={{ color: colors.danger, fontWeight: '800' }}>Çıkış Yap</Text>
+        </TouchableOpacity>
+      </View>
       <Text style={{ color: colors.text, fontSize: 26, fontWeight: '800', marginTop: 18 }}>Topluluk Seçimi</Text>
       <Text style={{ color: colors.muted, marginTop: 7 }}>Konumuna 10 km içindeki topluluklar listelenir.</Text>
 
@@ -541,6 +564,8 @@ export default function CommunitySelectScreen() {
             ? 'Katılım isteği beklemede'
             : membershipStatus === 'rejected'
               ? 'Yeniden katılım isteği gonder'
+              : membershipStatus === 'passive'
+                ? 'Yeniden katılım isteği gonder'
               : 'Topluluğa katılım isteği gonder';
 
           return (
@@ -594,6 +619,8 @@ export default function CommunitySelectScreen() {
             ? 'Katılım isteği beklemede'
             : membershipStatus === 'rejected'
               ? 'Yeniden katılım isteği gonder'
+              : membershipStatus === 'passive'
+                ? 'Yeniden katılım isteği gonder'
               : 'Topluluğa katılım isteği gonder';
 
           return (

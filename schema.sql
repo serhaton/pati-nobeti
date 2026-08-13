@@ -6,6 +6,7 @@ create table if not exists profiles (
   username text unique,
   full_name text,
   name text,
+  phone text,
   avatar_url text,
   is_app_admin boolean not null default false,
   status text not null default 'active' check (status in ('active', 'passive')),
@@ -13,7 +14,8 @@ create table if not exists profiles (
 );
 
 alter table profiles
-  add column if not exists is_app_admin boolean not null default false;
+  add column if not exists is_app_admin boolean not null default false,
+  add column if not exists phone text;
 
 create table if not exists communities (
   id uuid primary key default gen_random_uuid(),
@@ -34,9 +36,17 @@ create table if not exists community_members (
   user_id uuid not null references profiles(id) on delete cascade,
   role text not null default 'member' check (role in ('admin', 'member')),
   status text not null default 'active' check (status in ('active', 'passive', 'pending', 'approved', 'rejected')),
+  full_name text,
+  phone text,
+  photo_url text,
   created_at timestamptz not null default now(),
   unique (community_id, user_id)
 );
+
+alter table community_members
+  add column if not exists full_name text,
+  add column if not exists phone text,
+  add column if not exists photo_url text;
 
 create table if not exists feeding_points (
   id uuid primary key default gen_random_uuid(),

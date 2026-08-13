@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Card } from '../src/components/Card';
 import { useAuth } from '../src/context/AuthContext';
@@ -14,6 +14,8 @@ import {
 } from '../src/data/feedingPointStore';
 import { getCommunityMembers } from '../src/data/mock';
 import { colors } from '../src/theme';
+
+const PICKER_MODAL_MAX_HEIGHT = 260;
 
 function parseRecordDate(dateText: string | undefined): Date {
   if (!dateText) return new Date();
@@ -166,40 +168,63 @@ export default function FeedingEditScreen() {
         </TouchableOpacity>
 
         {showPointPicker ? (
-          <>
-            <TextInput
-              value={searchText}
-              onChangeText={setSearchText}
-              placeholder="Topluluk noktalari içinde ara"
-              style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
-            />
+          <Modal
+            visible={showPointPicker}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowPointPicker(false)}
+          >
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.25)', justifyContent: 'center', padding: 20 }}>
+              <Card style={{ borderRadius: 14, maxHeight: '75%' }}>
+                <Text style={{ fontWeight: '800', color: colors.text, fontSize: 16 }}>Besleme Noktası Seçimi</Text>
 
-            <View style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, backgroundColor: '#fff', maxHeight: 180 }}>
-              {communityPoints.length > 0 ? (
-                communityPoints.slice(0, 8).map((point) => (
-                  <TouchableOpacity
-                    key={point.id}
-                    onPress={() => {
-                      setSelectedPointId(point.id);
-                      setShowPointPicker(false);
-                    }}
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 11,
-                      borderBottomWidth: 1,
-                      borderBottomColor: colors.border,
-                      backgroundColor: selectedPointId === point.id ? colors.primarySoft : '#fff',
-                    }}
-                  >
-                    <Text style={{ color: colors.text, fontWeight: '700' }}>{point.name}</Text>
-                    <Text style={{ color: colors.muted, marginTop: 3, fontSize: 12 }}>{point.status}</Text>
-                  </TouchableOpacity>
-                ))
-              ) : (
-                <Text style={{ color: colors.muted, padding: 12 }}>Bu toplulukta aramaya uygun nokta bulunamadı.</Text>
-              )}
+                <TextInput
+                  value={searchText}
+                  onChangeText={setSearchText}
+                  placeholder="Topluluk noktalari içinde ara"
+                  style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
+                />
+
+                <ScrollView
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator
+                  style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, backgroundColor: '#fff', maxHeight: PICKER_MODAL_MAX_HEIGHT }}
+                  contentContainerStyle={{ paddingBottom: 10 }}
+                >
+                  {communityPoints.length > 0 ? (
+                    communityPoints.map((point) => (
+                      <TouchableOpacity
+                        key={point.id}
+                        onPress={() => {
+                          setSelectedPointId(point.id);
+                          setShowPointPicker(false);
+                        }}
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingVertical: 12,
+                          borderBottomWidth: 1,
+                          borderBottomColor: colors.border,
+                          backgroundColor: selectedPointId === point.id ? colors.primarySoft : '#fff',
+                        }}
+                      >
+                        <Text style={{ color: colors.text, fontWeight: '700' }}>{point.name}</Text>
+                        <Text style={{ color: colors.muted, marginTop: 3, fontSize: 12 }}>{point.status}</Text>
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    <Text style={{ color: colors.muted, padding: 12 }}>Bu toplulukta aramaya uygun nokta bulunamadı.</Text>
+                  )}
+                </ScrollView>
+
+                <TouchableOpacity
+                  onPress={() => setShowPointPicker(false)}
+                  style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 11, backgroundColor: '#fff' }}
+                >
+                  <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Kapat</Text>
+                </TouchableOpacity>
+              </Card>
             </View>
-          </>
+          </Modal>
         ) : null}
 
         <Text style={{ fontWeight: '800', color: colors.text, marginTop: 18 }}>Besleme yapan</Text>
@@ -216,39 +241,62 @@ export default function FeedingEditScreen() {
         </TouchableOpacity>
 
         {showFeederPicker ? (
-          <>
-            <TextInput
-              value={feederSearchText}
-              onChangeText={setFeederSearchText}
-              placeholder="Üyelerde ara"
-              style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
-            />
+          <Modal
+            visible={showFeederPicker}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowFeederPicker(false)}
+          >
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.25)', justifyContent: 'center', padding: 20 }}>
+              <Card style={{ borderRadius: 14, maxHeight: '75%' }}>
+                <Text style={{ fontWeight: '800', color: colors.text, fontSize: 16 }}>Besleme Yapan Seçimi</Text>
 
-            <View style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, backgroundColor: '#fff', maxHeight: 180 }}>
-              {filteredCommunityMembers.length > 0 ? (
-                filteredCommunityMembers.map((fullName) => (
-                  <TouchableOpacity
-                    key={fullName}
-                    onPress={() => {
-                      setSelectedFeederName(fullName);
-                      setShowFeederPicker(false);
-                    }}
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 11,
-                      borderBottomWidth: 1,
-                      borderBottomColor: colors.border,
-                      backgroundColor: selectedFeederName === fullName ? colors.primarySoft : '#fff',
-                    }}
-                  >
-                    <Text style={{ color: colors.text, fontWeight: '700' }}>{fullName}</Text>
-                  </TouchableOpacity>
-                ))
-              ) : (
-                <Text style={{ color: colors.muted, padding: 12 }}>Aramaya uygun topluluk üyesi bulunamadı.</Text>
-              )}
+                <TextInput
+                  value={feederSearchText}
+                  onChangeText={setFeederSearchText}
+                  placeholder="Üyelerde ara"
+                  style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
+                />
+
+                <ScrollView
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator
+                  style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, backgroundColor: '#fff', maxHeight: PICKER_MODAL_MAX_HEIGHT }}
+                  contentContainerStyle={{ paddingBottom: 10 }}
+                >
+                  {filteredCommunityMembers.length > 0 ? (
+                    filteredCommunityMembers.map((fullName) => (
+                      <TouchableOpacity
+                        key={fullName}
+                        onPress={() => {
+                          setSelectedFeederName(fullName);
+                          setShowFeederPicker(false);
+                        }}
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingVertical: 12,
+                          borderBottomWidth: 1,
+                          borderBottomColor: colors.border,
+                          backgroundColor: selectedFeederName === fullName ? colors.primarySoft : '#fff',
+                        }}
+                      >
+                        <Text style={{ color: colors.text, fontWeight: '700' }}>{fullName}</Text>
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    <Text style={{ color: colors.muted, padding: 12 }}>Aramaya uygun topluluk üyesi bulunamadı.</Text>
+                  )}
+                </ScrollView>
+
+                <TouchableOpacity
+                  onPress={() => setShowFeederPicker(false)}
+                  style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 11, backgroundColor: '#fff' }}
+                >
+                  <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Kapat</Text>
+                </TouchableOpacity>
+              </Card>
             </View>
-          </>
+          </Modal>
         ) : null}
 
         <Text style={{ fontWeight: '800', color: colors.text, marginTop: 18 }}>Tarih ve Saat</Text>

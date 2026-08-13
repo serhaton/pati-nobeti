@@ -142,6 +142,50 @@ export async function getApprovedExpensesByCommunity(communityId: string): Promi
   return (data ?? []).map(mapRow);
 }
 
+export async function getExpensesByCommunity(communityId: string): Promise<ExpenseRecord[]> {
+  if (!isSupabaseDataEnabled()) {
+    return mockExpenseRecords
+      .filter((item) => item.communityId === communityId)
+      .sort((left, right) => right.expenseAt.localeCompare(left.expenseAt));
+  }
+
+  const { data, error } = await supabase
+    .from('expenses')
+    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, due_amount, note, receipt_url, receipt_urls, approval_status, submitted_by, approved_by, approved_at, created_at')
+    .eq('community_id', communityId)
+    .order('expense_at', { ascending: false });
+
+  if (error) {
+    throw formatError(error, 'Masraflar okunamadı.');
+  }
+
+  return (data ?? []).map(mapRow);
+}
+
+export async function getExpensesBySubmitter(input: {
+  communityId: string;
+  submitterUserId: string;
+}): Promise<ExpenseRecord[]> {
+  if (!isSupabaseDataEnabled()) {
+    return mockExpenseRecords
+      .filter((item) => item.communityId === input.communityId && item.submittedBy === input.submitterUserId)
+      .sort((left, right) => right.expenseAt.localeCompare(left.expenseAt));
+  }
+
+  const { data, error } = await supabase
+    .from('expenses')
+    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, due_amount, note, receipt_url, receipt_urls, approval_status, submitted_by, approved_by, approved_at, created_at')
+    .eq('community_id', input.communityId)
+    .eq('submitted_by', input.submitterUserId)
+    .order('expense_at', { ascending: false });
+
+  if (error) {
+    throw formatError(error, 'Masraf geçmişi okunamadı.');
+  }
+
+  return (data ?? []).map(mapRow);
+}
+
 export async function getPendingExpensesForCommunity(communityId: string): Promise<ExpenseRecord[]> {
   if (!isSupabaseDataEnabled()) {
     return mockExpenseRecords

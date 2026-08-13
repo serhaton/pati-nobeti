@@ -51,22 +51,28 @@ export default function Community() {
   const communityMenuItems = [
     ...(isCommunityAdmin ? [
       ['🛡️', 'Üye Listesi ve Yetkiler', '/community-members'],
+      ['🐾', 'Can dostlar', '/animal'],
       ['🩺', 'Veterinerler', '/veterinarians'],
+      ['🗺️', 'Harita ve besleme noktalari', '/map'],
+      ['🧾', 'Masraf', '/expenses-manage'],
+      ['🤝', 'Pati Uzat', '/pati-uzat'],
+      ['💰', 'Kasa', '/expenses'],
     ] : []),
-    ['🗺️', 'Harita ve besleme noktalari', '/map'],
-    ['🐾', 'Can dostlar', '/animal'],
-    ['💰', 'Gelir / gider ve borclar', '/expenses'],
-    ['🤝', 'Pati Uzat', '/pati-uzat'],
+    
   ] as const;
   const memberCount = useMemo(() => {
     if (!selectedCommunity) return 0;
-    return getCommunityMembers(selectedCommunity.id)
+    const computed = getCommunityMembers(selectedCommunity.id)
       .filter((member) => member.status === 'active')
       .length;
+    const fallback = Number(selectedCommunity.members ?? 0);
+    return computed > 0 ? computed : fallback;
   }, [selectedCommunity]);
   const animalCount = useMemo(() => {
     if (!selectedCommunity) return 0;
-    return getAnimalsByCommunity(selectedCommunity.id).length;
+    const computed = getAnimalsByCommunity(selectedCommunity.id).length;
+    const fallback = Number(selectedCommunity.animals ?? 0);
+    return computed > 0 ? computed : fallback;
   }, [selectedCommunity]);
 
   const loadPendingRequests = useCallback(async () => {
@@ -255,39 +261,50 @@ export default function Community() {
       <Text style={{ color: colors.muted, marginTop: 5 }}>{selectedCommunity.neighborhood} · {memberCount} üye · {animalCount} can dost</Text>
 
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 22 }}>
-        <Card style={{ flex: 1, paddingVertical: 11, paddingHorizontal: 10 }}>
-          <Text style={{ fontWeight: '800', fontSize: 16, color: colors.text }} numberOfLines={1} adjustsFontSizeToFit>
-            {String(animalCount)}
-          </Text>
-          <Text style={{ color: colors.muted, marginTop: 3, fontSize: 11 }} numberOfLines={1}>Can Dost</Text>
-        </Card>
+        <TouchableOpacity onPress={() => router.push('/animal')} style={{ flex: 0.85 }}>
+          <Card style={{ paddingVertical: 9, paddingHorizontal: 9 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Text style={{ fontSize: 18 }}>🐾</Text>
+              <Text style={{ fontWeight: '800', fontSize: 14, color: colors.text }} numberOfLines={1} adjustsFontSizeToFit>
+                {String(animalCount)}
+              </Text>
+            </View>
+            <Text style={{ color: colors.muted, marginTop: 3, fontSize: 10 }} numberOfLines={1}>Can Dost</Text>
+          </Card>
+        </TouchableOpacity>
 
-        <Card style={{ flex: 1, paddingVertical: 11, paddingHorizontal: 10 }}>
-          <Text style={{ fontWeight: '800', fontSize: 16, color: colors.text }} numberOfLines={1} adjustsFontSizeToFit>
-            {String(memberCount)}
-          </Text>
-          <Text style={{ color: colors.muted, marginTop: 3, fontSize: 11 }} numberOfLines={1}>Üye Sayısı</Text>
-        </Card>
+        <TouchableOpacity onPress={() => router.push('/community-members')} style={{ flex: 0.85 }}>
+          <Card style={{ paddingVertical: 9, paddingHorizontal: 9 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Text style={{ fontSize: 18 }}>👥</Text>
+              <Text style={{ fontWeight: '800', fontSize: 14, color: colors.text }} numberOfLines={1} adjustsFontSizeToFit>
+                {String(memberCount)}
+              </Text>
+            </View>
+            <Text style={{ color: colors.muted, marginTop: 3, fontSize: 10 }} numberOfLines={1}>Üye Sayısı</Text>
+          </Card>
+        </TouchableOpacity>
 
-        <Card
-          style={{
-            flex: 1,
-            paddingVertical: 11,
-            paddingHorizontal: 10,
-            backgroundColor: debtCreditBalance >= 0 ? '#EAF7EC' : '#FDECEC',
-            borderWidth: 1,
-            borderColor: debtCreditBalance >= 0 ? '#B8DEBF' : '#F3B7B2',
-          }}
-        >
-          <Text
-            style={{ fontWeight: '800', fontSize: 14, color: debtCreditBalance >= 0 ? '#2F7A44' : '#9B3A34' }}
-            numberOfLines={1}
-            adjustsFontSizeToFit
+        <TouchableOpacity onPress={() => router.push({ pathname: '/expenses', params: { mode: 'manage' } })} style={{ flex: 1.3 }}>
+          <Card
+            style={{
+              paddingVertical: 9,
+              paddingHorizontal: 10,
+              backgroundColor: debtCreditBalance >= 0 ? '#EAF7EC' : '#FDECEC',
+              borderWidth: 1,
+              borderColor: debtCreditBalance >= 0 ? '#B8DEBF' : '#F3B7B2',
+            }}
           >
-            {debtCreditBalance >= 0 ? '+' : '-'}{Math.abs(debtCreditBalance).toLocaleString('tr-TR')} ₺
-          </Text>
-          <Text style={{ color: colors.muted, marginTop: 3, fontSize: 11 }} numberOfLines={1}>Borç / Alacak</Text>
-        </Card>
+            <Text
+              style={{ fontWeight: '800', fontSize: 15, color: debtCreditBalance >= 0 ? '#2F7A44' : '#9B3A34' }}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {debtCreditBalance >= 0 ? '+' : '-'}{Math.abs(debtCreditBalance).toLocaleString('tr-TR')} ₺
+            </Text>
+            <Text style={{ color: colors.muted, marginTop: 3, fontSize: 10 }} numberOfLines={1}>Borç / Alacak</Text>
+          </Card>
+        </TouchableOpacity>
       </View>
 
       {isCommunityAdmin ? (
@@ -548,6 +565,13 @@ export default function Community() {
               router.push({
                 pathname: '/expenses',
                 params: { mode: isCommunityAdmin ? 'manage' : 'readonly' },
+              });
+              return;
+            }
+            if (path === '/expenses-manage') {
+              router.push({
+                pathname: '/expenses',
+                params: { mode: 'expenses-manage' },
               });
               return;
             }

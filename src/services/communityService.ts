@@ -27,6 +27,29 @@ export type ManagedCommunityMember = {
   username: string;
 };
 
+export type UserProfileSettings = {
+  fullName: string;
+  phone: string;
+  avatarUrl: string;
+};
+
+const profileSettingsCache = new Map<string, UserProfileSettings>();
+
+function isMissingColumnError(error: any, columnName: string): boolean {
+  const code = String(error?.code ?? '').toLowerCase();
+  const message = String(error?.message ?? '').toLowerCase();
+  const details = String(error?.details ?? '').toLowerCase();
+
+  if (code === '42703') return true;
+
+  const needle = columnName.toLowerCase();
+  return (
+    (message.includes('does not exist') || message.includes('could not find')) && message.includes(needle)
+  ) || (
+    (details.includes('does not exist') || details.includes('could not find')) && details.includes(needle)
+  );
+}
+
 function formatError(error: any, fallback: string): Error {
   const code = error?.code ? `[${error.code}] ` : '';
   const details = [error?.message, error?.details, error?.hint].filter(Boolean).join(' - ');
@@ -321,5 +344,161 @@ export async function updateCommunityMemberByAdmin(input: {
 
   if (error) {
     throw formatError(error, 'Üye bilgisi güncellenemedi.');
+  }
+}
+
+export async function leaveCommunityByUser(input: {
+  communityId: string;
+  userId: string;
+}): Promise<void> {
+  if (!isSupabaseDataEnabled()) {
+    throw new Error('Topluluktan ayrılma yalnızca Supabase modunda destekleniyor.');
+  }
+
+  const { error } = await supabase
+    .from('community_members')
+    .update({ status: 'passive' })
+    .eq('community_id', input.communityId)
+    .eq('user_id', input.userId);
+
+  if (error) {
+    throw formatError(error, 'Topluluktan ayrılma işlemi kaydedilemedi.');
+  }
+}
+
+export async function getUserProfileSettings(userId: string): Promise<UserProfileSettings> {
+  if (!isSupabaseDataEnabled()) {
+    return profileSettingsCache.get(userId) ?? {
+      fullName: '',
+      phone: '',
+      avatarUrl: '',
+    };
+  }
+
+  const withPhone = await supabase
+    .from('profiles')
+    .select('full_name, name, avatar_url, phone')
+    .eq('id', userId)
+    .maybeSingle();
+
+  let data: any = withPhone.data;
+  let error = withPhone.error;
+
+  if (error && isMissingColumnError(error, 'phone')) {
+    const fallback = await supabase
+      .from('profiles')
+      .select('full_name, name, avatar_url')
+      .eq('id', userId)
+      .maybeSingle();
+    data = fallback.data;
+    error = fallback.error;
+  }
+
+  if (error) {
+    throw formatError(error, 'Profil bilgileri okunamadı.');
+  }
+
+  const fromDb: UserProfileSettings = {
+    fullName: String(data?.full_name ?? data?.name ?? ''),
+    phone: String(data?.phone ?? ''),
+    avatarUrl: String(data?.avatar_url ?? ''),
+  };
+
+  const cached = profileSettingsCache.get(userId);
+  const merged: UserProfileSettings = {
+    fullName: fromDb.fullName || cached?.fullName || '',
+    phone: fromDb.phone || cached?.phone || '',
+    avatarUrl: fromDb.avatarUrl || cached?.avatarUrl || '',
+  };
+
+  profileSettingsCache.set(userId, merged);
+  return merged;
+}
+
+export async function updateUserProfileSettings(input: {
+  userId: string;
+  fullName: string;
+  phone: string;
+  avatarUrl?: string;
+}): Promise<void> {
+  if (!isSupabaseDataEnabled()) {
+    profileSettingsCache.set(input.userId, {
+      fullName: input.fullName,
+      phone: input.phone,
+      avatarUrl: input.avatarUrl?.trim() || '',
+    });
+    return;
+  }
+
+  const basePayload: Record<string, any> = {
+    full_name: input.fullName,
+    name: input.fullName,
+    avatar_url: input.avatarUrl?.trim() || null,
+    status: 'active',
+  };
+
+  const payloadWithPhone = {
+    ...basePayload,
+    phone: input.phone.trim() || null,
+  };
+
+  const { error: firstError } = await supabase
+    .from('profiles')
+    .upsert({
+      id: input.userId,
+      ...payloadWithPhone,
+    }, { onConflict: 'id' });
+
+  if (firstError) {
+    const phoneColumnMissing = isMissingColumnError(firstError, 'phone');
+
+    if (!phoneColumnMissing) {
+      throw formatError(firstError, 'Profil bilgileri güncellenemedi.');
+    }
+
+    const { error: fallbackError } = await supabase
+      .from('profiles')
+      .upsert({
+        id: input.userId,
+        ...basePayload,
+      }, { onConflict: 'id' });
+
+    if (fallbackError) {
+      throw formatError(fallbackError, 'Profil bilgileri güncellenemedi.');
+    }
+  }
+
+  profileSettingsCache.set(input.userId, {
+    fullName: input.fullName,
+    phone: input.phone,
+    avatarUrl: input.avatarUrl?.trim() || '',
+  });
+
+  // Best-effort mirror into community_members, if custom columns exist in the project.
+  // Some deployments may not have these optional columns yet.
+  const { error: memberMirrorError } = await supabase
+    .from('community_members')
+    .update({
+      full_name: input.fullName,
+      phone: input.phone.trim() || null,
+      photo_url: input.avatarUrl?.trim() || null,
+    })
+    .eq('user_id', input.userId);
+
+  if (memberMirrorError) {
+    const message = String(memberMirrorError?.message ?? '').toLowerCase();
+    const details = String(memberMirrorError?.details ?? '').toLowerCase();
+    const optionalColumnMissing =
+      message.includes('full_name') ||
+      message.includes('phone') ||
+      message.includes('photo_url') ||
+      details.includes('full_name') ||
+      details.includes('phone') ||
+      details.includes('photo_url');
+
+    if (!optionalColumnMissing) {
+      // Keep profile update as the source of truth; avoid failing the whole flow on mirror step.
+      // Intentionally ignored.
+    }
   }
 }

@@ -355,6 +355,7 @@ export async function addFeedingRecord(input: {
       community_id: point.communityId,
       feeding_point_id: input.pointId,
       fed_at: date.toISOString(),
+      feeder_name: input.feederName,
       notes: input.note ?? null,
     };
 
@@ -418,6 +419,7 @@ export async function updateFeedingRecord(
       community_id: point.communityId,
       feeding_point_id: updates.pointId,
       fed_at: updates.fedAt.toISOString(),
+      feeder_name: updates.feederName,
       notes: updates.note ?? null,
     };
 

@@ -100,9 +100,13 @@ function mapFeedingPointRows(rows: any[]): FeedingPoint[] {
   }));
 }
 
-function mapFeedingLogRows(rows: any[]): FeedingRecord[] {
+function mapFeedingLogRows(rows: any[], users: AppUser[] = []): FeedingRecord[] {
+  const userNameById = new Map(users.map((user) => [user.id, user.fullName]));
+
   return rows.map((row, index) => {
     const fedAtDate = row.fed_at ? new Date(row.fed_at) : new Date();
+    const fedByUserId = row.fed_by ? String(row.fed_by) : '';
+    const fallbackUserName = fedByUserId ? userNameById.get(fedByUserId) : undefined;
     return {
       id: toStringId(row.id, `record-${index + 1}`),
       pointId: toStringId(row.feeding_point_id, '1'),
@@ -112,7 +116,7 @@ function mapFeedingLogRows(rows: any[]): FeedingRecord[] {
         hour: '2-digit',
         minute: '2-digit',
       }),
-      feederName: String(row.feeder_name ?? row.fed_by_name ?? 'Bilinmiyor'),
+      feederName: String(row.feeder_name ?? row.fed_by_name ?? fallbackUserName ?? 'Bilinmiyor'),
       note: row.notes ? String(row.notes) : undefined,
       fedAtDateTime: fedAtDate.toISOString(),
     };
@@ -207,7 +211,7 @@ export async function syncMockDataFromSupabase(): Promise<SupabaseSyncResult> {
     }
 
     if (!feedingLogsRes.error && feedingLogsRes.data) {
-      setFeedingRecordsData(mapFeedingLogRows(feedingLogsRes.data));
+      setFeedingRecordsData(mapFeedingLogRows(feedingLogsRes.data, users ?? []));
     }
 
     if (!expensesRes.error && expensesRes.data) {

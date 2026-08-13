@@ -1,9 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Linking, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { Card } from '../src/components/Card';
@@ -20,6 +19,7 @@ import {
   getContributionsByContributor,
   removeContributionAllocation,
 } from '../src/services/contributionService';
+import { downloadAndOpenRemoteFile } from '../src/services/fileDownload';
 
 type LocalReceiptFile = {
   uri: string;
@@ -75,19 +75,6 @@ function getAllocationPercent(amount: number, remainingAmount: number): number {
   const raw = ((amount - remainingAmount) / amount) * 100;
   const bounded = Math.min(100, Math.max(0, raw));
   return Math.round(bounded);
-}
-
-function fileNameFromUri(uri: string, fallback: string): string {
-  const clean = uri.split('?')[0].split('#')[0];
-  const name = clean.split('/').pop();
-  if (!name) return fallback;
-  return decodeURIComponent(name);
-}
-
-function localDownloadPathFromUrl(url: string): string {
-  const fallbackName = `belge-${Date.now()}`;
-  const fileName = fileNameFromUri(url, fallbackName);
-  return `${FileSystem.cacheDirectory ?? FileSystem.documentDirectory ?? ''}${fileName}`;
 }
 
 export default function PatiUzat() {
@@ -306,25 +293,12 @@ export default function PatiUzat() {
   }
 
   function openReceipt(url: string) {
-    const trimmed = url.trim();
-    if (!trimmed) {
-      Alert.alert('Dekont açılamadı', 'Geçerli dosya bağlantısı bulunamadı.');
-      return;
-    }
-
-    if (trimmed.startsWith('file://')) {
-      Linking.openURL(trimmed).catch(() => {
-        Alert.alert('Dekont açılamadı', 'Dosya cihazda açılamadı.');
-      });
-      return;
-    }
-
-    const destination = localDownloadPathFromUrl(trimmed);
-    FileSystem.downloadAsync(trimmed, destination)
-      .then((result) => Linking.openURL(result.uri))
-      .catch(() => {
-        Alert.alert('Dekont açılamadı', 'Dosya indirilemedi veya cihazda açılamadı.');
-      });
+    downloadAndOpenRemoteFile({
+      url,
+      baseName: 'pati-uzat-dekont',
+    }).catch(() => {
+      Alert.alert('Dekont açılamadı', 'Dekont indirilemedi veya cihazda açılamadı.');
+    });
   }
 
   function openReceipts(urls: string[]) {
@@ -384,7 +358,9 @@ export default function PatiUzat() {
   async function submitContribution() {
     if (!selectedCommunityId || !currentUser) return;
 
-    const contributorUserId = isCommunityAdmin ? (selectedContributorUserId ?? currentUser.id) : currentUser.id;
+    const contributorUserId = shouldShowCommunityContributions
+      ? (selectedContributorUserId ?? currentUser.id)
+      : currentUser.id;
     if (!contributorUserId) {
       Alert.alert('Eksik bilgi', 'Pati uzatan üye seçilmelidir.');
       return;
@@ -524,7 +500,7 @@ export default function PatiUzat() {
               onPress={() => openReceipts(item.receiptUrls.length ? item.receiptUrls : [item.receiptUrl])}
               style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, backgroundColor: '#fff' }}
             >
-              <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Dekontları İndir ve Aç</Text>
+              <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Dekontları İndir / Aç</Text>
             </TouchableOpacity>
           </Card>
         )}
@@ -572,7 +548,7 @@ export default function PatiUzat() {
 
           <Card style={{ marginTop: 18 }}>
             <Text style={{ fontWeight: '800', color: colors.text }}>Pati uzatan üye</Text>
-            {isCommunityAdmin ? (
+            {shouldShowCommunityContributions ? (
               <>
                 <TouchableOpacity
                   onPress={() => setShowMemberPicker((current) => !current)}
@@ -729,7 +705,7 @@ export default function PatiUzat() {
                 onPress={() => openReceipts(selectedReadonlyExpense.receiptUrls.length ? selectedReadonlyExpense.receiptUrls : [selectedReadonlyExpense.receiptUrl])}
                 style={{ marginTop: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, backgroundColor: '#fff' }}
               >
-                <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri İndir ve Aç</Text>
+                <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri İndir / Aç</Text>
               </TouchableOpacity>
 
               {canManageAllocations ? (

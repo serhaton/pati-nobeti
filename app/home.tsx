@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';
-import { ScrollView, View, Text, TouchableOpacity } from 'react-native';
+import { Image, ScrollView, View, Text, TouchableOpacity } from 'react-native';
 import { useAuth } from '../src/context/AuthContext';
 import { Card } from '../src/components/Card';
 import { Logo } from '../src/components/Logo';
@@ -10,12 +10,16 @@ import { colors } from '../src/theme';
 import { getTodayFeedingRecordCountByCommunity } from '../src/data/feedingPointStore';
 import { ExpenseRecord, getApprovedExpensesByCommunity } from '../src/services/expenseService';
 import { ContributionRecord, getContributionsByCommunity } from '../src/services/contributionService';
+import { isSupabaseDataEnabled } from '../src/services/supabase';
+import { getUserProfileSettings } from '../src/services/communityService';
 
 export default function Home() {
   const { selectedCommunity } = useCommunity();
   const { currentUser } = useAuth();
   const [approvedExpenses, setApprovedExpenses] = useState<ExpenseRecord[]>([]);
   const [contributions, setContributions] = useState<ContributionRecord[]>([]);
+  const [profileDisplayName, setProfileDisplayName] = useState(currentUser?.fullName ?? 'Gonullu');
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState('');
 
   const isCommunityAdmin = !!currentUser && selectedCommunity?.adminUserIds.includes(currentUser.id);
   const todayFedCount = selectedCommunity ? getTodayFeedingRecordCountByCommunity(selectedCommunity.id) : 0;
@@ -64,6 +68,40 @@ export default function Home() {
     }, [loadFinanceSummary])
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+
+      async function loadProfileUi() {
+        if (!currentUser) return;
+
+        if (!isSupabaseDataEnabled()) {
+          if (!mounted) return;
+          setProfileDisplayName(currentUser.fullName ?? 'Gonullu');
+          setProfileAvatarUrl('');
+          return;
+        }
+
+        try {
+          const profile = await getUserProfileSettings(currentUser.id);
+          if (!mounted) return;
+          setProfileDisplayName(profile.fullName || currentUser.fullName || 'Gonullu');
+          setProfileAvatarUrl(profile.avatarUrl || '');
+        } catch {
+          if (!mounted) return;
+          setProfileDisplayName(currentUser.fullName ?? 'Gonullu');
+          setProfileAvatarUrl('');
+        }
+      }
+
+      loadProfileUi();
+
+      return () => {
+        mounted = false;
+      };
+    }, [currentUser?.fullName, currentUser?.id])
+  );
+
   if (!selectedCommunity) return null;
 
   return (
@@ -74,12 +112,18 @@ export default function Home() {
           <Text style={{ color: colors.primary, marginTop: 6, fontWeight: '700' }}>{selectedCommunity.name}</Text>
         </View>
         <TouchableOpacity onPress={() => router.push('/profile')}>
-          <Text style={{ fontSize: 28 }}>👤</Text>
+          {profileAvatarUrl ? (
+            <Image source={{ uri: profileAvatarUrl }} style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#EAECEF' }} />
+          ) : (
+            <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 19 }}>👤</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
       <View style={{ marginTop: 26 }}>
-        <Text style={{ color: colors.muted, fontSize: 14 }}>Gunaydin {currentUser?.fullName ?? 'Gonullu'} 👋</Text>
+        <Text style={{ color: colors.muted, fontSize: 14 }}>Gunaydin {profileDisplayName} 👋</Text>
         <Text style={{ color: colors.text, fontSize: 27, fontWeight: '800', marginTop: 5 }}>Bugün neler oldu?</Text>
       </View>
 
@@ -128,7 +172,10 @@ export default function Home() {
                 return;
               }
               if (path === '/expenses') {
-                router.push({ pathname: '/expenses', params: { mode: 'readonly' } });
+                router.push({
+                  pathname: '/expenses',
+                  params: { mode: 'member-history' },
+                });
                 return;
               }
               router.push(path as any);
