@@ -30,6 +30,39 @@ iOS simulator için:
 npm run ios
 ```
 
+## iOS App Store ve TestFlight
+
+EAS CLI kurulumu ve giriş:
+
+```bash
+npm install -g eas-cli
+eas login
+```
+
+İlk kez proje yapılandırma:
+
+```bash
+eas build:configure
+```
+
+Production iOS build alma:
+
+```bash
+npm run release:ios
+```
+
+Son alınan build'i App Store Connect'e gönderme:
+
+```bash
+npm run release:ios:submit
+```
+
+Notlar:
+
+- iOS `buildNumber` her release'te artmalıdır (bu projede `eas.json` içindeki `autoIncrement` bunu otomatik yönetir).
+- App Store Connect tarafında uygulama kaydı ve doğru bundle identifier (`com.serhatonal.patinobeti`) hazır olmalıdır.
+- İlk submit sırasında Apple kimlik doğrulama bilgileri EAS tarafından istenir.
+
 ## Sonraki aşama
 
 1. Supabase projesi oluştur.

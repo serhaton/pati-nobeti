@@ -2,18 +2,35 @@
   "expo": {
     "name": "Pati Nöbeti",
     "slug": "pati-nobeti",
-    "version": "0.1.0",
+    "version": "1.0.0",
+    "icon": "./assets/icon.png",
     "orientation": "portrait",
     "scheme": "patinobeti",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#E3EFE6"
+    },
     "ios": {
+      "icon": "./assets/ios-icon.png",
       "supportsTablet": true,
-      "bundleIdentifier": "com.example.patinobeti"
+      "buildNumber": "1",
+      "bundleIdentifier": "com.serhatonal.patinobeti",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "plugins": [
       "expo-router",
       "expo-image-picker",
       "expo-location"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f3b1269a-ab50-4c23-9822-ae0642d8a5b8"
+      }
+    }
   }
 }
