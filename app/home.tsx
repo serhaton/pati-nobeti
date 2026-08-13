@@ -96,11 +96,13 @@ export default function Home() {
             <Text style={{ fontSize: 25 }}>💳</Text>
             <Text
               style={{
-                fontSize: 24,
+                fontSize: 20,
                 fontWeight: '800',
                 color: debtCreditBalance >= 0 ? '#2F7A44' : colors.danger,
                 marginTop: 7,
               }}
+              numberOfLines={1}
+              adjustsFontSizeToFit
             >
               {debtCreditBalance >= 0 ? '+' : '-'}{Math.abs(debtCreditBalance).toLocaleString('tr-TR')} ₺
             </Text>
@@ -118,7 +120,17 @@ export default function Home() {
           ['🧾','Masraf ekle','/expenses'],
           ['🤝','Pati Uzat','/pati-uzat']
         ].map(([icon, label, path]) => (
-          <TouchableOpacity key={label} onPress={() => router.push(path as any)} style={{ width: '48%' }}>
+          <TouchableOpacity
+            key={label}
+            onPress={() => {
+              if (path === '/pati-uzat') {
+                router.push({ pathname: '/pati-uzat', params: { view: 'mine' } });
+                return;
+              }
+              router.push(path as any);
+            }}
+            style={{ width: '48%' }}
+          >
             <Card>
               <Text style={{ fontSize: 26 }}>{icon}</Text>
               <Text style={{ fontWeight: '700', marginTop: 9, color: colors.text }}>{label}</Text>

@@ -455,6 +455,71 @@ export async function allocateContributionToExpenses(input: {
   };
 }
 
+export async function removeContributionAllocation(input: {
+  allocationId: string;
+  communityId: string;
+}): Promise<void> {
+  if (!isSupabaseDataEnabled()) {
+    for (const contribution of mockContributions) {
+      const nextAllocations = contribution.allocations.filter((item) => item.id !== input.allocationId);
+      if (nextAllocations.length !== contribution.allocations.length) {
+        contribution.allocations = nextAllocations;
+        return;
+      }
+    }
+    throw new Error('Dağıtım kaydı bulunamadı.');
+  }
+
+  const { data: allocationRow, error: allocationReadError } = await supabase
+    .from('contribution_allocations')
+    .select('id, expense_id, amount')
+    .eq('id', input.allocationId)
+    .eq('community_id', input.communityId)
+    .single();
+
+  if (allocationReadError) {
+    throw formatError(allocationReadError, 'Dağıtım kaydı okunamadı.');
+  }
+
+  const allocationAmount = roundMoney(toNumber(allocationRow.amount));
+  const expenseId = String(allocationRow.expense_id);
+
+  const { data: expenseRow, error: expenseReadError } = await supabase
+    .from('expenses')
+    .select('id, amount, due_amount')
+    .eq('id', expenseId)
+    .eq('community_id', input.communityId)
+    .single();
+
+  if (expenseReadError) {
+    throw formatError(expenseReadError, 'Masraf kaydı okunamadı.');
+  }
+
+  const currentDue = roundMoney(toNumber(expenseRow.due_amount));
+  const expenseAmount = roundMoney(toNumber(expenseRow.amount));
+  const nextDue = roundMoney(Math.min(expenseAmount, currentDue + allocationAmount));
+
+  const { error: expenseUpdateError } = await supabase
+    .from('expenses')
+    .update({ due_amount: nextDue })
+    .eq('id', expenseId)
+    .eq('community_id', input.communityId);
+
+  if (expenseUpdateError) {
+    throw formatError(expenseUpdateError, 'Masraf borcu geri açılamadı.');
+  }
+
+  const { error: allocationDeleteError } = await supabase
+    .from('contribution_allocations')
+    .delete()
+    .eq('id', input.allocationId)
+    .eq('community_id', input.communityId);
+
+  if (allocationDeleteError) {
+    throw formatError(allocationDeleteError, 'Dağıtım kaydı silinemedi.');
+  }
+}
+
 export function getContributorDisplayName(communityId: string, userId: string | null): string {
   if (!userId) return 'Belirtilmedi';
   const member = getCommunityMembers(communityId).find((item) => item.userId === userId);

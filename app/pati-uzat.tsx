@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, Linking, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -11,7 +11,14 @@ import { useCommunity } from '../src/context/CommunityContext';
 import { colors } from '../src/theme';
 import { getCommunityMembers } from '../src/data/mock';
 import { uploadExpenseReceiptsIfNeeded } from '../src/services/supabaseStorage';
-import { ContributionRecord, createContribution, getContributionsByCommunity, getContributionsByContributor } from '../src/services/contributionService';
+import { ExpenseRecord, getApprovedExpensesByCommunity } from '../src/services/expenseService';
+import {
+  ContributionRecord,
+  createContribution,
+  getContributionsByCommunity,
+  getContributionsByContributor,
+  removeContributionAllocation,
+} from '../src/services/contributionService';
 
 type LocalReceiptFile = {
   uri: string;
@@ -62,15 +69,24 @@ function contributionStatusLabel(status: ContributionRecord['approvalStatus']): 
   return 'Onay bekliyor';
 }
 
+function getAllocationPercent(amount: number, remainingAmount: number): number {
+  if (amount <= 0) return 0;
+  const raw = ((amount - remainingAmount) / amount) * 100;
+  const bounded = Math.min(100, Math.max(0, raw));
+  return Math.round(bounded);
+}
+
 function isPdfFile(value: string): boolean {
   return /\.pdf($|\?)/i.test(value);
 }
 
 export default function PatiUzat() {
+  const params = useLocalSearchParams<{ view?: string }>();
   const { currentUser } = useAuth();
   const { selectedCommunity } = useCommunity();
   const selectedCommunityId = selectedCommunity?.id ?? null;
   const isCommunityAdmin = !!currentUser && !!selectedCommunity?.adminUserIds.includes(currentUser.id);
+  const shouldShowCommunityContributions = isCommunityAdmin && params.view === 'community';
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -81,6 +97,7 @@ export default function PatiUzat() {
   const [showMemberPicker, setShowMemberPicker] = useState(false);
 
   const [contributions, setContributions] = useState<ContributionRecord[]>([]);
+  const [approvedExpenses, setApprovedExpenses] = useState<ExpenseRecord[]>([]);
   const [visibleCount, setVisibleCount] = useState(4);
 
   const [transferAt, setTransferAt] = useState<Date>(new Date());
@@ -88,6 +105,9 @@ export default function PatiUzat() {
   const [note, setNote] = useState('');
   const [receiptFiles, setReceiptFiles] = useState<LocalReceiptFile[]>([]);
   const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
+  const [selectedReadonlyExpense, setSelectedReadonlyExpense] = useState<ExpenseRecord | null>(null);
+  const [selectedAllocationContext, setSelectedAllocationContext] = useState<{ allocationId: string; contributionId: string } | null>(null);
+  const [isRemovingAllocation, setIsRemovingAllocation] = useState(false);
 
   const selectedContributorName = useMemo(() => {
     const found = communityMembers.find((item) => item.userId === selectedContributorUserId);
@@ -98,6 +118,12 @@ export default function PatiUzat() {
   const memberNameById = useMemo(() => {
     return new Map(communityMembers.map((item) => [item.userId, item.fullName]));
   }, [communityMembers]);
+
+  const approvedExpenseById = useMemo(() => {
+    return new Map(approvedExpenses.map((item) => [item.id, item]));
+  }, [approvedExpenses]);
+
+  const canManageAllocations = isCommunityAdmin && shouldShowCommunityContributions;
 
   const visibleContributions = useMemo(() => contributions.slice(0, visibleCount), [contributions, visibleCount]);
   const hasMoreContributions = visibleCount < contributions.length;
@@ -119,13 +145,17 @@ export default function PatiUzat() {
           fullName: member.user?.fullName ?? member.user?.username ?? member.userId,
         }));
 
-      const rows = isCommunityAdmin
-        ? await getContributionsByCommunity(selectedCommunityId)
-        : await getContributionsByContributor(selectedCommunityId, currentUser.id);
+      const [rows, expenseRows] = await Promise.all([
+        shouldShowCommunityContributions
+          ? getContributionsByCommunity(selectedCommunityId)
+          : getContributionsByContributor(selectedCommunityId, currentUser.id),
+        getApprovedExpensesByCommunity(selectedCommunityId),
+      ]);
       const sortedRows = [...rows].sort((left, right) => right.transferAt.localeCompare(left.transferAt));
 
       setCommunityMembers(members);
       setContributions(sortedRows);
+      setApprovedExpenses(expenseRows);
       setVisibleCount(4);
       setSelectedContributorUserId(currentUser.id);
     } catch (error: any) {
@@ -133,7 +163,7 @@ export default function PatiUzat() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser, isCommunityAdmin, selectedCommunityId]);
+  }, [currentUser, selectedCommunityId, shouldShowCommunityContributions]);
 
   useFocusEffect(
     useCallback(() => {
@@ -299,6 +329,38 @@ export default function PatiUzat() {
     );
   }
 
+  function openAllocationExpense(contributionId: string, allocationId: string, expenseId: string) {
+    const expense = approvedExpenseById.get(expenseId);
+    if (!expense) {
+      Alert.alert('Masraf bulunamadı', 'Bağlı masraf kaydı açılamadı.');
+      return;
+    }
+
+    setSelectedAllocationContext({ allocationId, contributionId });
+    setSelectedReadonlyExpense(expense);
+  }
+
+  async function onRemoveAllocation() {
+    if (!selectedCommunityId || !canManageAllocations || !selectedAllocationContext) return;
+
+    setIsRemovingAllocation(true);
+    try {
+      await removeContributionAllocation({
+        allocationId: selectedAllocationContext.allocationId,
+        communityId: selectedCommunityId,
+      });
+
+      setSelectedReadonlyExpense(null);
+      setSelectedAllocationContext(null);
+      await loadData();
+      Alert.alert('Dağıtım geri alındı', 'Seçili dağıtım silindi, masraf borcu yeniden açıldı.');
+    } catch (error: any) {
+      Alert.alert('Geri alma hatası', String(error?.message ?? 'Dağıtım geri alınamadı.'));
+    } finally {
+      setIsRemovingAllocation(false);
+    }
+  }
+
   async function submitContribution() {
     if (!selectedCommunityId || !currentUser) return;
 
@@ -369,15 +431,72 @@ export default function PatiUzat() {
             </Text>
             <Text style={{ color: colors.muted, marginTop: 4 }}>{new Date(item.transferAt).toLocaleString('tr-TR')}</Text>
             <Text style={{ color: colors.muted, marginTop: 2 }}>{contributionStatusLabel(item.approvalStatus)}</Text>
-            <Text style={{ color: colors.muted, marginTop: 2 }}>
+            <View
+              style={{
+                marginTop: 10,
+                borderWidth: 1,
+                borderColor: item.remainingAmount > 0 ? '#EAC891' : '#B8DEBF',
+                borderRadius: 12,
+                padding: 10,
+                backgroundColor: '#FFFFFFD0',
+              }}
+            >
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                <View>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: colors.muted }}>Dağıtım Oranı</Text>
+                  <Text style={{ marginTop: 2, fontSize: 22, fontWeight: '900', color: item.remainingAmount > 0 ? '#9A6720' : '#2F7A44' }}>
+                    %{getAllocationPercent(item.amount, item.remainingAmount)}
+                  </Text>
+                </View>
+
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: colors.muted }}>Kalan Bakiye</Text>
+                  <Text style={{ marginTop: 2, fontSize: 18, fontWeight: '900', color: item.remainingAmount > 0 ? '#9A6720' : '#2F7A44' }}>
+                    {item.remainingAmount.toLocaleString('tr-TR')} ₺
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ height: 8, borderRadius: 999, backgroundColor: '#E8EBE7', overflow: 'hidden', marginTop: 8 }}>
+                <View
+                  style={{
+                    width: `${getAllocationPercent(item.amount, item.remainingAmount)}%`,
+                    height: '100%',
+                    backgroundColor: item.remainingAmount > 0 ? '#D09A4D' : '#3E9755',
+                  }}
+                />
+              </View>
+            </View>
+
+            <Text style={{ color: colors.muted, marginTop: 8 }}>
               Dağıtılan: {item.allocatedAmount.toLocaleString('tr-TR')} ₺ · Kalan: {item.remainingAmount.toLocaleString('tr-TR')} ₺
             </Text>
             {item.allocations.length > 0 ? (
-              <View style={{ marginTop: 6 }}>
+              <View style={{ marginTop: 8 }}>
                 {item.allocations.map((allocation) => (
-                  <Text key={allocation.id} style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>
-                    • {allocation.expenseTitle}: {allocation.amount.toLocaleString('tr-TR')} ₺
-                  </Text>
+                  <TouchableOpacity
+                    key={allocation.id}
+                    onPress={() => openAllocationExpense(item.id, allocation.id, allocation.expenseId)}
+                    style={{
+                      marginTop: 6,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: 12,
+                      backgroundColor: '#fff',
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <View style={{ flex: 1, paddingRight: 8 }}>
+                        <Text style={{ color: colors.text, fontWeight: '700' }}>{allocation.expenseTitle}</Text>
+                        <Text style={{ color: colors.muted, marginTop: 2 }}>
+                          {allocation.amount.toLocaleString('tr-TR')} ₺ · {new Date(allocation.allocatedAt).toLocaleString('tr-TR')}
+                        </Text>
+                      </View>
+                      <Text style={{ color: colors.muted, fontSize: 18 }}>›</Text>
+                    </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             ) : null}
@@ -401,12 +520,12 @@ export default function PatiUzat() {
             </View>
             <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Pati Uzat</Text>
             <Text style={{ color: colors.muted, marginTop: 4 }}>
-              {isCommunityAdmin
+              {shouldShowCommunityContributions
                 ? 'Topluluktaki tüm Pati Uzat kayıtları (en yeniden eskiye) burada listelenir.'
                 : 'Daha önce yaptığın katkılar (en yeniden eskiye) burada listelenir.'}
             </Text>
             <Text style={{ marginTop: 18, marginBottom: 8, fontWeight: '800', color: colors.text }}>
-              {isCommunityAdmin ? 'Topluluk Katkı Geçmişi' : 'Katkı Geçmişin'}
+              {shouldShowCommunityContributions ? 'Topluluk Katkı Geçmişi' : 'Katkı Geçmişin'}
             </Text>
 
             {isLoading ? (
@@ -562,6 +681,55 @@ export default function PatiUzat() {
               {isSubmitting ? 'Kaydediliyor...' : 'Pati Uzat Kaydı Gönder'}
             </Text>
           </TouchableOpacity>
+        </ScrollView>
+      </Modal>
+
+      <Modal visible={!!selectedReadonlyExpense} animationType="slide" onRequestClose={() => {
+        setSelectedReadonlyExpense(null);
+        setSelectedAllocationContext(null);
+      }}>
+        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+          <TouchableOpacity onPress={() => {
+            setSelectedReadonlyExpense(null);
+            setSelectedAllocationContext(null);
+          }}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+          <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Masraf Görüntüleme</Text>
+
+          {selectedReadonlyExpense ? (
+            <Card style={{ marginTop: 18 }}>
+              <Text style={{ fontWeight: '800', color: colors.text }}>{selectedReadonlyExpense.title}</Text>
+              <Text style={{ color: colors.muted, marginTop: 4 }}>{selectedReadonlyExpense.vendorName}</Text>
+              <Text style={{ color: colors.muted, marginTop: 2 }}>{new Date(selectedReadonlyExpense.expenseAt).toLocaleString('tr-TR')}</Text>
+              <Text style={{ color: colors.muted, marginTop: 2 }}>{selectedReadonlyExpense.amount.toLocaleString('tr-TR')} ₺</Text>
+              <Text style={{ color: colors.muted, marginTop: 2 }}>Kalan borç: {selectedReadonlyExpense.dueAmount.toLocaleString('tr-TR')} ₺</Text>
+
+              {selectedReadonlyExpense.note ? <Text style={{ color: colors.muted, marginTop: 8 }}>Not: {selectedReadonlyExpense.note}</Text> : null}
+
+              <TouchableOpacity
+                onPress={() => openReceipts(selectedReadonlyExpense.receiptUrls.length ? selectedReadonlyExpense.receiptUrls : [selectedReadonlyExpense.receiptUrl])}
+                style={{ marginTop: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, backgroundColor: '#fff' }}
+              >
+                <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri Görüntüle</Text>
+              </TouchableOpacity>
+
+              {canManageAllocations ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    Alert.alert('Dağıtımı geri al', 'Bu dağıtım silinsin mi? Masraf borcu yeniden açılır.', [
+                      { text: 'Vazgeç', style: 'cancel' },
+                      { text: 'Sil', style: 'destructive', onPress: () => { void onRemoveAllocation(); } },
+                    ]);
+                  }}
+                  disabled={isRemovingAllocation || !selectedAllocationContext}
+                  style={{ marginTop: 10, borderRadius: 10, padding: 11, backgroundColor: colors.danger, opacity: isRemovingAllocation || !selectedAllocationContext ? 0.65 : 1 }}
+                >
+                  <Text style={{ textAlign: 'center', color: '#fff', fontWeight: '800' }}>
+                    {isRemovingAllocation ? 'İşleniyor...' : 'Bu Dağıtımı Geri Al'}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </Card>
+          ) : null}
         </ScrollView>
       </Modal>
 

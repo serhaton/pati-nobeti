@@ -254,24 +254,39 @@ export default function Community() {
       <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 12 }}>{selectedCommunity.name}</Text>
       <Text style={{ color: colors.muted, marginTop: 5 }}>{selectedCommunity.neighborhood} · {memberCount} üye · {animalCount} can dost</Text>
 
-      <View style={{ flexDirection: 'row', gap: 9, marginTop: 22 }}>
-        <Card style={{ flex: 1, padding: 13 }}>
-          <Text style={{ fontWeight: '800', fontSize: 18, color: colors.text }}>{String(animalCount)}</Text>
-          <Text style={{ color: colors.muted, marginTop: 3, fontSize: 12 }}>Can Dost</Text>
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 22 }}>
+        <Card style={{ flex: 1, paddingVertical: 11, paddingHorizontal: 10 }}>
+          <Text style={{ fontWeight: '800', fontSize: 16, color: colors.text }} numberOfLines={1} adjustsFontSizeToFit>
+            {String(animalCount)}
+          </Text>
+          <Text style={{ color: colors.muted, marginTop: 3, fontSize: 11 }} numberOfLines={1}>Can Dost</Text>
         </Card>
+
+        <Card style={{ flex: 1, paddingVertical: 11, paddingHorizontal: 10 }}>
+          <Text style={{ fontWeight: '800', fontSize: 16, color: colors.text }} numberOfLines={1} adjustsFontSizeToFit>
+            {String(memberCount)}
+          </Text>
+          <Text style={{ color: colors.muted, marginTop: 3, fontSize: 11 }} numberOfLines={1}>Üye Sayısı</Text>
+        </Card>
+
         <Card
           style={{
             flex: 1,
-            padding: 13,
+            paddingVertical: 11,
+            paddingHorizontal: 10,
             backgroundColor: debtCreditBalance >= 0 ? '#EAF7EC' : '#FDECEC',
             borderWidth: 1,
             borderColor: debtCreditBalance >= 0 ? '#B8DEBF' : '#F3B7B2',
           }}
         >
-          <Text style={{ fontWeight: '800', fontSize: 18, color: debtCreditBalance >= 0 ? '#2F7A44' : '#9B3A34' }}>
+          <Text
+            style={{ fontWeight: '800', fontSize: 14, color: debtCreditBalance >= 0 ? '#2F7A44' : '#9B3A34' }}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
             {debtCreditBalance >= 0 ? '+' : '-'}{Math.abs(debtCreditBalance).toLocaleString('tr-TR')} ₺
           </Text>
-          <Text style={{ color: colors.muted, marginTop: 3, fontSize: 12 }}>Borç / Alacak</Text>
+          <Text style={{ color: colors.muted, marginTop: 3, fontSize: 11 }} numberOfLines={1}>Borç / Alacak</Text>
         </Card>
       </View>
 
@@ -519,7 +534,19 @@ export default function Community() {
 
       <Text style={{ fontSize: 19, fontWeight: '800', color: colors.text, marginTop: 28, marginBottom: 12 }}>Topluluk menüsü</Text>
       {communityMenuItems.map(([icon,label,path]) => (
-        <TouchableOpacity key={label} onPress={() => router.push(path as any)}>
+        <TouchableOpacity
+          key={label}
+          onPress={() => {
+            if (path === '/pati-uzat') {
+              router.push({
+                pathname: '/pati-uzat',
+                params: { view: isCommunityAdmin ? 'community' : 'mine' },
+              });
+              return;
+            }
+            router.push(path as any);
+          }}
+        >
           <Card style={{ marginBottom: 9 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={{ fontSize: 24, width: 38 }}>{icon}</Text>
