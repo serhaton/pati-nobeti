@@ -91,7 +91,7 @@ export default function Home() {
             <Text style={{ color: colors.muted }}>Bugünkü besleme kaydı</Text>
           </Card>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push('/expenses')} style={{ flex: 1 }}>
+        <TouchableOpacity onPress={() => router.push({ pathname: '/expenses', params: { mode: 'readonly' } })} style={{ flex: 1 }}>
           <Card style={{ flex: 1 }}>
             <Text style={{ fontSize: 25 }}>💳</Text>
             <Text
@@ -125,6 +125,10 @@ export default function Home() {
             onPress={() => {
               if (path === '/pati-uzat') {
                 router.push({ pathname: '/pati-uzat', params: { view: 'mine' } });
+                return;
+              }
+              if (path === '/expenses') {
+                router.push({ pathname: '/expenses', params: { mode: 'readonly' } });
                 return;
               }
               router.push(path as any);

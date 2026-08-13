@@ -1,8 +1,9 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Linking, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { Card } from '../src/components/Card';
@@ -20,7 +21,7 @@ import {
 import { getVeterinariansByCommunity, VeterinarianRecord } from '../src/services/veterinarianService';
 import { uploadExpenseReceiptsIfNeeded } from '../src/services/supabaseStorage';
 import { getCommunityMembers } from '../src/data/mock';
-import { ContributionRecord, getContributionsByCommunity } from '../src/services/contributionService';
+import { ContributionRecord, getContributionsByCommunity, updateContribution } from '../src/services/contributionService';
 
 type LocalReceiptFile = {
   uri: string;
@@ -92,10 +93,6 @@ function getAllocationPercent(amount: number, remainingAmount: number): number {
   return Math.round(bounded);
 }
 
-function isPdfFile(value: string): boolean {
-  return /\.pdf($|\?)/i.test(value);
-}
-
 function fileNameFromUri(uri: string, fallback: string): string {
   const clean = uri.split('?')[0].split('#')[0];
   const name = clean.split('/').pop();
@@ -103,11 +100,19 @@ function fileNameFromUri(uri: string, fallback: string): string {
   return decodeURIComponent(name);
 }
 
+function localDownloadPathFromUrl(url: string): string {
+  const fallbackName = `belge-${Date.now()}`;
+  const fileName = fileNameFromUri(url, fallbackName);
+  return `${FileSystem.cacheDirectory ?? FileSystem.documentDirectory ?? ''}${fileName}`;
+}
+
 export default function Expenses() {
+  const params = useLocalSearchParams<{ mode?: string }>();
   const { currentUser } = useAuth();
   const { selectedCommunity } = useCommunity();
   const selectedCommunityId = selectedCommunity?.id ?? null;
   const isCommunityAdmin = !!currentUser && !!selectedCommunity?.adminUserIds.includes(currentUser.id);
+  const canManageRecords = isCommunityAdmin && params.mode === 'manage';
 
   const [approvedExpenses, setApprovedExpenses] = useState<ExpenseRecord[]>([]);
   const [contributions, setContributions] = useState<ContributionRecord[]>([]);
@@ -121,10 +126,15 @@ export default function Expenses() {
   const [showVetPicker, setShowVetPicker] = useState(false);
   const [showPerformerPicker, setShowPerformerPicker] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
-  const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
   const [selectedContribution, setSelectedContribution] = useState<ContributionRecord | null>(null);
   const [selectedReadonlyExpense, setSelectedReadonlyExpense] = useState<ExpenseRecord | null>(null);
   const [pendingReadonlyExpense, setPendingReadonlyExpense] = useState<ExpenseRecord | null>(null);
+  const [showContributionEditModal, setShowContributionEditModal] = useState(false);
+  const [editingContributionId, setEditingContributionId] = useState<string | null>(null);
+  const [contributionTransferAt, setContributionTransferAt] = useState<Date>(new Date());
+  const [contributionAmountText, setContributionAmountText] = useState('');
+  const [contributionNote, setContributionNote] = useState('');
+  const [contributionContributorUserId, setContributionContributorUserId] = useState<string | null>(null);
   const [showCompletedFinanceItems, setShowCompletedFinanceItems] = useState(false);
   const [visibleFinanceCount, setVisibleFinanceCount] = useState(4);
   const [isPagingFinance, setIsPagingFinance] = useState(false);
@@ -169,33 +179,25 @@ export default function Expenses() {
     return new Map(approvedExpenses.map((item) => [item.id, item]));
   }, [approvedExpenses]);
 
-  const allocatedExpenseIdSet = useMemo(() => {
-    const set = new Set<string>();
-    for (const contribution of contributions) {
-      for (const allocation of contribution.allocations) {
-        set.add(allocation.expenseId);
-      }
-    }
-    return set;
-  }, [contributions]);
-
   const visibleApprovedExpenses = useMemo(() => {
-    if (!isCommunityAdmin || showCompletedFinanceItems) return approvedExpenses;
-    return approvedExpenses.filter((item) => item.dueAmount > 0);
-  }, [approvedExpenses, isCommunityAdmin, showCompletedFinanceItems]);
+    const base = isCommunityAdmin
+      ? approvedExpenses
+      : approvedExpenses.filter((item) => !!currentUser && item.submittedBy === currentUser.id);
+
+    if (!isCommunityAdmin || showCompletedFinanceItems) return base;
+    return base.filter((item) => item.dueAmount > 0);
+  }, [approvedExpenses, currentUser, isCommunityAdmin, showCompletedFinanceItems]);
 
   const visibleApprovedContributions = useMemo(() => {
-    const approvedRows = contributions.filter((item) => item.approvalStatus === 'approved');
+    const base = isCommunityAdmin
+      ? contributions
+      : contributions.filter((item) => !!currentUser && item.contributorUserId === currentUser.id);
+    const approvedRows = base.filter((item) => item.approvalStatus === 'approved');
     if (!isCommunityAdmin || showCompletedFinanceItems) return approvedRows;
     return approvedRows.filter((item) => item.remainingAmount > 0);
-  }, [contributions, isCommunityAdmin, showCompletedFinanceItems]);
+  }, [contributions, currentUser, isCommunityAdmin, showCompletedFinanceItems]);
 
   const financeTimeline = useMemo(() => {
-    if (!isCommunityAdmin) return [] as Array<
-      | { kind: 'expense'; id: string; date: string; expense: ExpenseRecord }
-      | { kind: 'contribution'; id: string; date: string; contribution: ContributionRecord }
-    >;
-
     const expenseRows = visibleApprovedExpenses.map((expense) => ({
       kind: 'expense' as const,
       id: `expense-${expense.id}`,
@@ -211,7 +213,7 @@ export default function Expenses() {
     }));
 
     return [...expenseRows, ...contributionRows].sort((left, right) => right.date.localeCompare(left.date));
-  }, [isCommunityAdmin, visibleApprovedContributions, visibleApprovedExpenses]);
+  }, [visibleApprovedContributions, visibleApprovedExpenses]);
 
   const visibleFinanceTimeline = useMemo(
     () => financeTimeline.slice(0, visibleFinanceCount),
@@ -277,7 +279,7 @@ export default function Expenses() {
   }, [isCommunityAdmin, selectedCommunityId]);
 
   function onMainScroll(event: any) {
-    if (!isCommunityAdmin || !hasMoreFinanceTimeline || isPagingFinance) return;
+    if (!hasMoreFinanceTimeline || isPagingFinance) return;
 
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const isNearBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 140;
@@ -346,6 +348,22 @@ export default function Expenses() {
     setExpenseAt(next);
   }
 
+  function onContributionDateChange(_: any, selected?: Date) {
+    if (!selected) return;
+
+    const next = new Date(contributionTransferAt);
+    next.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
+    setContributionTransferAt(next);
+  }
+
+  function onContributionTimeChange(_: any, selected?: Date) {
+    if (!selected) return;
+
+    const next = new Date(contributionTransferAt);
+    next.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
+    setContributionTransferAt(next);
+  }
+
   function openCreateModal() {
     resetForm();
     setShowCreateModal(true);
@@ -353,9 +371,47 @@ export default function Expenses() {
 
   function canEditExpense(item: ExpenseRecord): boolean {
     if (!currentUser) return false;
-    if (allocatedExpenseIdSet.has(item.id)) return false;
-    if (isCommunityAdmin) return true;
-    return item.approvalStatus === 'pending' && item.submittedBy === currentUser.id;
+    return canManageRecords;
+  }
+
+  function openEditContributionModal(item: ContributionRecord) {
+    setEditingContributionId(item.id);
+    setContributionTransferAt(new Date(item.transferAt));
+    setContributionAmountText(item.amount.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).replace(/\./g, ''));
+    setContributionNote(item.note);
+    setContributionContributorUserId(item.contributorUserId);
+    setShowContributionEditModal(true);
+  }
+
+  async function submitContributionUpdate() {
+    if (!selectedCommunityId || !editingContributionId || !contributionContributorUserId) return;
+
+    const parsedAmount = parseAmountText(contributionAmountText);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      Alert.alert('Geçersiz tutar', 'Tutar 0’dan büyük olmalı ve en fazla 2 ondalık basamak içermeli.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await updateContribution({
+        contributionId: editingContributionId,
+        communityId: selectedCommunityId,
+        contributorUserId: contributionContributorUserId,
+        amount: parsedAmount,
+        transferAtIso: contributionTransferAt.toISOString(),
+        note: contributionNote.trim() || undefined,
+      });
+
+      setShowContributionEditModal(false);
+      setEditingContributionId(null);
+      await loadExpenseData();
+      Alert.alert('Pati Uzat güncellendi', 'Kayıt başarıyla güncellendi.');
+    } catch (error: any) {
+      Alert.alert('Güncelleme hatası', String(error?.message ?? 'Pati Uzat kaydı güncellenemedi.'));
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function openEditModal(item: ExpenseRecord) {
@@ -587,14 +643,26 @@ export default function Expenses() {
   }
 
   function openReceipt(url: string) {
-    if (!isPdfFile(url)) {
-      setPreviewImageUri(url);
+    const trimmed = url.trim();
+    if (!trimmed) {
+      Alert.alert('Fiş açılamadı', 'Geçerli dosya bağlantısı bulunamadı.');
       return;
     }
 
-    Linking.openURL(url).catch(() => {
-      Alert.alert('Fiş açılamadı', 'Fiş bağlantısı açılamadı.');
-    });
+    if (trimmed.startsWith('file://')) {
+      Linking.openURL(trimmed).catch(() => {
+        Alert.alert('Fiş açılamadı', 'Dosya cihazda açılamadı.');
+      });
+      return;
+    }
+
+    const destination = localDownloadPathFromUrl(trimmed);
+
+    FileSystem.downloadAsync(trimmed, destination)
+      .then((result) => Linking.openURL(result.uri))
+      .catch(() => {
+        Alert.alert('Fiş açılamadı', 'Dosya indirilemedi veya cihazda açılamadı.');
+      });
   }
 
   function openReceipts(urls: string[]) {
@@ -620,14 +688,14 @@ export default function Expenses() {
   }
 
   function openExpenseActions(item: ExpenseRecord) {
-    if (allocatedExpenseIdSet.has(item.id)) {
+    if (!canManageRecords) {
       setSelectedReadonlyExpense(item);
       return;
     }
 
     const actions: Array<{ text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' }> = [
       {
-        text: 'Fişleri Görüntüle',
+        text: 'Fişleri İndir ve Aç',
         onPress: () => openReceipts(item.receiptUrls.length ? item.receiptUrls : [item.receiptUrl]),
       },
     ];
@@ -650,6 +718,25 @@ export default function Expenses() {
     Alert.alert(item.title, 'İşlem seç', actions);
   }
 
+  function openContributionActions(item: ContributionRecord) {
+    if (!canManageRecords) {
+      setSelectedContribution(item);
+      return;
+    }
+
+    const actions: Array<{ text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' }> = [
+      { text: 'Kaydı Güncelle', onPress: () => openEditContributionModal(item) },
+      {
+        text: 'Dekontları İndir ve Aç',
+        onPress: () => openReceipts(item.receiptUrls.length ? item.receiptUrls : [item.receiptUrl]),
+      },
+      { text: 'Dağıtım Detayını Gör', onPress: () => setSelectedContribution(item) },
+      { text: 'Kapat', style: 'cancel' },
+    ];
+
+    Alert.alert('Pati Uzat İşlemi', 'Yapmak istediğin işlemi seç.', actions);
+  }
+
   if (!selectedCommunity) return null;
 
   return (
@@ -665,9 +752,11 @@ export default function Expenses() {
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text }}>Kasa & Borçlar</Text>
           <Text style={{ color: colors.muted }}>Yalnızca onaylı masraflar toplam borca yansır.</Text>
         </View>
-        <TouchableOpacity onPress={openCreateModal} style={{ backgroundColor: colors.primary, padding: 13, borderRadius: 15 }}>
-          <Text style={{ color: '#fff', fontWeight: '800' }}>＋</Text>
-        </TouchableOpacity>
+        {canManageRecords ? (
+          <TouchableOpacity onPress={openCreateModal} style={{ backgroundColor: colors.primary, padding: 13, borderRadius: 15 }}>
+            <Text style={{ color: '#fff', fontWeight: '800' }}>＋</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       <Card
@@ -711,13 +800,13 @@ export default function Expenses() {
         </Card>
       ) : null}
 
-      {!isLoading && !isCommunityAdmin && approvedExpenses.length === 0 ? (
+      {!isLoading && !isCommunityAdmin && visibleApprovedExpenses.length === 0 ? (
         <Card>
           <Text style={{ color: colors.muted }}>Onaylanmış masraf bulunmuyor.</Text>
         </Card>
       ) : null}
 
-      {!isLoading && !isCommunityAdmin && approvedExpenses.map((item) => (
+      {!isLoading && !isCommunityAdmin && visibleApprovedExpenses.map((item) => (
         <TouchableOpacity key={item.id} onPress={() => openExpenseActions(item)} activeOpacity={0.9}>
         <Card
           style={{
@@ -798,7 +887,7 @@ export default function Expenses() {
             onPress={() => openReceipts(item.receiptUrls.length ? item.receiptUrls : [item.receiptUrl])}
             style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, backgroundColor: '#fff' }}
           >
-            <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri Görüntüle</Text>
+            <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri İndir ve Aç</Text>
           </TouchableOpacity>
         </Card>
         </TouchableOpacity>
@@ -900,7 +989,7 @@ export default function Expenses() {
                       onPress={() => openReceipts(item.receiptUrls.length ? item.receiptUrls : [item.receiptUrl])}
                       style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, backgroundColor: '#fff' }}
                     >
-                      <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri Görüntüle</Text>
+                      <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri İndir ve Aç</Text>
                     </TouchableOpacity>
                   </Card>
                 </TouchableOpacity>
@@ -909,7 +998,7 @@ export default function Expenses() {
 
             const item = timelineItem.contribution;
             return (
-              <TouchableOpacity key={timelineItem.id} onPress={() => setSelectedContribution(item)} activeOpacity={0.9}>
+              <TouchableOpacity key={timelineItem.id} onPress={() => openContributionActions(item)} activeOpacity={0.9}>
                 <Card
                   style={{
                     marginBottom: 10,
@@ -1240,31 +1329,88 @@ export default function Expenses() {
         </ScrollView>
       </Modal>
 
-      <Modal visible={!!previewImageUri} transparent animationType="fade" onRequestClose={() => setPreviewImageUri(null)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.88)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
-          {previewImageUri ? (
-            <Image source={{ uri: previewImageUri }} resizeMode="contain" style={{ width: '100%', height: '75%' }} />
-          ) : null}
-          <View style={{ width: '100%', flexDirection: 'row', gap: 8, marginTop: 14 }}>
+      <Modal visible={showContributionEditModal} animationType="slide" onRequestClose={() => setShowContributionEditModal(false)}>
+        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+          <TouchableOpacity onPress={() => setShowContributionEditModal(false)}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+          <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Pati Uzat Kaydını Güncelle</Text>
+
+          <Card style={{ marginTop: 18 }}>
+            <Text style={{ fontWeight: '800', color: colors.text }}>Pati uzatan üye</Text>
             <TouchableOpacity
-              onPress={() => {
-                if (!previewImageUri) return;
-                Linking.openURL(previewImageUri).catch(() => {
-                  Alert.alert('Dosya açılamadı', 'Fiş dosyası açılamadı.');
-                });
-              }}
-              style={{ flex: 1, backgroundColor: '#fff', borderRadius: 10, padding: 12 }}
+              onPress={() => setShowPerformerPicker((current) => !current)}
+              style={{ marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: '#fff', padding: 12 }}
             >
-              <Text style={{ textAlign: 'center', fontWeight: '800', color: colors.text }}>İndir / Aç</Text>
+              <Text style={{ color: colors.text }}>
+                {contributionContributorUserId ? (memberNameById.get(contributionContributorUserId) ?? contributionContributorUserId) : 'Üye seç'}
+              </Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setPreviewImageUri(null)}
-              style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 10, padding: 12 }}
-            >
-              <Text style={{ textAlign: 'center', fontWeight: '800', color: '#fff' }}>Kapat</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+
+            {showPerformerPicker ? (
+              <View style={{ marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 10, backgroundColor: '#fff' }}>
+                {communityMembers.map((member) => (
+                  <TouchableOpacity
+                    key={`contributor-${member.userId}`}
+                    onPress={() => {
+                      setContributionContributorUserId(member.userId);
+                      setShowPerformerPicker(false);
+                    }}
+                    style={{ padding: 12, borderTopWidth: 1, borderTopColor: colors.border }}
+                  >
+                    <Text style={{ color: colors.text, fontWeight: '700' }}>{member.fullName}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
+
+            <Text style={{ fontWeight: '800', color: colors.text, marginTop: 16 }}>Pati uzatma tarihi</Text>
+            <View style={{ marginTop: 10, flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 13, backgroundColor: '#fff', paddingVertical: 6 }}>
+                <DateTimePicker
+                  value={contributionTransferAt}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                  onChange={onContributionDateChange}
+                />
+              </View>
+              <View style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 13, backgroundColor: '#fff', paddingVertical: 6 }}>
+                <DateTimePicker
+                  value={contributionTransferAt}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                  onChange={onContributionTimeChange}
+                />
+              </View>
+            </View>
+
+            <Text style={{ fontWeight: '800', color: colors.text, marginTop: 16 }}>Tutar</Text>
+            <TextInput
+              value={contributionAmountText}
+              onChangeText={(value) => setContributionAmountText(sanitizeAmountInput(value))}
+              placeholder="Örn. 450,75"
+              keyboardType="decimal-pad"
+              style={{ marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: '#fff', padding: 12 }}
+            />
+
+            <Text style={{ fontWeight: '800', color: colors.text, marginTop: 16 }}>Not</Text>
+            <TextInput
+              value={contributionNote}
+              onChangeText={setContributionNote}
+              placeholder="Ek bilgi"
+              multiline
+              style={{ marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: '#fff', padding: 12, minHeight: 80, textAlignVertical: 'top' }}
+            />
+          </Card>
+
+          <TouchableOpacity
+            onPress={submitContributionUpdate}
+            disabled={isSubmitting}
+            style={{ marginTop: 16, backgroundColor: colors.primary, borderRadius: 12, padding: 12, opacity: isSubmitting ? 0.7 : 1 }}
+          >
+            <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>
+              {isSubmitting ? 'Kaydediliyor...' : 'Pati Uzat Kaydını Güncelle'}
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
       </Modal>
 
       <Modal visible={!!selectedReadonlyExpense} animationType="slide" onRequestClose={() => setSelectedReadonlyExpense(null)}>
@@ -1304,7 +1450,7 @@ export default function Expenses() {
                 onPress={() => openReceipts(selectedReadonlyExpense.receiptUrls.length ? selectedReadonlyExpense.receiptUrls : [selectedReadonlyExpense.receiptUrl])}
                 style={{ marginTop: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, backgroundColor: '#fff' }}
               >
-                <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri Görüntüle</Text>
+                <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri İndir ve Aç</Text>
               </TouchableOpacity>
             </Card>
           ) : null}
@@ -1387,7 +1533,7 @@ export default function Expenses() {
                 onPress={() => openReceipts(selectedContribution.receiptUrls.length ? selectedContribution.receiptUrls : [selectedContribution.receiptUrl])}
                 style={{ marginTop: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, backgroundColor: '#fff' }}
               >
-                <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Dekontları Görüntüle</Text>
+                <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Dekontları İndir ve Aç</Text>
               </TouchableOpacity>
             </Card>
           ) : null}

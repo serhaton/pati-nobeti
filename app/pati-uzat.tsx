@@ -1,8 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, Linking, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Linking, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { Card } from '../src/components/Card';
@@ -76,8 +77,17 @@ function getAllocationPercent(amount: number, remainingAmount: number): number {
   return Math.round(bounded);
 }
 
-function isPdfFile(value: string): boolean {
-  return /\.pdf($|\?)/i.test(value);
+function fileNameFromUri(uri: string, fallback: string): string {
+  const clean = uri.split('?')[0].split('#')[0];
+  const name = clean.split('/').pop();
+  if (!name) return fallback;
+  return decodeURIComponent(name);
+}
+
+function localDownloadPathFromUrl(url: string): string {
+  const fallbackName = `belge-${Date.now()}`;
+  const fileName = fileNameFromUri(url, fallbackName);
+  return `${FileSystem.cacheDirectory ?? FileSystem.documentDirectory ?? ''}${fileName}`;
 }
 
 export default function PatiUzat() {
@@ -104,7 +114,6 @@ export default function PatiUzat() {
   const [amountText, setAmountText] = useState('');
   const [note, setNote] = useState('');
   const [receiptFiles, setReceiptFiles] = useState<LocalReceiptFile[]>([]);
-  const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
   const [selectedReadonlyExpense, setSelectedReadonlyExpense] = useState<ExpenseRecord | null>(null);
   const [selectedAllocationContext, setSelectedAllocationContext] = useState<{ allocationId: string; contributionId: string } | null>(null);
   const [isRemovingAllocation, setIsRemovingAllocation] = useState(false);
@@ -297,14 +306,25 @@ export default function PatiUzat() {
   }
 
   function openReceipt(url: string) {
-    if (!isPdfFile(url)) {
-      setPreviewImageUri(url);
+    const trimmed = url.trim();
+    if (!trimmed) {
+      Alert.alert('Dekont açılamadı', 'Geçerli dosya bağlantısı bulunamadı.');
       return;
     }
 
-    Linking.openURL(url).catch(() => {
-      Alert.alert('Dekont açılamadı', 'Dekont bağlantısı açılamadı.');
-    });
+    if (trimmed.startsWith('file://')) {
+      Linking.openURL(trimmed).catch(() => {
+        Alert.alert('Dekont açılamadı', 'Dosya cihazda açılamadı.');
+      });
+      return;
+    }
+
+    const destination = localDownloadPathFromUrl(trimmed);
+    FileSystem.downloadAsync(trimmed, destination)
+      .then((result) => Linking.openURL(result.uri))
+      .catch(() => {
+        Alert.alert('Dekont açılamadı', 'Dosya indirilemedi veya cihazda açılamadı.');
+      });
   }
 
   function openReceipts(urls: string[]) {
@@ -504,7 +524,7 @@ export default function PatiUzat() {
               onPress={() => openReceipts(item.receiptUrls.length ? item.receiptUrls : [item.receiptUrl])}
               style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, backgroundColor: '#fff' }}
             >
-              <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Dekontları Görüntüle</Text>
+              <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Dekontları İndir ve Aç</Text>
             </TouchableOpacity>
           </Card>
         )}
@@ -709,7 +729,7 @@ export default function PatiUzat() {
                 onPress={() => openReceipts(selectedReadonlyExpense.receiptUrls.length ? selectedReadonlyExpense.receiptUrls : [selectedReadonlyExpense.receiptUrl])}
                 style={{ marginTop: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, backgroundColor: '#fff' }}
               >
-                <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri Görüntüle</Text>
+                <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri İndir ve Aç</Text>
               </TouchableOpacity>
 
               {canManageAllocations ? (
@@ -733,32 +753,6 @@ export default function PatiUzat() {
         </ScrollView>
       </Modal>
 
-      <Modal visible={!!previewImageUri} transparent animationType="fade" onRequestClose={() => setPreviewImageUri(null)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.88)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
-          {previewImageUri ? (
-            <Image source={{ uri: previewImageUri }} resizeMode="contain" style={{ width: '100%', height: '75%' }} />
-          ) : null}
-          <View style={{ width: '100%', flexDirection: 'row', gap: 8, marginTop: 14 }}>
-            <TouchableOpacity
-              onPress={() => {
-                if (!previewImageUri) return;
-                Linking.openURL(previewImageUri).catch(() => {
-                  Alert.alert('Dosya açılamadı', 'Dekont dosyası açılamadı.');
-                });
-              }}
-              style={{ flex: 1, backgroundColor: '#fff', borderRadius: 10, padding: 12 }}
-            >
-              <Text style={{ textAlign: 'center', fontWeight: '800', color: colors.text }}>İndir / Aç</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setPreviewImageUri(null)}
-              style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 10, padding: 12 }}
-            >
-              <Text style={{ textAlign: 'center', fontWeight: '800', color: '#fff' }}>Kapat</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </>
   );
 }

@@ -544,6 +544,13 @@ export default function Community() {
               });
               return;
             }
+            if (path === '/expenses') {
+              router.push({
+                pathname: '/expenses',
+                params: { mode: isCommunityAdmin ? 'manage' : 'readonly' },
+              });
+              return;
+            }
             router.push(path as any);
           }}
         >

@@ -520,6 +520,58 @@ export async function removeContributionAllocation(input: {
   }
 }
 
+export async function updateContribution(input: {
+  contributionId: string;
+  communityId: string;
+  contributorUserId: string;
+  amount: number;
+  transferAtIso: string;
+  note?: string;
+}): Promise<ContributionRecord> {
+  const normalizedAmount = roundMoney(input.amount);
+
+  if (!isSupabaseDataEnabled()) {
+    const index = mockContributions.findIndex(
+      (item) => item.id === input.contributionId && item.communityId === input.communityId
+    );
+    if (index < 0) {
+      throw new Error('Pati uzatma kaydı bulunamadı.');
+    }
+
+    const existing = mockContributions[index];
+    const updated: ContributionRecord = {
+      ...existing,
+      contributorUserId: input.contributorUserId,
+      amount: normalizedAmount,
+      transferAt: input.transferAtIso,
+      note: String(input.note ?? '').trim(),
+    };
+    mockContributions[index] = updated;
+    return updated;
+  }
+
+  const { data, error } = await supabase
+    .from('contributions')
+    .update({
+      contributor_user_id: input.contributorUserId,
+      user_id: input.contributorUserId,
+      amount: normalizedAmount,
+      transfer_at: input.transferAtIso,
+      note: String(input.note ?? '').trim() || null,
+    })
+    .eq('id', input.contributionId)
+    .eq('community_id', input.communityId)
+    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, expense_id, approved_by, approved_at, created_at')
+    .single();
+
+  if (error) {
+    throw formatError(error, 'Pati uzatma kaydı güncellenemedi.');
+  }
+
+  const allocationMap = await fetchAllocationMap([String(data.id)]);
+  return mapRow(data, allocationMap.get(String(data.id)) ?? []);
+}
+
 export function getContributorDisplayName(communityId: string, userId: string | null): string {
   if (!userId) return 'Belirtilmedi';
   const member = getCommunityMembers(communityId).find((item) => item.userId === userId);
