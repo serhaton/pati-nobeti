@@ -54,9 +54,9 @@ export default function Community() {
       ['🐾', 'Can dostlar', '/animal'],
       ['🩺', 'Veterinerler', '/veterinarians'],
       ['🗺️', 'Harita ve besleme noktalari', '/map'],
-      ['🧾', 'Masraf', '/expenses-manage'],
+      ['🧾', 'Masraf', '/expenses'],
       ['🤝', 'Pati Uzat', '/pati-uzat'],
-      ['💰', 'Kasa', '/expenses'],
+      ['💰', 'Kasa', '/finance'],
     ] : []),
     
   ] as const;
@@ -285,7 +285,7 @@ export default function Community() {
           </Card>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.push({ pathname: '/expenses', params: { mode: 'manage' } })} style={{ flex: 1.3 }}>
+        <TouchableOpacity onPress={() => router.push('/finance')} style={{ flex: 1.3 }}>
           <Card
             style={{
               paddingVertical: 9,
@@ -562,13 +562,6 @@ export default function Community() {
               return;
             }
             if (path === '/expenses') {
-              router.push({
-                pathname: '/expenses',
-                params: { mode: isCommunityAdmin ? 'manage' : 'readonly' },
-              });
-              return;
-            }
-            if (path === '/expenses-manage') {
               router.push({
                 pathname: '/expenses',
                 params: { mode: 'expenses-manage' },

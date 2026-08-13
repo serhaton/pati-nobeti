@@ -135,7 +135,7 @@ export default function Home() {
             <Text style={{ color: colors.muted }}>Bugünkü besleme kaydı</Text>
           </Card>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push({ pathname: '/expenses', params: { mode: 'readonly' } })} style={{ flex: 1 }}>
+        <TouchableOpacity onPress={() => router.push('/finance')} style={{ flex: 1 }}>
           <Card style={{ flex: 1 }}>
             <Text style={{ fontSize: 25 }}>💳</Text>
             <Text
@@ -159,7 +159,7 @@ export default function Home() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {[
           ['🗺️','Haritayı aç','/map'],
-          ['🐱','Can dost ekle','/animal'],
+          ['🐱','Can dostlar','/animal'],
           ['🍚','Besleme kaydı','/feeding'],
           ['🧾','Masraf ekle','/expenses'],
           ['🤝','Pati Uzat','/pati-uzat']

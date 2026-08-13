@@ -24,6 +24,12 @@ export type ExpenseRecord = {
   createdAt: string;
 };
 
+export type ExpenseAllocationSummary = {
+  expenseId: string;
+  allocationCount: number;
+  allocatedTotal: number;
+};
+
 function toNumber(value: any): number {
   const numberValue = Number(value);
   return Number.isFinite(numberValue) ? numberValue : 0;
@@ -298,7 +304,7 @@ export async function updateExpense(input: {
   vendorName: string;
   communityVeterinarianId?: string | null;
   performedByUserId: string;
-}): Promise<ExpenseRecord> {
+}): Promise<{ expense: ExpenseRecord; clearedAllocationCount: number }> {
   const normalizedAmount = roundMoney(input.amount);
   const normalizedReceiptUrls = input.receiptUrls.map((item) => item.trim()).filter(Boolean);
   const primaryReceiptUrl = normalizedReceiptUrls[0] ?? '';
@@ -326,7 +332,31 @@ export async function updateExpense(input: {
     };
 
     mockExpenseRecords[index] = updated;
-    return updated;
+    return { expense: updated, clearedAllocationCount: 0 };
+  }
+
+  const { data: allocationRows, error: allocationReadError } = await supabase
+    .from('contribution_allocations')
+    .select('id')
+    .eq('community_id', input.communityId)
+    .eq('expense_id', input.expenseId);
+
+  if (allocationReadError) {
+    throw formatError(allocationReadError, 'Masrafa bağlı dağıtımlar okunamadı.');
+  }
+
+  const clearedAllocationCount = (allocationRows ?? []).length;
+
+  if (clearedAllocationCount > 0) {
+    const { error: allocationDeleteError } = await supabase
+      .from('contribution_allocations')
+      .delete()
+      .eq('community_id', input.communityId)
+      .eq('expense_id', input.expenseId);
+
+    if (allocationDeleteError) {
+      throw formatError(allocationDeleteError, 'Masrafa bağlı dağıtımlar temizlenemedi.');
+    }
   }
 
   const { data, error } = await supabase
@@ -356,7 +386,54 @@ export async function updateExpense(input: {
     throw formatError(error, 'Masraf kaydı güncellenemedi.');
   }
 
-  return mapRow(data);
+  return { expense: mapRow(data), clearedAllocationCount };
+}
+
+export async function getExpenseAllocationSummaries(input: {
+  communityId: string;
+  expenseIds: string[];
+}): Promise<Map<string, ExpenseAllocationSummary>> {
+  const summaries = new Map<string, ExpenseAllocationSummary>();
+  const uniqueExpenseIds = Array.from(new Set(input.expenseIds.map((item) => item.trim()).filter(Boolean)));
+
+  uniqueExpenseIds.forEach((expenseId) => {
+    summaries.set(expenseId, {
+      expenseId,
+      allocationCount: 0,
+      allocatedTotal: 0,
+    });
+  });
+
+  if (uniqueExpenseIds.length === 0 || !isSupabaseDataEnabled()) {
+    return summaries;
+  }
+
+  const { data, error } = await supabase
+    .from('contribution_allocations')
+    .select('expense_id, amount')
+    .eq('community_id', input.communityId)
+    .in('expense_id', uniqueExpenseIds);
+
+  if (error) {
+    throw formatError(error, 'Masraf dağıtım özetleri okunamadı.');
+  }
+
+  for (const row of data ?? []) {
+    const expenseId = String(row.expense_id);
+    const existing = summaries.get(expenseId) ?? {
+      expenseId,
+      allocationCount: 0,
+      allocatedTotal: 0,
+    };
+
+    summaries.set(expenseId, {
+      expenseId,
+      allocationCount: existing.allocationCount + 1,
+      allocatedTotal: roundMoney(existing.allocatedTotal + toNumber(row.amount)),
+    });
+  }
+
+  return summaries;
 }
 
 export async function deleteExpense(input: {

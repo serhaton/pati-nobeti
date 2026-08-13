@@ -12,8 +12,10 @@ import { colors } from '../src/theme';
 import {
   createExpense,
   deleteExpense,
+  ExpenseAllocationSummary,
   ExpenseRecord,
   ExpenseType,
+  getExpenseAllocationSummaries,
   getApprovedExpensesByCommunity,
   getExpensesByCommunity,
   getExpensesBySubmitter,
@@ -127,6 +129,7 @@ export default function Expenses() {
   const [contributions, setContributions] = useState<ContributionRecord[]>([]);
   const [communityVets, setCommunityVets] = useState<VeterinarianRecord[]>([]);
   const [communityMembers, setCommunityMembers] = useState<MemberOption[]>([]);
+  const [allocationSummaryByExpenseId, setAllocationSummaryByExpenseId] = useState<Record<string, ExpenseAllocationSummary>>({});
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -259,6 +262,11 @@ export default function Expenses() {
     return currentUser?.fullName ?? 'Bilinmiyor';
   }, [currentUser?.fullName, memberNameById, performedByUserId]);
 
+  const editingAllocationSummary = useMemo(() => {
+    if (!editingExpenseId) return null;
+    return allocationSummaryByExpenseId[editingExpenseId] ?? null;
+  }, [allocationSummaryByExpenseId, editingExpenseId]);
+
   const loadExpenseData = useCallback(async () => {
     if (!selectedCommunityId) {
       setApprovedExpenses([]);
@@ -267,6 +275,7 @@ export default function Expenses() {
       setContributions([]);
       setCommunityVets([]);
       setCommunityMembers([]);
+      setAllocationSummaryByExpenseId({});
       return;
     }
 
@@ -292,6 +301,21 @@ export default function Expenses() {
       setCommunityVets(vets);
       setCommunityMembers(members);
 
+      const summaryExpenseIds = Array.from(new Set([
+        ...approvedRows.map((item) => item.id),
+        ...allRows.map((item) => item.id),
+      ]));
+
+      if (isCommunityAdmin && summaryExpenseIds.length > 0) {
+        const summaries = await getExpenseAllocationSummaries({
+          communityId: selectedCommunityId,
+          expenseIds: summaryExpenseIds,
+        });
+        setAllocationSummaryByExpenseId(Object.fromEntries(Array.from(summaries.entries())));
+      } else {
+        setAllocationSummaryByExpenseId({});
+      }
+
       if (isMemberHistoryMode && currentUser?.id) {
         const ownRows = await getExpensesBySubmitter({
           communityId: selectedCommunityId,
@@ -307,6 +331,7 @@ export default function Expenses() {
       Alert.alert('Masraf listesi hatası', String(error?.message ?? 'Masraf bilgileri okunamadı.'));
       setAllCommunityExpenses([]);
       setMemberExpenses([]);
+      setAllocationSummaryByExpenseId({});
     } finally {
       setIsLoading(false);
     }
@@ -556,7 +581,7 @@ export default function Expenses() {
     );
   }
 
-  async function submitExpense() {
+  async function submitExpense(skipAllocationWarning = false) {
     if (!selectedCommunityId || !currentUser) return;
 
     const trimmedTitle = title.trim();
@@ -606,6 +631,25 @@ export default function Expenses() {
       return;
     }
 
+    const hasExistingAllocations =
+      isCommunityAdmin
+      && !!editingExpenseId
+      && (editingAllocationSummary?.allocationCount ?? 0) > 0;
+
+    if (hasExistingAllocations && !skipAllocationWarning) {
+      const allocationCount = editingAllocationSummary?.allocationCount ?? 0;
+      const allocatedTotal = editingAllocationSummary?.allocatedTotal ?? 0;
+      Alert.alert(
+        'Dağıtım ilişkileri sıfırlanacak',
+        `Bu masraf daha önce ${allocationCount} dağıtım ile ilişkilendirilmiş (${allocatedTotal.toLocaleString('tr-TR')} ₺). Tutar değiştirildiğinde bu ilişkiler silinecek ve masraf yeniden dağıtıma açılacaktır.`,
+        [
+          { text: 'Vazgeç', style: 'cancel' },
+          { text: 'Devam et', style: 'destructive', onPress: () => { void submitExpense(true); } },
+        ]
+      );
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const existingRemoteReceiptUrls = receiptFiles
@@ -629,7 +673,7 @@ export default function Expenses() {
       }
 
       if (editingExpenseId) {
-        await updateExpense({
+        const updateResult = await updateExpense({
           expenseId: editingExpenseId,
           communityId: selectedCommunityId,
           title: trimmedTitle,
@@ -642,6 +686,18 @@ export default function Expenses() {
           communityVeterinarianId,
           performedByUserId: effectivePerformedByUserId,
         });
+
+        setShowCreateModal(false);
+        await loadExpenseData();
+
+        if (updateResult.clearedAllocationCount > 0) {
+          Alert.alert(
+            'Masraf güncellendi',
+            `Masraf kaydı güncellendi. Önceki ${updateResult.clearedAllocationCount} dağıtım ilişkisi otomatik temizlendi.`
+          );
+        } else {
+          Alert.alert('Masraf güncellendi', 'Masraf kaydı başarıyla güncellendi.');
+        }
       } else {
         await createExpense({
           communityId: selectedCommunityId,
@@ -657,17 +713,15 @@ export default function Expenses() {
           vendorName,
           communityVeterinarianId,
         });
-      }
 
-      setShowCreateModal(false);
-      await loadExpenseData();
+        setShowCreateModal(false);
+        await loadExpenseData();
 
-      if (editingExpenseId) {
-        Alert.alert('Masraf güncellendi', 'Masraf kaydı başarıyla güncellendi.');
-      } else if (isCommunityAdmin) {
-        Alert.alert('Masraf kaydedildi', 'Masraf kaydı admin olarak doğrudan onaylandı.');
-      } else {
-        Alert.alert('Masraf gönderildi', 'Masraf kaydı yönetici onayına düştü.');
+        if (isCommunityAdmin) {
+          Alert.alert('Masraf kaydedildi', 'Masraf kaydı admin olarak doğrudan onaylandı.');
+        } else {
+          Alert.alert('Masraf gönderildi', 'Masraf kaydı yönetici onayına düştü.');
+        }
       }
     } catch (error: any) {
       Alert.alert('Masraf kaydı hatası', String(error?.message ?? 'Masraf kaydı oluşturulamadı.'));
@@ -1156,6 +1210,18 @@ export default function Expenses() {
             <Text style={{ fontWeight: '800', color: colors.text }}>Masrafı yapan üye</Text>
             {canSelectPerformer ? (
               <>
+
+            {editingExpenseId && isCommunityAdmin && (editingAllocationSummary?.allocationCount ?? 0) > 0 ? (
+              <View style={{ marginTop: 12, borderWidth: 1, borderColor: '#E3B25F', borderRadius: 12, backgroundColor: '#FFF5E5', padding: 11 }}>
+                <Text style={{ color: '#8A5A12', fontWeight: '800' }}>Uyarı: Bu masraf daha önce Pati Uzat ile dağıtılmış.</Text>
+                <Text style={{ color: '#8A5A12', marginTop: 4 }}>
+                  Bağlı dağıtım: {(editingAllocationSummary?.allocationCount ?? 0).toLocaleString('tr-TR')} kayıt · {(editingAllocationSummary?.allocatedTotal ?? 0).toLocaleString('tr-TR')} ₺
+                </Text>
+                <Text style={{ color: '#8A5A12', marginTop: 4 }}>
+                  Tutar güncellendiğinde bu dağıtım ilişkileri otomatik silinir ve masraf yeniden dağıtıma açılır.
+                </Text>
+              </View>
+            ) : null}
                 <TouchableOpacity
                   onPress={() => setShowPerformerPicker((current) => !current)}
                   style={{ marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: '#fff', padding: 12 }}
@@ -1365,7 +1431,7 @@ export default function Expenses() {
           </Card>
 
           <TouchableOpacity
-            onPress={submitExpense}
+            onPress={() => { void submitExpense(); }}
             disabled={isSubmitting}
             style={{ marginTop: 16, backgroundColor: colors.primary, borderRadius: 12, padding: 12, opacity: isSubmitting ? 0.7 : 1 }}
           >
