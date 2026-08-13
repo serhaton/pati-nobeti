@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, ScrollView, View, Text, TouchableOpacity, TextInput } from 'react-native';
+import { BottomBannerAd } from '../src/components/BottomBannerAd';
 import { useCommunity } from '../src/context/CommunityContext';
 import { Card } from '../src/components/Card';
 import { FeedingPoint, FeedingRecord, getFeedingPointsByCommunity, getFeedingRecordsByCommunity } from '../src/data/feedingPointStore';
@@ -96,22 +97,23 @@ export default function Feeding() {
   if (!selectedCommunity) return null;
 
   return (
-    <FlatList
-      style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 38 }}
-      data={visibleRecords}
-      keyExtractor={(record) => record.id}
-      onEndReached={() => {
-        if (!canLoadMoreFromScroll) return;
-        loadMoreRecords();
-        setCanLoadMoreFromScroll(false);
-      }}
-      onEndReachedThreshold={0.35}
-      onScroll={handleListScroll}
-      scrollEventThrottle={16}
-      onScrollBeginDrag={() => setCanLoadMoreFromScroll(true)}
-      onMomentumScrollBegin={() => setCanLoadMoreFromScroll(true)}
-      ListHeaderComponent={(
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <FlatList
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 120 }}
+        data={visibleRecords}
+        keyExtractor={(record) => record.id}
+        onEndReached={() => {
+          if (!canLoadMoreFromScroll) return;
+          loadMoreRecords();
+          setCanLoadMoreFromScroll(false);
+        }}
+        onEndReachedThreshold={0.35}
+        onScroll={handleListScroll}
+        scrollEventThrottle={16}
+        onScrollBeginDrag={() => setCanLoadMoreFromScroll(true)}
+        onMomentumScrollBegin={() => setCanLoadMoreFromScroll(true)}
+        ListHeaderComponent={(
         <>
       <TouchableOpacity onPress={() => router.replace('/home')}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
@@ -315,11 +317,13 @@ export default function Feeding() {
           </TouchableOpacity>
         );
       }}
-      ListEmptyComponent={(
+        ListEmptyComponent={(
         <Card style={{ marginTop: 14 }}>
           <Text style={{ color: colors.muted }}>Filtreye uygun besleme kaydı bulunamadı.</Text>
         </Card>
-      )}
-    />
+        )}
+      />
+      <BottomBannerAd />
+    </View>
   );
 }

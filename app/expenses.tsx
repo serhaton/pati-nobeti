@@ -6,6 +6,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { Card } from '../src/components/Card';
+import { BottomBannerAd } from '../src/components/BottomBannerAd';
 import { useAuth } from '../src/context/AuthContext';
 import { useCommunity } from '../src/context/CommunityContext';
 import { colors } from '../src/theme';
@@ -814,12 +815,13 @@ export default function Expenses() {
   if (!selectedCommunity) return null;
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}
-      onScroll={onMainScroll}
-      scrollEventThrottle={16}
-    >
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 120 }}
+        onScroll={onMainScroll}
+        scrollEventThrottle={16}
+      >
       <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
         <View>
@@ -1652,6 +1654,8 @@ export default function Expenses() {
           ) : null}
         </ScrollView>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+      <BottomBannerAd />
+    </View>
   );
 }

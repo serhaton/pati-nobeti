@@ -3,6 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { Card } from '../src/components/Card';
+import { BottomBannerAd } from '../src/components/BottomBannerAd';
 import { useAuth } from '../src/context/AuthContext';
 import { useCommunity } from '../src/context/CommunityContext';
 import { colors } from '../src/theme';
@@ -156,7 +157,8 @@ export default function Kasa() {
   if (!selectedCommunity) return null;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 120 }}>
       <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
       <View style={{ marginTop: 10 }}>
         <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text }}>Kasa</Text>
@@ -321,6 +323,8 @@ export default function Kasa() {
           ) : null}
         </ScrollView>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+      <BottomBannerAd />
+    </View>
   );
 }

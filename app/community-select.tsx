@@ -94,6 +94,7 @@ export default function CommunitySelectScreen() {
   const [returnToCreateAfterPicker, setReturnToCreateAfterPicker] = useState(false);
   const [isCreatingCommunity, setIsCreatingCommunity] = useState(false);
   const [isResolvingAddress, setIsResolvingAddress] = useState(false);
+  const [pendingSelectionId, setPendingSelectionId] = useState<string | null>(null);
 
   const [pickerRegion, setPickerRegion] = useState<Region>({
     latitude: 41.018101,
@@ -244,9 +245,17 @@ export default function CommunitySelectScreen() {
     [communitiesWithDistance, targetCommunityId],
   );
 
-  function selectAndContinue(id: string) {
-    selectCommunityById(id);
+  useEffect(() => {
+    if (!pendingSelectionId) return;
+    if (selectedCommunity?.id !== pendingSelectionId) return;
+
+    setPendingSelectionId(null);
     router.replace('/home');
+  }, [pendingSelectionId, selectedCommunity?.id]);
+
+  function selectAndContinue(id: string) {
+    setPendingSelectionId(id);
+    selectCommunityById(id);
   }
 
   function getMembershipStatus(communityId: string): MembershipStatus {
@@ -325,8 +334,8 @@ export default function CommunitySelectScreen() {
 
       await refreshCommunities();
       selectCommunityById(created.communityId);
+      setPendingSelectionId(created.communityId);
       setShowCreateModal(false);
-      router.replace('/home');
     } catch (error: any) {
       Alert.alert('Topluluk oluşturma hatası', String(error?.message ?? 'Topluluk oluşturulamadı.'));
     } finally {

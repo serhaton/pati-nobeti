@@ -6,6 +6,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { Card } from '../src/components/Card';
+import { BottomBannerAd } from '../src/components/BottomBannerAd';
 import { useAuth } from '../src/context/AuthContext';
 import { useCommunity } from '../src/context/CommunityContext';
 import { colors } from '../src/theme';
@@ -413,10 +414,10 @@ export default function PatiUzat() {
   if (!selectedCommunity) return null;
 
   return (
-    <>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <FlatList
-        style={{ flex: 1, backgroundColor: colors.background }}
-        contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 120 }}
         data={visibleContributions}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
@@ -540,6 +541,8 @@ export default function PatiUzat() {
           </View>
         ) : null}
       />
+
+      <BottomBannerAd />
 
       <Modal visible={showCreateModal} animationType="slide" onRequestClose={() => setShowCreateModal(false)}>
         <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
@@ -729,6 +732,6 @@ export default function PatiUzat() {
         </ScrollView>
       </Modal>
 
-    </>
+    </View>
   );
 }

@@ -3,6 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, View, Text, TouchableOpacity, TextInput, Image } from 'react-native';
 import { Card } from '../src/components/Card';
+import { BottomBannerAd } from '../src/components/BottomBannerAd';
 import { useAuth } from '../src/context/AuthContext';
 import { useCommunity } from '../src/context/CommunityContext';
 import { CommunityAnimal, getAnimalsByCommunity } from '../src/data/animalStore';
@@ -32,7 +33,8 @@ export default function Animal() {
   if (!selectedCommunity) return null;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58 }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 120 }}>
       <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
         <View>
@@ -103,6 +105,8 @@ export default function Animal() {
           <Text style={{ color: colors.muted }}>Aramaya uygun can dost bulunamadı.</Text>
         </Card>
       )}
-    </ScrollView>
+      </ScrollView>
+      <BottomBannerAd />
+    </View>
   );
 }
