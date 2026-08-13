@@ -8,7 +8,7 @@ import { getAnimalById } from '../src/data/animalStore';
 import { colors } from '../src/theme';
 
 export default function AnimalDetailScreen() {
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; source?: string }>();
   const { currentUser } = useAuth();
   const { selectedCommunity } = useCommunity();
 
@@ -18,6 +18,7 @@ export default function AnimalDetailScreen() {
   }, [params.id]);
 
   const isCommunityAdmin = !!currentUser && !!selectedCommunity?.adminUserIds.includes(currentUser.id);
+  const isReadOnlyFromHome = params.source === 'home';
 
   if (!animal) {
     return (
@@ -37,9 +38,9 @@ export default function AnimalDetailScreen() {
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text }}>{animal.type === 'Kedi' ? '🐱' : '🐶'} {animal.name}</Text>
           <Text style={{ color: colors.muted, marginTop: 4 }}>{animal.breed} · {animal.gender}</Text>
         </View>
-        {isCommunityAdmin ? (
+        {isCommunityAdmin && !isReadOnlyFromHome ? (
           <TouchableOpacity
-            onPress={() => router.push({ pathname: '/animal-edit', params: { id: animal.id } })}
+            onPress={() => router.push({ pathname: '/animal-edit', params: { id: animal.id, source: params.source } })}
             style={{ backgroundColor: colors.primary, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12 }}
           >
             <Text style={{ color: '#fff', fontWeight: '800' }}>Düzenle</Text>

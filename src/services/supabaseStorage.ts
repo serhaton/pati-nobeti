@@ -34,6 +34,53 @@ function isRemoteUrl(uri: string): boolean {
   return uri.startsWith('http://') || uri.startsWith('https://');
 }
 
+function encodeStorageReference(bucket: string, objectPath: string): string {
+  return `sb://${bucket}/${objectPath}`;
+}
+
+function decodeStorageReference(value: string): { bucket: string; objectPath: string } | null {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('sb://')) return null;
+
+  const payload = trimmed.slice('sb://'.length);
+  const slashIndex = payload.indexOf('/');
+  if (slashIndex <= 0 || slashIndex === payload.length - 1) return null;
+
+  const bucket = payload.slice(0, slashIndex);
+  const objectPath = payload.slice(slashIndex + 1);
+  if (!bucket || !objectPath) return null;
+  return { bucket, objectPath };
+}
+
+function parseSupabaseObjectPath(urlValue: string): { bucket: string; objectPath: string } | null {
+  try {
+    const parsed = new URL(urlValue);
+    const marker = '/storage/v1/object/';
+    const markerIndex = parsed.pathname.indexOf(marker);
+    if (markerIndex < 0) return null;
+
+    const afterMarker = parsed.pathname.slice(markerIndex + marker.length);
+    const pathParts = afterMarker.split('/').filter(Boolean);
+    if (pathParts.length < 3) return null;
+
+    const mode = pathParts[0];
+    if (mode !== 'public' && mode !== 'authenticated' && mode !== 'sign') return null;
+
+    const bucket = pathParts[1];
+    const objectPath = pathParts.slice(2).join('/');
+    if (!bucket || !objectPath) return null;
+    return { bucket, objectPath };
+  } catch {
+    return null;
+  }
+}
+
+function normalizeStorageReference(value: string): string {
+  const decoded = decodeStorageReference(value) ?? parseSupabaseObjectPath(value);
+  if (!decoded) return value;
+  return encodeStorageReference(decoded.bucket, decoded.objectPath);
+}
+
 function formatStorageError(error: any, fallback: string): Error {
   const details = [error?.message, error?.details, error?.hint].filter(Boolean).join(' - ');
   return new Error(details || fallback);
@@ -51,6 +98,70 @@ function generateGuid(): string {
     const value = char === 'x' ? random : ((random & 0x3) | 0x8);
     return value.toString(16);
   });
+}
+
+async function uploadToBucket(input: {
+  sourceUri: string;
+  bucket: string;
+  objectPath: string;
+  contentType: string;
+  fallbackErrorText: string;
+}): Promise<void> {
+  const uploadBody = await getUploadBodyFromUri(input.sourceUri);
+  const { error: uploadError } = await supabase
+    .storage
+    .from(input.bucket)
+    .upload(input.objectPath, uploadBody, {
+      contentType: input.contentType,
+      upsert: false,
+    });
+
+  if (uploadError) {
+    throw formatStorageError(uploadError, `${input.fallbackErrorText} Bucket: ${input.bucket}`);
+  }
+}
+
+export async function createSignedDownloadUrl(input: {
+  fileRef: string;
+  expiresInSeconds?: number;
+}): Promise<string> {
+  const trimmedRef = input.fileRef.trim();
+  if (!trimmedRef) {
+    throw new Error('Geçerli bir dosya bağlantısı bulunamadı.');
+  }
+
+  const expiresInSeconds = Math.max(30, Math.min(3600, Math.floor(input.expiresInSeconds ?? 120)));
+
+  const decoded = decodeStorageReference(trimmedRef) ?? parseSupabaseObjectPath(trimmedRef);
+  if (!decoded) {
+    return trimmedRef;
+  }
+
+  const { data, error } = await supabase
+    .storage
+    .from(decoded.bucket)
+    .createSignedUrl(decoded.objectPath, expiresInSeconds);
+
+  if (error || !data?.signedUrl) {
+    throw formatStorageError(error, 'Dosya için geçici erişim bağlantısı üretilemedi.');
+  }
+
+  return data.signedUrl;
+}
+
+export async function resolveFileUrlForDisplay(input: {
+  fileRef?: string;
+  expiresInSeconds?: number;
+}): Promise<string> {
+  const raw = String(input.fileRef ?? '').trim();
+  if (!raw) return '';
+
+  const normalized = normalizeStorageReference(raw);
+  if (normalized.startsWith('sb://')) {
+    return createSignedDownloadUrl({ fileRef: normalized, expiresInSeconds: input.expiresInSeconds ?? 1800 });
+  }
+
+  return normalized;
 }
 
 async function getUploadBodyFromUri(uri: string): Promise<ArrayBuffer | Blob> {
@@ -81,8 +192,13 @@ export async function uploadImageIfNeeded(input: {
   const sourceUri = input.uri?.trim();
   if (!sourceUri) return undefined;
 
+  const normalizedExistingRef = normalizeStorageReference(sourceUri);
+  if (normalizedExistingRef.startsWith('sb://')) {
+    return normalizedExistingRef;
+  }
+
   if (isRemoteUrl(sourceUri)) {
-    return sourceUri;
+    return normalizedExistingRef;
   }
 
   if (!isSupabaseDataEnabled()) {
@@ -98,32 +214,17 @@ export async function uploadImageIfNeeded(input: {
   assertAllowedExtension(extension, ['jpg', 'png', 'webp', 'heic'], 'Yalnızca görsel dosyaları yüklenebilir.');
   const contentType = inferMimeType(extension);
   const guid = generateGuid();
-  const filePath = `${normalizedCommunityId}/${input.folder}/${input.filePrefix}-${guid}.${extension}`;
-  const uploadBody = await getUploadBodyFromUri(sourceUri);
+  const objectPath = `${normalizedCommunityId}/${input.folder}/${input.filePrefix}-${guid}.${extension}`;
 
-  const { error: uploadError } = await supabase
-    .storage
-    .from(DEFAULT_BUCKET)
-    .upload(filePath, uploadBody, {
-      contentType,
-      upsert: false,
-    });
+  await uploadToBucket({
+    sourceUri,
+    bucket: DEFAULT_BUCKET,
+    objectPath,
+    contentType,
+    fallbackErrorText: 'Görsel Supabase Storage\'a yüklenemedi.',
+  });
 
-  if (uploadError) {
-    throw formatStorageError(
-      uploadError,
-      `Görsel Supabase Storage'a yüklenemedi. Bucket: ${DEFAULT_BUCKET}`
-    );
-  }
-
-  const { data } = supabase.storage.from(DEFAULT_BUCKET).getPublicUrl(filePath);
-  const publicUrl = data?.publicUrl;
-
-  if (!publicUrl) {
-    throw new Error('Görsel yüklendi fakat public URL alınamadı.');
-  }
-
-  return publicUrl;
+  return encodeStorageReference(DEFAULT_BUCKET, objectPath);
 }
 
 export async function uploadExpenseReceiptIfNeeded(input: {
@@ -134,8 +235,13 @@ export async function uploadExpenseReceiptIfNeeded(input: {
   const sourceUri = input.uri?.trim();
   if (!sourceUri) return undefined;
 
+  const normalizedExistingRef = normalizeStorageReference(sourceUri);
+  if (normalizedExistingRef.startsWith('sb://')) {
+    return normalizedExistingRef;
+  }
+
   if (isRemoteUrl(sourceUri)) {
-    return sourceUri;
+    return normalizedExistingRef;
   }
 
   if (!isSupabaseDataEnabled()) {
@@ -152,29 +258,17 @@ export async function uploadExpenseReceiptIfNeeded(input: {
 
   const contentType = inferMimeType(extension);
   const guid = generateGuid();
-  const filePath = `${normalizedCommunityId}/expenses/${input.filePrefix}-${guid}.${extension}`;
-  const uploadBody = await getUploadBodyFromUri(sourceUri);
+  const objectPath = `${normalizedCommunityId}/expenses/${input.filePrefix}-${guid}.${extension}`;
 
-  const { error: uploadError } = await supabase
-    .storage
-    .from(DEFAULT_BUCKET)
-    .upload(filePath, uploadBody, {
-      contentType,
-      upsert: false,
-    });
+  await uploadToBucket({
+    sourceUri,
+    bucket: DEFAULT_BUCKET,
+    objectPath,
+    contentType,
+    fallbackErrorText: 'Fiş dosyası Supabase Storage\'a yüklenemedi.',
+  });
 
-  if (uploadError) {
-    throw formatStorageError(uploadError, `Fiş dosyası Supabase Storage'a yüklenemedi. Bucket: ${DEFAULT_BUCKET}`);
-  }
-
-  const { data } = supabase.storage.from(DEFAULT_BUCKET).getPublicUrl(filePath);
-  const publicUrl = data?.publicUrl;
-
-  if (!publicUrl) {
-    throw new Error('Fiş yüklendi fakat public URL alınamadı.');
-  }
-
-  return publicUrl;
+  return encodeStorageReference(DEFAULT_BUCKET, objectPath);
 }
 
 export async function uploadExpenseReceiptsIfNeeded(input: {

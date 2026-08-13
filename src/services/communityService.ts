@@ -1,4 +1,5 @@
 import { supabase, isSupabaseDataEnabled } from './supabase';
+import { resolveFileUrlForDisplay } from './supabaseStorage';
 
 export type CommunityMembership = {
   communityId: string;
@@ -404,11 +405,15 @@ export async function getUserProfileSettings(userId: string): Promise<UserProfil
     avatarUrl: String(data?.avatar_url ?? ''),
   };
 
+  const avatarForDisplay = fromDb.avatarUrl
+    ? await resolveFileUrlForDisplay({ fileRef: fromDb.avatarUrl, expiresInSeconds: 1800 })
+    : '';
+
   const cached = profileSettingsCache.get(userId);
   const merged: UserProfileSettings = {
     fullName: fromDb.fullName || cached?.fullName || '',
     phone: fromDb.phone || cached?.phone || '',
-    avatarUrl: fromDb.avatarUrl || cached?.avatarUrl || '',
+    avatarUrl: avatarForDisplay || cached?.avatarUrl || '',
   };
 
   profileSettingsCache.set(userId, merged);

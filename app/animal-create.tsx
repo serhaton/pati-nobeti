@@ -146,11 +146,6 @@ export default function AnimalCreateScreen() {
       return;
     }
 
-    if (!location.trim()) {
-      Alert.alert('Eksik bilgi', 'Lütfen bulunduğu konumu gir.');
-      return;
-    }
-
     try {
       const created = await addAnimal({
         communityId: selectedCommunityId,
@@ -315,11 +310,11 @@ export default function AnimalCreateScreen() {
           <DateTimePicker value={birthDate} mode="date" display={Platform.OS === 'ios' ? 'compact' : 'default'} onChange={(_, date) => date && setBirthDate(date)} />
         </View>
 
-        <Text style={{ fontWeight: '800', color: colors.text, marginTop: 18 }}>Bulunduğu konum</Text>
+        <Text style={{ fontWeight: '800', color: colors.text, marginTop: 18 }}>Bulunduğu konum (opsiyonel)</Text>
         <TextInput
           value={location}
           onChangeText={setLocation}
-          placeholder="Örn. Moda Parkı"
+          placeholder="Örn. Moda Parkı (boş bırakılabilir)"
           style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
         />
       </Card>

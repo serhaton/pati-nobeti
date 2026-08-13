@@ -1,6 +1,6 @@
 import { animals } from './mock';
 import { getAppDataSource, isSupabaseDataEnabled, supabase } from '../services/supabase';
-import { uploadImageIfNeeded } from '../services/supabaseStorage';
+import { resolveFileUrlForDisplay, uploadImageIfNeeded } from '../services/supabaseStorage';
 
 export type AnimalType = 'Kedi' | 'Köpek';
 export type AnimalGender = 'Dişi' | 'Erkek' | 'Bilinmiyor';
@@ -193,7 +193,9 @@ export async function addAnimal(input: SaveAnimalInput): Promise<CommunityAnimal
     location: input.location,
     vaccinationSchedule: input.vaccinationSchedule.map((event) => ({ ...event })),
     treatmentSchedule: input.treatmentSchedule.map((event) => ({ ...event })),
-    photoUris: persistedPhotoUrl ? [persistedPhotoUrl] : [],
+    photoUris: persistedPhotoUrl
+      ? [await resolveFileUrlForDisplay({ fileRef: persistedPhotoUrl, expiresInSeconds: 1800 })]
+      : [],
   };
 
   allAnimals.unshift(created);
@@ -237,6 +239,10 @@ export async function updateAnimal(id: string, input: Omit<SaveAnimalInput, 'com
     }
   }
 
+  const resolvedPhotoUrl = persistedPhotoUrl
+    ? await resolveFileUrlForDisplay({ fileRef: persistedPhotoUrl, expiresInSeconds: 1800 })
+    : undefined;
+
   allAnimals[index] = {
     ...allAnimals[index],
     name: input.name,
@@ -248,8 +254,8 @@ export async function updateAnimal(id: string, input: Omit<SaveAnimalInput, 'com
     location: input.location,
     vaccinationSchedule: input.vaccinationSchedule.map((event) => ({ ...event })),
     treatmentSchedule: input.treatmentSchedule.map((event) => ({ ...event })),
-    photoUris: persistedPhotoUrl
-      ? [persistedPhotoUrl]
+    photoUris: resolvedPhotoUrl
+      ? [resolvedPhotoUrl]
       : input.photoUris && input.photoUris.length > 0
         ? [...input.photoUris]
         : [...allAnimals[index].photoUris],

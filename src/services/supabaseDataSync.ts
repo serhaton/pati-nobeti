@@ -7,6 +7,7 @@ import {
 } from '../data/mock';
 import { FeedingPoint, FeedingRecord, setFeedingPointsData, setFeedingRecordsData } from '../data/feedingPointStore';
 import { isSupabaseDataEnabled, supabase } from './supabase';
+import { resolveFileUrlForDisplay } from './supabaseStorage';
 
 export type SupabaseSyncResult = {
   usedSupabaseMode: boolean;
@@ -70,8 +71,8 @@ function mapCommunityMemberRows(rows: any[]): CommunityMember[] {
   }));
 }
 
-function mapAnimalRows(rows: any[]): CommunityAnimal[] {
-  return rows.map((row, index) => ({
+async function mapAnimalRows(rows: any[]): Promise<CommunityAnimal[]> {
+  return Promise.all(rows.map(async (row, index) => ({
     id: toStringId(row.id, `animal-${index + 1}`),
     communityId: toStringId(row.community_id, '1'),
     name: String(row.name ?? `Can Dost ${index + 1}`),
@@ -83,12 +84,14 @@ function mapAnimalRows(rows: any[]): CommunityAnimal[] {
     location: String(row.location ?? row.neighborhood ?? 'Belirtilmedi'),
     vaccinationSchedule: [],
     treatmentSchedule: [],
-    photoUris: row.photo_url ? [String(row.photo_url)] : [],
-  }));
+    photoUris: row.photo_url
+      ? [await resolveFileUrlForDisplay({ fileRef: String(row.photo_url), expiresInSeconds: 1800 })]
+      : [],
+  })));
 }
 
-function mapFeedingPointRows(rows: any[]): FeedingPoint[] {
-  return rows.map((row, index) => ({
+async function mapFeedingPointRows(rows: any[]): Promise<FeedingPoint[]> {
+  return Promise.all(rows.map(async (row, index) => ({
     id: toStringId(row.id, `point-${index + 1}`),
     communityId: toStringId(row.community_id, '1'),
     name: String(row.name ?? `Nokta ${index + 1}`),
@@ -96,8 +99,10 @@ function mapFeedingPointRows(rows: any[]): FeedingPoint[] {
     lng: Number(row.longitude ?? row.lng ?? 29.125607),
     type: String(row.animal_type ?? row.type ?? 'Kedi + Köpek'),
     status: String(row.status ?? 'Durum belirtilmedi'),
-    photoUri: row.photo_uri ? String(row.photo_uri) : undefined,
-  }));
+    photoUri: row.photo_uri
+      ? await resolveFileUrlForDisplay({ fileRef: String(row.photo_uri), expiresInSeconds: 1800 })
+      : undefined,
+  })));
 }
 
 function mapFeedingLogRows(rows: any[], users: AppUser[] = []): FeedingRecord[] {
@@ -190,7 +195,7 @@ export async function syncMockDataFromSupabase(): Promise<SupabaseSyncResult> {
     }
 
     if (!animalsRes.error && animalsRes.data) {
-      const mappedAnimals = mapAnimalRows(animalsRes.data);
+      const mappedAnimals = await mapAnimalRows(animalsRes.data);
       setAnimalsData(mappedAnimals);
       applySupabaseSnapshot({
         animals: mappedAnimals.map((animal) => ({
@@ -205,7 +210,7 @@ export async function syncMockDataFromSupabase(): Promise<SupabaseSyncResult> {
     }
 
     if (!feedingPointsRes.error && feedingPointsRes.data) {
-      const mappedPoints = mapFeedingPointRows(feedingPointsRes.data);
+      const mappedPoints = await mapFeedingPointRows(feedingPointsRes.data);
       setFeedingPointsData(mappedPoints);
       applySupabaseSnapshot({ feedingPoints: mappedPoints });
     }

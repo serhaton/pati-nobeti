@@ -178,6 +178,13 @@ export default function Home() {
                 });
                 return;
               }
+              if (path === '/animal') {
+                router.push({
+                  pathname: '/animal',
+                  params: { source: 'home' },
+                });
+                return;
+              }
               router.push(path as any);
             }}
             style={{ width: '48%' }}

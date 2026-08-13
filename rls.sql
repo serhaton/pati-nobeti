@@ -12,7 +12,7 @@ as $$
     from public.community_members cm
     where cm.community_id = p_community_id
       and cm.user_id = auth.uid()
-      and cm.status in ('active', 'passive', 'approved')
+      and cm.status in ('active', 'approved')
   );
 $$;
 
@@ -46,9 +46,9 @@ as $$
       join public.community_members target
         on target.community_id = me.community_id
       where me.user_id = auth.uid()
-        and me.status in ('active', 'passive', 'approved')
+        and me.status in ('active', 'approved')
         and target.user_id = p_profile_id
-        and target.status in ('active', 'passive', 'approved')
+        and target.status in ('active', 'approved')
     );
 $$;
 
@@ -285,10 +285,19 @@ create policy feeding_logs_update
 on public.feeding_logs
 for update
 to authenticated
-using (public.is_community_member(community_id))
+using (
+  public.is_community_admin(community_id)
+  or (
+    public.is_community_member(community_id)
+    and fed_by = auth.uid()
+  )
+)
 with check (
-  public.is_community_member(community_id)
-  and (fed_by is null or fed_by = auth.uid())
+  public.is_community_admin(community_id)
+  or (
+    public.is_community_member(community_id)
+    and fed_by = auth.uid()
+  )
 );
 
 create policy feeding_logs_delete

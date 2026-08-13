@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Linking } from 'react-native';
+import { createSignedDownloadUrl } from './supabaseStorage';
 
 function extensionFromUrl(url: string): string {
   const clean = url.split('?')[0].split('#')[0];
@@ -19,21 +20,26 @@ export async function downloadAndOpenRemoteFile(input: {
   url: string;
   baseName: string;
 }): Promise<void> {
-  const trimmedUrl = input.url.trim();
-  if (!trimmedUrl) {
+  const fileRef = input.url.trim();
+  if (!fileRef) {
     throw new Error('Geçerli bir dosya bağlantısı bulunamadı.');
   }
+
+  const downloadUrl = await createSignedDownloadUrl({
+    fileRef,
+    expiresInSeconds: 120,
+  });
 
   const downloadDir = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
   if (!downloadDir) {
     throw new Error('Cihazda indirilecek klasör bulunamadı.');
   }
 
-  const extension = extensionFromUrl(trimmedUrl);
+  const extension = extensionFromUrl(downloadUrl);
   const fileName = safeFileName(input.baseName, extension);
   const localPath = `${downloadDir}${fileName}`;
 
-  const result = await FileSystem.downloadAsync(trimmedUrl, localPath);
+  const result = await FileSystem.downloadAsync(downloadUrl, localPath);
   const localUri = result.uri;
 
   const canShare = await Sharing.isAvailableAsync();

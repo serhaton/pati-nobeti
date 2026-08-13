@@ -1,6 +1,6 @@
 import { feedingPoints } from './mock';
 import { getAppDataSource, isSupabaseDataEnabled, supabase } from '../services/supabase';
-import { uploadImageIfNeeded } from '../services/supabaseStorage';
+import { resolveFileUrlForDisplay, uploadImageIfNeeded } from '../services/supabaseStorage';
 
 export type FeedingPoint = {
   id: string;
@@ -151,7 +151,9 @@ export async function addCustomFeedingPoint(input: {
     lng: input.lng,
     type: 'Kedi + Kopek',
     status: 'Yeni eklendi',
-    photoUri: persistedPhotoUri,
+    photoUri: persistedPhotoUri
+      ? await resolveFileUrlForDisplay({ fileRef: persistedPhotoUri, expiresInSeconds: 1800 })
+      : undefined,
   };
 
   allFeedingPoints.unshift(point);
@@ -218,10 +220,14 @@ export async function updateFeedingPoint(
     }
   }
 
+  const resolvedPhotoUri = persistedPhotoUri
+    ? await resolveFileUrlForDisplay({ fileRef: persistedPhotoUri, expiresInSeconds: 1800 })
+    : undefined;
+
   allFeedingPoints[index] = {
     ...allFeedingPoints[index],
     name: updates.name,
-    photoUri: updates.removePhoto ? undefined : (persistedPhotoUri ?? allFeedingPoints[index].photoUri),
+    photoUri: updates.removePhoto ? undefined : (resolvedPhotoUri ?? allFeedingPoints[index].photoUri),
     status: 'Guncellendi',
   };
 

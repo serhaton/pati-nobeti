@@ -7,7 +7,7 @@ import { Card } from '../src/components/Card';
 import { useAuth } from '../src/context/AuthContext';
 import { useCommunity } from '../src/context/CommunityContext';
 import { colors } from '../src/theme';
-import { uploadImageIfNeeded } from '../src/services/supabaseStorage';
+import { resolveFileUrlForDisplay, uploadImageIfNeeded } from '../src/services/supabaseStorage';
 import { getUserProfileSettings, updateUserProfileSettings } from '../src/services/communityService';
 import { isSupabaseDataEnabled } from '../src/services/supabase';
 
@@ -132,7 +132,7 @@ export default function SettingsScreen() {
         avatarUrl,
       });
 
-      setPhotoUri(avatarUrl);
+      setPhotoUri(await resolveFileUrlForDisplay({ fileRef: avatarUrl, expiresInSeconds: 1800 }));
       Alert.alert('Kaydedildi', 'Ayarların güncellendi.');
     } catch (error: any) {
       Alert.alert('Kayıt hatası', String(error?.message ?? 'Ayarlar güncellenemedi.'));

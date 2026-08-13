@@ -1,7 +1,7 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';
-import { ScrollView, View, Text, TouchableOpacity, TextInput } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, TextInput, Image } from 'react-native';
 import { Card } from '../src/components/Card';
 import { useAuth } from '../src/context/AuthContext';
 import { useCommunity } from '../src/context/CommunityContext';
@@ -9,6 +9,7 @@ import { CommunityAnimal, getAnimalsByCommunity } from '../src/data/animalStore'
 import { colors } from '../src/theme';
 
 export default function Animal() {
+  const params = useLocalSearchParams<{ source?: string }>();
   const { currentUser } = useAuth();
   const { selectedCommunity } = useCommunity();
   const [searchText, setSearchText] = useState('');
@@ -21,6 +22,7 @@ export default function Animal() {
   );
 
   const isCommunityAdmin = !!currentUser && !!selectedCommunity?.adminUserIds.includes(currentUser.id);
+  const isReadOnlyFromHome = params.source === 'home';
 
   const communityAnimals = useMemo<CommunityAnimal[]>(() => {
     if (!selectedCommunity) return [];
@@ -37,7 +39,7 @@ export default function Animal() {
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text }}>Can Dostlar</Text>
           <Text style={{ color: colors.muted }}>{communityAnimals.length} kayıtlı kedi ve köpek</Text>
         </View>
-        {isCommunityAdmin ? (
+        {isCommunityAdmin && !isReadOnlyFromHome ? (
           <TouchableOpacity onPress={() => router.push('/animal-create')} style={{ backgroundColor: colors.primary, padding: 13, borderRadius: 15 }}>
             <Text style={{ color: '#fff', fontWeight: '800' }}>＋</Text>
           </TouchableOpacity>
@@ -55,19 +57,43 @@ export default function Animal() {
         communityAnimals.map((animal, index) => (
           <TouchableOpacity
             key={animal.id}
-            onPress={() => router.push({ pathname: '/animal-detail', params: { id: animal.id } })}
+            onPress={() => router.push({ pathname: '/animal-detail', params: { id: animal.id, source: params.source } })}
           >
             <Card style={{ marginTop: index === 0 ? 14 : 10 }}>
-              <Text style={{ fontWeight: '800', color: colors.text }}>{animal.type === 'Kedi' ? '🐱' : '🐶'} {animal.name}</Text>
-              <Text style={{ color: colors.muted, marginTop: 5 }}>{animal.breed} · {animal.gender} · {animal.isSterilized ? 'Kısırlaştırılmış' : 'Kısırlaştırılmamış'}</Text>
-              <Text style={{ color: colors.text, marginTop: 10 }}>📍 {animal.location}</Text>
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 13 }}>
-                <View style={{ backgroundColor: colors.primarySoft, borderRadius: 10, padding: 8 }}>
-                  <Text style={{ color: colors.primary, fontSize: 12 }}>Aşı: {animal.vaccinationSchedule.length} kayıt</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: '800', color: colors.text }}>{animal.type === 'Kedi' ? '🐱' : '🐶'} {animal.name}</Text>
+                  <Text style={{ color: colors.muted, marginTop: 5 }}>{animal.breed} · {animal.gender} · {animal.isSterilized ? 'Kısırlaştırılmış' : 'Kısırlaştırılmamış'}</Text>
+                  <Text style={{ color: colors.text, marginTop: 10 }}>📍 {animal.location || 'Belirtilmedi'}</Text>
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 13 }}>
+                    <View style={{ backgroundColor: colors.primarySoft, borderRadius: 10, padding: 8 }}>
+                      <Text style={{ color: colors.primary, fontSize: 12 }}>Aşı: {animal.vaccinationSchedule.length} kayıt</Text>
+                    </View>
+                    <View style={{ backgroundColor: '#FFF0D9', borderRadius: 10, padding: 8 }}>
+                      <Text style={{ color: '#94601F', fontSize: 12 }}>Tedavi: {animal.treatmentSchedule.length} kayıt</Text>
+                    </View>
+                  </View>
                 </View>
-                <View style={{ backgroundColor: '#FFF0D9', borderRadius: 10, padding: 8 }}>
-                  <Text style={{ color: '#94601F', fontSize: 12 }}>Tedavi: {animal.treatmentSchedule.length} kayıt</Text>
-                </View>
+
+                {animal.photoUris.length > 0 ? (
+                  <Image
+                    source={{ uri: animal.photoUris[0] }}
+                    style={{ width: 76, height: 76, borderRadius: 12, backgroundColor: '#E7ECE8' }}
+                  />
+                ) : (
+                  <View
+                    style={{
+                      width: 76,
+                      height: 76,
+                      borderRadius: 12,
+                      backgroundColor: colors.primarySoft,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Text style={{ fontSize: 28 }}>{animal.type === 'Kedi' ? '🐱' : '🐶'}</Text>
+                  </View>
+                )}
               </View>
             </Card>
           </TouchableOpacity>
