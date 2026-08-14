@@ -3,6 +3,9 @@ node_modules/
 # Expo local state and logs
 .expo/
 
+# Ignore hidden .temp folders (e.g. supabase/.temp)
+**/.temp/
+
 # macOS
 .DS_Store
 
