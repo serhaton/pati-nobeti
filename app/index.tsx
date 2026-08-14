@@ -101,7 +101,7 @@ export default function Welcome() {
       </TouchableOpacity>
 
       <Text style={{ color: colors.muted, textAlign: 'center', fontSize: 11, lineHeight: 16 }}>
-        v{appVersion} · © {currentYear} Pati Nöbeti. Tüm hakları saklıdır.
+        v{appVersion} · © {currentYear} Pati Uzat. Tüm hakları saklıdır.
       </Text>
 
     </View>

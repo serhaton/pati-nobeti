@@ -1,4 +1,4 @@
-# Pati Nöbeti — Expo Prototype
+# Pati Uzat — Expo Prototype
 
 Türkçe, topluluk tabanlı sokak hayvanları takip uygulaması prototipi.
 

@@ -1,14 +1,14 @@
 export const colors = {
-  background: '#F7F8F3',
+  background: '#FFF8EF',
   card: '#FFFFFF',
-  primary: '#315C42',
-  primarySoft: '#E3EFE6',
-  accent: '#E6A34A',
-  text: '#1D2921',
-  muted: '#718077',
-  border: '#E3E8E2',
+  primary: '#F07A47',
+  primarySoft: '#FCE9DA',
+  accent: '#C58A3A',
+  text: '#7A5527',
+  muted: '#A27D57',
+  border: '#F2DEC8',
   danger: '#C65A52',
-  blue: '#4C83C3',
+  blue: '#5B86C9',
 };
 
 export const spacing = (n: number) => n * 4;
