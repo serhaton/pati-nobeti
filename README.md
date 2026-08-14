@@ -39,6 +39,12 @@ npm install -g eas-cli
 eas login
 ```
 
+Alternatif (global kurulum olmadan):
+
+```bash
+npx eas-cli login
+```
+
 İlk kez proje yapılandırma:
 
 ```bash
@@ -57,11 +63,31 @@ Son alınan build'i App Store Connect'e gönderme:
 npm run release:ios:submit
 ```
 
+### Slug değişikliği sonrası EAS yeniden bağlama
+
+Eğer aşağıdaki hatayı alırsanız:
+
+`Slug for project identified by "extra.eas.projectId" (...) does not match the "slug" field (...)`
+
+proje yeni slug ile EAS'e yeniden bağlanmalıdır.
+
+```bash
+npx eas-cli init
+```
+
+Ardından yeni proje altında tekrar build ve submit alın:
+
+```bash
+npm run release:ios
+npm run release:ios:submit
+```
+
 Notlar:
 
 - iOS `buildNumber` her release'te artmalıdır (bu projede `eas.json` içindeki `autoIncrement` bunu otomatik yönetir).
 - App Store Connect tarafında uygulama kaydı ve doğru bundle identifier (`com.serhatonal.patiuzat`) hazır olmalıdır.
 - İlk submit sırasında Apple kimlik doğrulama bilgileri EAS tarafından istenir.
+- Slug değiştiyse eski EAS project ile submit edilemez; `npx eas-cli init` sonrası yeni project altında en az bir iOS build alınmalıdır.
 
 ## Sonraki aşama
 

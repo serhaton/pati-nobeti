@@ -36,7 +36,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "f3b1269a-ab50-4c23-9822-ae0642d8a5b8"
+        "projectId": "52234822-382b-4325-bd92-7b2b759231be"
       }
     },
     "android": {
@@ -46,6 +46,7 @@
         "android.permission.ACCESS_FINE_LOCATION"
       ],
       "package": "com.serhatonal.patiuzat"
-    }
+    },
+    "owner": "serhaton"
   }
 }
