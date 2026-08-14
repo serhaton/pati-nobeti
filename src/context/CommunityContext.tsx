@@ -1,4 +1,5 @@
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { communities } from '../data/mock';
 import { syncMockDataFromSupabase } from '../services/supabaseDataSync';
 import { getAppDataSource } from '../services/supabase';
@@ -29,6 +30,10 @@ type CommunityContextValue = {
 
 const CommunityContext = createContext<CommunityContextValue | undefined>(undefined);
 
+function getLastCommunityStorageKey(userId: string): string {
+  return `last-selected-community:${userId}`;
+}
+
 function sameCommunity(left: Community, right: Community): boolean {
   if (left.id !== right.id) return false;
   if (left.name !== right.name) return false;
@@ -48,6 +53,7 @@ export function CommunityProvider({ children }: PropsWithChildren) {
   ));
   const [communityLoadError, setCommunityLoadError] = useState<string | null>(null);
   const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
+  const [restoredUserId, setRestoredUserId] = useState<string | null>(null);
 
   const bootstrapCommunityData = useCallback(async () => {
     const syncResult = await syncMockDataFromSupabase();
@@ -98,16 +104,66 @@ export function CommunityProvider({ children }: PropsWithChildren) {
     };
   }, [bootstrapCommunityData, currentUser?.id]);
 
+  useEffect(() => {
+    setSelectedCommunity(null);
+    setRestoredUserId(null);
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function restoreLastSelectedCommunity() {
+      const userId = currentUser?.id;
+      if (!userId) return;
+      if (restoredUserId === userId) return;
+      if (allCommunities.length === 0) return;
+
+      try {
+        const lastSelectedCommunityId = await AsyncStorage.getItem(getLastCommunityStorageKey(userId));
+        if (cancelled) return;
+
+        if (!lastSelectedCommunityId) {
+          setRestoredUserId(userId);
+          return;
+        }
+
+        const matched = allCommunities.find((community) => community.id === lastSelectedCommunityId);
+        if (matched) {
+          setSelectedCommunity(matched);
+        }
+      } finally {
+        if (!cancelled) {
+          setRestoredUserId(userId);
+        }
+      }
+    }
+
+    restoreLastSelectedCommunity();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [allCommunities, currentUser?.id, restoredUserId]);
+
   function selectCommunityById(id: string) {
     const found = allCommunities.find((item) => item.id === id);
     if (!found) return;
     setSelectedCommunity(found);
+
+    const userId = currentUser?.id;
+    if (userId) {
+      void AsyncStorage.setItem(getLastCommunityStorageKey(userId), found.id);
+    }
   }
 
   const ensureCommunitySelectedById = useCallback(async (id: string) => {
     const fromCurrentList = allCommunities.find((item) => item.id === id);
     if (fromCurrentList) {
       setSelectedCommunity(fromCurrentList);
+      const userId = currentUser?.id;
+      if (userId) {
+        await AsyncStorage.setItem(getLastCommunityStorageKey(userId), fromCurrentList.id);
+      }
       return true;
     }
 
@@ -119,11 +175,20 @@ export function CommunityProvider({ children }: PropsWithChildren) {
     }
 
     setSelectedCommunity(refreshed);
+    const userId = currentUser?.id;
+    if (userId) {
+      await AsyncStorage.setItem(getLastCommunityStorageKey(userId), refreshed.id);
+    }
     return true;
-  }, [allCommunities, bootstrapCommunityData]);
+  }, [allCommunities, bootstrapCommunityData, currentUser?.id]);
 
   function clearSelectedCommunity() {
     setSelectedCommunity(null);
+
+    const userId = currentUser?.id;
+    if (userId) {
+      void AsyncStorage.removeItem(getLastCommunityStorageKey(userId));
+    }
   }
 
   const value = useMemo<CommunityContextValue>(() => ({

@@ -50,22 +50,40 @@ function PushNotificationsBootstrap() {
   useEffect(() => {
     configureForegroundNotificationHandler();
 
-    const unsubscribe = subscribeToPushNavigation(async ({ screen, communityId }) => {
+    const unsubscribe = subscribeToPushNavigation(async ({ screen, communityId, eventType }) => {
+      if (
+        eventType === 'join_request_pending'
+        || eventType === 'expense_pending'
+        || eventType === 'contribution_pending'
+      ) {
+        if (communityId) {
+          void ensureCommunitySelectedById(communityId).catch(() => {
+            // Navigation should still proceed even if selection refresh fails.
+          });
+        }
+        router.replace('/community');
+        return;
+      }
+
       if (communityId) {
-        await ensureCommunitySelectedById(communityId);
+        void ensureCommunitySelectedById(communityId).catch(() => {
+          // Navigation should still proceed even if selection refresh fails.
+        });
+        router.replace('/community');
+        return;
       }
 
       if (screen === 'home') {
-        router.push('/home');
+        router.replace('/home');
         return;
       }
 
       if (screen === 'community') {
-        router.push('/community');
+        router.replace('/community');
         return;
       }
 
-      router.push('/community');
+      router.replace('/community');
     });
 
     return () => {

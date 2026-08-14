@@ -5,6 +5,7 @@ import { isSupabaseDataEnabled, supabase } from './supabase';
 
 let activeExpoPushToken: string | null = null;
 let notificationHandlerConfigured = false;
+let lastHandledNotificationId: string | null = null;
 
 async function ensureProfileExists(userId: string): Promise<void> {
   const { error } = await supabase.from('profiles').upsert({ id: userId }, { onConflict: 'id' });
@@ -140,14 +141,28 @@ export async function deactivatePushTokenForUser(userId: string): Promise<void> 
 }
 
 export function subscribeToPushNavigation(
-  onNavigate: (payload: { screen?: string; communityId?: string }) => void
+  onNavigate: (payload: { screen?: string; communityId?: string; eventType?: string }) => void
 ): () => void {
-  const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+  const handleNotificationResponse = (response: Notifications.NotificationResponse) => {
+    const notificationId = response.notification.request.identifier;
+    if (notificationId && notificationId === lastHandledNotificationId) {
+      return;
+    }
+    lastHandledNotificationId = notificationId;
+
     const data = response.notification.request.content.data as Record<string, unknown>;
     onNavigate({
       screen: typeof data?.screen === 'string' ? data.screen : undefined,
       communityId: typeof data?.communityId === 'string' ? data.communityId : undefined,
+      eventType: typeof data?.eventType === 'string' ? data.eventType : undefined,
     });
+  };
+
+  const subscription = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
+
+  void Notifications.getLastNotificationResponseAsync().then((response) => {
+    if (!response) return;
+    handleNotificationResponse(response);
   });
 
   return () => {

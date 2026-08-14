@@ -268,6 +268,7 @@ export async function getCommunityMembersForAdmin(communityId: string): Promise<
     .from('community_members')
     .select('id, community_id, user_id, role, status, created_at')
     .eq('community_id', communityId)
+    .neq('status', 'rejected')
     .order('created_at', { ascending: true });
 
   if (memberError) {
