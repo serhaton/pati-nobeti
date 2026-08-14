@@ -23,7 +23,7 @@ function formatDate(date: Date): string {
 }
 
 export default function AnimalEditScreen() {
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; source?: string }>();
   const { currentUser } = useAuth();
   const { selectedCommunity } = useCommunity();
 
@@ -60,11 +60,20 @@ export default function AnimalEditScreen() {
     if (!normalized) return base;
     return base.filter((item) => item.toLowerCase().includes(normalized));
   }, [breedSearch, type]);
+  const source = Array.isArray(params.source) ? params.source[0] : params.source;
+
+  function goBackToAnimalList() {
+    if (source) {
+      router.replace({ pathname: '/animal', params: { source } });
+      return;
+    }
+    router.replace('/animal');
+  }
 
   if (!animal) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, padding: 20, paddingTop: 58 }}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+        <TouchableOpacity onPress={goBackToAnimalList} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
         <Text style={{ marginTop: 14, color: colors.text, fontSize: 24, fontWeight: '800' }}>Can dost bulunamadı</Text>
       </View>
     );
@@ -73,7 +82,7 @@ export default function AnimalEditScreen() {
   if (!isCommunityAdmin) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, padding: 20, paddingTop: 58 }}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+        <TouchableOpacity onPress={goBackToAnimalList} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
         <Text style={{ marginTop: 14, color: colors.text, fontSize: 24, fontWeight: '800' }}>Yetkisiz işlem</Text>
         <Text style={{ marginTop: 8, color: colors.muted }}>Can dost düzenleme yalnızca topluluk yöneticilerine açık.</Text>
       </View>
@@ -199,13 +208,13 @@ export default function AnimalEditScreen() {
 
       router.replace({ pathname: '/animal-detail', params: { id: updated.id } });
     } catch (error: any) {
-      Alert.alert('Supabase kayıt hatası', String(error?.message ?? 'Can dost güncellenemedi.'));
+      Alert.alert('Kayıt hatası', String(error?.message ?? 'Can dost güncellenemedi.'));
     }
   }
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 36 }}>
-      <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+      <TouchableOpacity onPress={goBackToAnimalList} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
       <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Can Dostu Düzenle</Text>
       <Text style={{ color: colors.muted, marginTop: 5 }}>Profil, sağlık ve fotoğraf alanlarını güncelle.</Text>
 

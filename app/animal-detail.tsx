@@ -19,11 +19,20 @@ export default function AnimalDetailScreen() {
 
   const isCommunityAdmin = !!currentUser && !!selectedCommunity?.adminUserIds.includes(currentUser.id);
   const isReadOnlyFromHome = params.source === 'home';
+  const source = Array.isArray(params.source) ? params.source[0] : params.source;
+
+  function goBackToAnimalList() {
+    if (source) {
+      router.replace({ pathname: '/animal', params: { source } });
+      return;
+    }
+    router.replace('/animal');
+  }
 
   if (!animal) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, padding: 20, paddingTop: 58 }}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+        <TouchableOpacity onPress={goBackToAnimalList} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
         <Text style={{ marginTop: 12, color: colors.text, fontSize: 24, fontWeight: '800' }}>Can dost bulunamadı</Text>
       </View>
     );
@@ -31,7 +40,7 @@ export default function AnimalDetailScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 36 }}>
-      <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+      <TouchableOpacity onPress={goBackToAnimalList} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
 
       <View style={{ marginTop: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View>

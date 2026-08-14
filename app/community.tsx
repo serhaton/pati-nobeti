@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, ActivityIndicator, ScrollView, View, Text, TouchableOpacity } from 'react-native';
@@ -31,6 +31,7 @@ import {
 import { isSupabaseDataEnabled } from '../src/services/supabase';
 
 export default function Community() {
+  const params = useLocalSearchParams<{ source?: string }>();
   const { selectedCommunity, refreshCommunities } = useCommunity();
   const { currentUser } = useAuth();
   const [pendingRequests, setPendingRequests] = useState<PendingJoinRequest[]>([]);
@@ -46,6 +47,12 @@ export default function Community() {
   const [actioningExpenseId, setActioningExpenseId] = useState<string | null>(null);
   const [actioningContributionId, setActioningContributionId] = useState<string | null>(null);
   const [selectedExpenseByContributionId, setSelectedExpenseByContributionId] = useState<Record<string, string>>({});
+  const source = Array.isArray(params.source) ? params.source[0] : params.source;
+
+  function goBackBySource() {
+    router.replace('/home');
+  }
+
   const selectedCommunityId = selectedCommunity?.id ?? null;
   const isCommunityAdmin = !!currentUser && selectedCommunity?.adminUserIds.includes(currentUser.id);
   const communityMenuItems = [
@@ -256,12 +263,12 @@ export default function Community() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
-      <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+      <TouchableOpacity onPress={goBackBySource} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
       <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 12 }}>{selectedCommunity.name}</Text>
       <Text style={{ color: colors.muted, marginTop: 5 }}>{selectedCommunity.neighborhood} · {memberCount} üye · {animalCount} can dost</Text>
 
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 22 }}>
-        <TouchableOpacity onPress={() => router.push('/animal')} style={{ flex: 0.85 }}>
+        <TouchableOpacity onPress={() => router.push({ pathname: '/animal', params: { source: 'community' } })} style={{ flex: 0.85 }}>
           <Card style={{ paddingVertical: 9, paddingHorizontal: 9 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
               <Text style={{ fontSize: 18 }}>🐾</Text>
@@ -273,7 +280,7 @@ export default function Community() {
           </Card>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.push('/community-members')} style={{ flex: 0.85 }}>
+        <TouchableOpacity onPress={() => router.push({ pathname: '/community-members', params: { source: 'community' } })} style={{ flex: 0.85 }}>
           <Card style={{ paddingVertical: 9, paddingHorizontal: 9 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
               <Text style={{ fontSize: 18 }}>👥</Text>
@@ -285,7 +292,7 @@ export default function Community() {
           </Card>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.push('/finance')} style={{ flex: 1.3 }}>
+        <TouchableOpacity onPress={() => router.push({ pathname: '/finance', params: { source: 'community' } })} style={{ flex: 1.3 }}>
           <Card
             style={{
               paddingVertical: 9,
@@ -557,14 +564,28 @@ export default function Community() {
             if (path === '/pati-uzat') {
               router.push({
                 pathname: '/pati-uzat',
-                params: { view: isCommunityAdmin ? 'community' : 'mine' },
+                params: { view: isCommunityAdmin ? 'community' : 'mine', source: 'community' },
               });
               return;
             }
             if (path === '/expenses') {
               router.push({
                 pathname: '/expenses',
-                params: { mode: 'expenses-manage' },
+                params: { mode: 'expenses-manage', source: 'community' },
+              });
+              return;
+            }
+            if (path === '/animal') {
+              router.push({
+                pathname: '/animal',
+                params: { source: 'community' },
+              });
+              return;
+            }
+            if (path === '/community-members' || path === '/finance' || path === '/veterinarians' || path === '/map') {
+              router.push({
+                pathname: path,
+                params: { source: 'community' },
               });
               return;
             }

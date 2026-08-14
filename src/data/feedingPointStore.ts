@@ -137,7 +137,7 @@ export async function addCustomFeedingPoint(input: {
       .single();
 
     if (error) {
-      throw formatPersistenceError(error, 'Besleme noktasi Supabase veritabanina kaydedilemedi.');
+      throw formatPersistenceError(error, 'Besleme noktasi veritabanina kaydedilemedi.');
     }
 
     pointId = String(data.id);
@@ -212,11 +212,11 @@ export async function updateFeedingPoint(
       .maybeSingle();
 
     if (error) {
-      throw formatPersistenceError(error, 'Besleme noktasi Supabase veritabaninda guncellenemedi.');
+      throw formatPersistenceError(error, 'Besleme noktasi veritabaninda guncellenemedi.');
     }
 
     if (!data) {
-      throw new Error('Supabase kaydi bulunamadi. Listeyi yenileyip tekrar deneyin.');
+      throw new Error('Kayit bulunamadi. Listeyi yenileyip tekrar deneyin.');
     }
   }
 
@@ -376,7 +376,7 @@ export async function addFeedingRecord(input: {
       .single();
 
     if (error) {
-      throw formatPersistenceError(error, 'Besleme kaydi Supabase veritabanina kaydedilemedi.');
+      throw formatPersistenceError(error, 'Besleme kaydi veritabanina kaydedilemedi.');
     }
 
     recordId = String(data.id);
@@ -441,11 +441,11 @@ export async function updateFeedingRecord(
       .maybeSingle();
 
     if (error) {
-      throw formatPersistenceError(error, 'Besleme kaydi Supabase veritabaninda guncellenemedi.');
+      throw formatPersistenceError(error, 'Besleme kaydi veritabaninda guncellenemedi.');
     }
 
     if (!data) {
-      throw new Error('Supabase kaydi bulunamadi. Listeyi yenileyip tekrar deneyin.');
+      throw new Error('Kayit bulunamadi. Listeyi yenileyip tekrar deneyin.');
     }
   }
 

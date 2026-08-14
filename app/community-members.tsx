@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -14,6 +14,7 @@ import {
 import { isSupabaseDataEnabled } from '../src/services/supabase';
 
 export default function CommunityMembersScreen() {
+  const params = useLocalSearchParams<{ source?: string }>();
   const { currentUser } = useAuth();
   const { selectedCommunity } = useCommunity();
   const [members, setMembers] = useState<ManagedCommunityMember[]>([]);
@@ -23,6 +24,15 @@ export default function CommunityMembersScreen() {
 
   const selectedCommunityId = selectedCommunity?.id ?? null;
   const isCommunityAdmin = !!currentUser && selectedCommunity?.adminUserIds.includes(currentUser.id);
+  const source = Array.isArray(params.source) ? params.source[0] : params.source;
+
+  function goBackBySource() {
+    if (source === 'community') {
+      router.replace('/community');
+      return;
+    }
+    router.replace('/home');
+  }
 
   const activeAdminCount = useMemo(() => (
     members.filter((member) => member.role === 'admin' && (member.status === 'active' || member.status === 'approved')).length
@@ -122,7 +132,7 @@ export default function CommunityMembersScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
-      <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+      <TouchableOpacity onPress={goBackBySource} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
       <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 12 }}>Üye Listesi</Text>
       <Text style={{ color: colors.muted, marginTop: 5 }}>{selectedCommunity.name}</Text>
 
@@ -145,7 +155,7 @@ export default function CommunityMembersScreen() {
 
       {!isSupabaseDataEnabled() ? (
         <Card style={{ marginTop: 18 }}>
-          <Text style={{ color: colors.muted }}>Bu ekran yalnızca Supabase modunda aktif.</Text>
+          <Text style={{ color: colors.muted }}>Bu ekran şu anda aktif değil.</Text>
         </Card>
       ) : null}
 

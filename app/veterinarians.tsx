@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Linking, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -16,6 +16,7 @@ import {
 } from '../src/services/veterinarianService';
 
 export default function VeterinariansScreen() {
+  const params = useLocalSearchParams<{ source?: string }>();
   const { currentUser } = useAuth();
   const { selectedCommunity } = useCommunity();
 
@@ -36,6 +37,15 @@ export default function VeterinariansScreen() {
 
   const isCommunityAdmin = !!currentUser && !!selectedCommunity?.adminUserIds.includes(currentUser.id);
   const selectedCommunityId = selectedCommunity?.id ?? null;
+  const source = Array.isArray(params.source) ? params.source[0] : params.source;
+
+  function goBackBySource() {
+    if (source === 'community') {
+      router.replace('/community');
+      return;
+    }
+    router.replace('/home');
+  }
 
   const filteredGlobalItems = useMemo(() => {
     const query = searchText.trim().toLocaleLowerCase('tr-TR');
@@ -237,7 +247,7 @@ export default function VeterinariansScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
-      <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+      <TouchableOpacity onPress={goBackBySource} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
       <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Veterinerler</Text>
       <Text style={{ color: colors.muted, marginTop: 5 }}>{selectedCommunity.name}</Text>
       <Text style={{ color: colors.muted, marginTop: 4 }}>
@@ -302,7 +312,7 @@ export default function VeterinariansScreen() {
           }}
           scrollEventThrottle={100}
         >
-          <TouchableOpacity onPress={() => setShowSelectModal(false)}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowSelectModal(false)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Global Listeden Seç</Text>
 
           <Card style={{ marginTop: 20 }}>
@@ -364,7 +374,7 @@ export default function VeterinariansScreen() {
 
       <Modal visible={showOverrideModal} animationType="slide" onRequestClose={() => setShowOverrideModal(false)}>
         <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
-          <TouchableOpacity onPress={() => setShowOverrideModal(false)}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowOverrideModal(false)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Topluluk Veterineri Bilgileri</Text>
 
           <Card style={{ marginTop: 20 }}>

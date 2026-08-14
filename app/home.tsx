@@ -128,7 +128,7 @@ export default function Home() {
           <Logo small />
           <Text style={{ color: colors.primary, marginTop: 6, fontWeight: '700' }}>{selectedCommunity.name}</Text>
         </View>
-        <TouchableOpacity onPress={() => router.push('/profile')}>
+        <TouchableOpacity onPress={() => router.push({ pathname: '/profile', params: { source: 'home' } })}>
           {profileAvatarUrl ? (
             <Image source={{ uri: profileAvatarUrl }} style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#EAECEF' }} />
           ) : (
@@ -145,14 +145,14 @@ export default function Home() {
         </View>
 
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
-          <TouchableOpacity onPress={() => router.push('/feeding')} style={{ flex: 1 }}>
+          <TouchableOpacity onPress={() => router.push({ pathname: '/feeding', params: { source: 'home' } })} style={{ flex: 1 }}>
             <Card style={{ flex: 1 }}>
               <Text style={{ fontSize: 25 }}>🥣</Text>
               <Text style={{ fontSize: 24, fontWeight: '800', color: colors.text, marginTop: 7 }}>{todayFedCount}</Text>
               <Text style={{ color: colors.muted }}>Bugünkü besleme kaydı</Text>
             </Card>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/finance')} style={{ flex: 1 }}>
+          <TouchableOpacity onPress={() => router.push({ pathname: '/finance', params: { source: 'home' } })} style={{ flex: 1 }}>
             <Card style={{ flex: 1 }}>
               <Text style={{ fontSize: 25 }}>💳</Text>
               <Text
@@ -185,13 +185,13 @@ export default function Home() {
             key={label}
             onPress={() => {
               if (path === '/pati-uzat') {
-                router.push({ pathname: '/pati-uzat', params: { view: 'mine' } });
+                router.push({ pathname: '/pati-uzat', params: { view: 'mine', source: 'home' } });
                 return;
               }
               if (path === '/expenses') {
                 router.push({
                   pathname: '/expenses',
-                  params: { mode: 'member-history' },
+                  params: { mode: 'member-history', source: 'home' },
                 });
                 return;
               }
@@ -200,6 +200,10 @@ export default function Home() {
                   pathname: '/animal',
                   params: { source: 'home' },
                 });
+                return;
+              }
+              if (path === '/map') {
+                router.push({ pathname: '/map', params: { source: 'home' } });
                 return;
               }
               router.push(path as any);
@@ -217,7 +221,7 @@ export default function Home() {
         {isCommunityAdmin ? (
           <>
             <Text style={{ fontSize: 19, fontWeight: '800', color: colors.text, marginTop: 25, marginBottom: 12 }}>Yönetici işlemleri</Text>
-            <TouchableOpacity onPress={() => router.push('/community')}>
+            <TouchableOpacity onPress={() => router.push({ pathname: '/community', params: { source: 'home' } })}>
               <Card style={{ marginBottom: 10 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                   <View>

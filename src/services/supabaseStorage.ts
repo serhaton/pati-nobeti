@@ -221,7 +221,7 @@ export async function uploadImageIfNeeded(input: {
     bucket: DEFAULT_BUCKET,
     objectPath,
     contentType,
-    fallbackErrorText: 'Görsel Supabase Storage\'a yüklenemedi.',
+    fallbackErrorText: 'Görsel dosya servisine yüklenemedi.',
   });
 
   return encodeStorageReference(DEFAULT_BUCKET, objectPath);
@@ -265,7 +265,7 @@ export async function uploadExpenseReceiptIfNeeded(input: {
     bucket: DEFAULT_BUCKET,
     objectPath,
     contentType,
-    fallbackErrorText: 'Fiş dosyası Supabase Storage\'a yüklenemedi.',
+    fallbackErrorText: 'Fiş dosyası dosya servisine yüklenemedi.',
   });
 
   return encodeStorageReference(DEFAULT_BUCKET, objectPath);

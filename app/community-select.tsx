@@ -783,7 +783,7 @@ export default function CommunitySelectScreen() {
 
       <Modal visible={showCreateModal} animationType="slide" onRequestClose={() => setShowCreateModal(false)}>
         <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
-          <TouchableOpacity onPress={() => setShowCreateModal(false)}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowCreateModal(false)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Yeni Topluluk Oluştur</Text>
           <Text style={{ color: colors.muted, marginTop: 5 }}>İsim gir, merkez seç ve açıklama ekle.</Text>
 

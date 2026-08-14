@@ -38,7 +38,7 @@ function FeedingBowlIcon() {
 export default function MapScreen() {
   const { selectedCommunity } = useCommunity();
   const { currentUser } = useAuth();
-  const params = useLocalSearchParams<{ focusLat?: string; focusLng?: string; focusId?: string; refresh?: string }>();
+  const params = useLocalSearchParams<{ focusLat?: string; focusLng?: string; focusId?: string; refresh?: string; source?: string }>();
   const mapRef = useRef<MapView | null>(null);
   const suppressNextMapPressRef = useRef(false);
   const hasUserInteractedRef = useRef(false);
@@ -50,6 +50,7 @@ export default function MapScreen() {
   const [points, setPoints] = useState<FeedingPoint[]>(() => getAllFeedingPoints());
   const [selectedPoint, setSelectedPoint] = useState<FeedingPoint | null>(null);
   const [highlightedPointId, setHighlightedPointId] = useState<string | null>(null);
+  const source = Array.isArray(params.source) ? params.source[0] : params.source;
   const focusLatitude = useMemo(() => Number(params.focusLat), [params.focusLat]);
   const focusLongitude = useMemo(() => Number(params.focusLng), [params.focusLng]);
   const selectedPointRecords = useMemo<FeedingRecord[]>(() => {
@@ -70,6 +71,14 @@ export default function MapScreen() {
     }),
     [selectedCommunity?.latitude, selectedCommunity?.longitude]
   );
+
+  function goBackBySource() {
+    if (source === 'community') {
+      router.replace('/community');
+      return;
+    }
+    router.replace('/home');
+  }
   const defaultMapDelta = useMemo(() => {
     const zoom = selectedCommunity?.defaultZoom ?? 17;
     return 360 / Math.pow(2, zoom);
@@ -326,7 +335,7 @@ export default function MapScreen() {
         ))}
       </MapView>
       <View style={{ position: 'absolute', top: 58, left: 18, right: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <TouchableOpacity onPress={() => router.replace('/home')} style={{ backgroundColor: '#fff', borderRadius: 14, padding: 11 }}>
+        <TouchableOpacity onPress={goBackBySource} style={{ backgroundColor: '#fff', borderRadius: 14, padding: 11 }}>
           <Text style={{ fontSize: 20 }}>‹</Text>
         </TouchableOpacity>
         <View style={{ backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12 }}>

@@ -79,12 +79,21 @@ function getAllocationPercent(amount: number, remainingAmount: number): number {
 }
 
 export default function PatiUzat() {
-  const params = useLocalSearchParams<{ view?: string }>();
+  const params = useLocalSearchParams<{ view?: string; source?: string }>();
   const { currentUser } = useAuth();
   const { selectedCommunity } = useCommunity();
   const selectedCommunityId = selectedCommunity?.id ?? null;
+  const source = Array.isArray(params.source) ? params.source[0] : params.source;
   const isCommunityAdmin = !!currentUser && !!selectedCommunity?.adminUserIds.includes(currentUser.id);
   const shouldShowCommunityContributions = isCommunityAdmin && params.view === 'community';
+
+  function goBackBySource() {
+    if (source === 'community' || params.view === 'community') {
+      router.replace('/community');
+      return;
+    }
+    router.replace('/home');
+  }
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -510,7 +519,7 @@ export default function PatiUzat() {
         ListHeaderComponent={(
           <>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+              <TouchableOpacity onPress={goBackBySource} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
               <TouchableOpacity onPress={openCreateModal} style={{ backgroundColor: colors.primary, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 }}>
                 <Text style={{ color: '#fff', fontWeight: '800', fontSize: 20 }}>＋</Text>
               </TouchableOpacity>
@@ -546,7 +555,7 @@ export default function PatiUzat() {
 
       <Modal visible={showCreateModal} animationType="slide" onRequestClose={() => setShowCreateModal(false)}>
         <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
-          <TouchableOpacity onPress={() => setShowCreateModal(false)}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowCreateModal(false)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Pati Uzat Girişi</Text>
 
           <Card style={{ marginTop: 18 }}>
@@ -691,7 +700,7 @@ export default function PatiUzat() {
           <TouchableOpacity onPress={() => {
             setSelectedReadonlyExpense(null);
             setSelectedAllocationContext(null);
-          }}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+          }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Masraf Görüntüleme</Text>
 
           {selectedReadonlyExpense ? (

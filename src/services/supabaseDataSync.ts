@@ -283,9 +283,9 @@ export async function syncMockDataFromSupabase(): Promise<SupabaseSyncResult> {
     return {
       usedSupabaseMode: true,
       communitiesLoaded: false,
-      communitiesQueryError: raw || 'Bilinmeyen Supabase servis hatası',
+      communitiesQueryError: raw || 'Bilinmeyen servis hatası',
       communitiesTableMissing: false,
-      syncError: raw || 'Bilinmeyen Supabase servis hatası',
+      syncError: raw || 'Bilinmeyen servis hatası',
     };
   }
 }

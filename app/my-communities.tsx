@@ -115,13 +115,13 @@ export default function MyCommunitiesScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
-      <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+      <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
       <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Topluluklarım</Text>
       <Text style={{ color: colors.muted, marginTop: 5 }}>Üye olduğun toplulukları görüntüleyebilir ve ayrılabilirsin.</Text>
 
       {!isSupabaseDataEnabled() ? (
         <Card style={{ marginTop: 18 }}>
-          <Text style={{ color: colors.muted }}>Bu ekran yalnızca Supabase modunda aktif.</Text>
+          <Text style={{ color: colors.muted }}>Bu ekran şu anda aktif değil.</Text>
         </Card>
       ) : null}
 

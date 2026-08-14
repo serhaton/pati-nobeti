@@ -23,7 +23,22 @@ export default function Animal() {
   );
 
   const isCommunityAdmin = !!currentUser && !!selectedCommunity?.adminUserIds.includes(currentUser.id);
-  const isReadOnlyFromHome = params.source === 'home';
+  const source = Array.isArray(params.source) ? params.source[0] : params.source;
+  const isReadOnlyFromHome = source === 'home';
+
+  function goBackBySource() {
+    if (source === 'home') {
+      router.replace('/home');
+      return;
+    }
+
+    if (source === 'community') {
+      router.replace('/community');
+      return;
+    }
+
+    router.back();
+  }
 
   const communityAnimals = useMemo<CommunityAnimal[]>(() => {
     if (!selectedCommunity) return [];
@@ -35,7 +50,7 @@ export default function Animal() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 120 }}>
-      <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+      <TouchableOpacity onPress={goBackBySource} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
         <View>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text }}>Can Dostlar</Text>
@@ -59,7 +74,7 @@ export default function Animal() {
         communityAnimals.map((animal, index) => (
           <TouchableOpacity
             key={animal.id}
-            onPress={() => router.push({ pathname: '/animal-detail', params: { id: animal.id, source: params.source } })}
+            onPress={() => router.push({ pathname: '/animal-detail', params: { id: animal.id, source } })}
           >
             <Card style={{ marginTop: index === 0 ? 14 : 10 }}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>

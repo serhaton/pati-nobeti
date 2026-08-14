@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
 import { Image, View, Text, TouchableOpacity } from 'react-native';
@@ -10,10 +10,26 @@ import { isSupabaseDataEnabled } from '../src/services/supabase';
 import { getUserProfileSettings } from '../src/services/communityService';
 
 export default function Profile() {
+  const params = useLocalSearchParams<{ source?: string }>();
   const { currentUser, signOut } = useAuth();
   const { selectedCommunity, clearSelectedCommunity } = useCommunity();
   const [displayName, setDisplayName] = useState(currentUser?.fullName ?? 'Gonullu');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const source = Array.isArray(params.source) ? params.source[0] : params.source;
+
+  function goBackBySource() {
+    if (source === 'home') {
+      router.replace('/home');
+      return;
+    }
+
+    if (source === 'community') {
+      router.replace('/community');
+      return;
+    }
+
+    router.back();
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -57,7 +73,7 @@ export default function Profile() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, padding: 20, paddingTop: 58 }}>
-      <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+      <TouchableOpacity onPress={goBackBySource} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
       <View style={{ alignItems: 'center', marginTop: 20 }}>
         {avatarUrl ? (
           <Image source={{ uri: avatarUrl }} style={{ width: 78, height: 78, borderRadius: 28, backgroundColor: '#EAECEF' }} />
@@ -73,11 +89,11 @@ export default function Profile() {
             key={x}
             onPress={() => {
               if (x === 'Topluluklarim') {
-                router.push('/my-communities');
+                router.push({ pathname: '/my-communities', params: source ? { source } : undefined });
                 return;
               }
               if (x === 'Ayarlar') {
-                router.push('/settings');
+                router.push({ pathname: '/settings', params: source ? { source } : undefined });
               }
             }}
             style={{ paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}

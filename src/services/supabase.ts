@@ -30,7 +30,7 @@ export function isSupabaseDataEnabled(): boolean {
 
 function ensureSupabaseConfigured() {
   if (!isSupabaseConfigured()) {
-    throw new Error('Supabase ayarlari eksik. EXPO_PUBLIC_SUPABASE_URL ve EXPO_PUBLIC_SUPABASE_KEY (veya EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY / EXPO_PUBLIC_SUPABASE_ANON_KEY) girilmeli.');
+    throw new Error('Uygulama servis ayarları eksik. Lütfen daha sonra tekrar deneyin.');
   }
 }
 

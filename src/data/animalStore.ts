@@ -175,7 +175,7 @@ export async function addAnimal(input: SaveAnimalInput): Promise<CommunityAnimal
       .single();
 
     if (error) {
-      throw formatPersistenceError(error, 'Can dost Supabase veritabanina kaydedilemedi.');
+      throw formatPersistenceError(error, 'Can dost veritabanina kaydedilemedi.');
     }
 
     animalId = String(data.id);
@@ -231,11 +231,11 @@ export async function updateAnimal(id: string, input: Omit<SaveAnimalInput, 'com
       .maybeSingle();
 
     if (error) {
-      throw formatPersistenceError(error, 'Can dost Supabase veritabaninda guncellenemedi.');
+      throw formatPersistenceError(error, 'Can dost veritabaninda guncellenemedi.');
     }
 
     if (!data) {
-      throw new Error('Supabase kaydi bulunamadi. Listeyi yenileyip tekrar deneyin.');
+      throw new Error('Kayit bulunamadi. Listeyi yenileyip tekrar deneyin.');
     }
   }
 

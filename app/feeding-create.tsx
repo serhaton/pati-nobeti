@@ -106,7 +106,7 @@ export default function FeedingCreateScreen() {
 
       router.replace('/feeding');
     } catch (error: any) {
-      Alert.alert('Supabase kayıt hatası', String(error?.message ?? 'Besleme kaydı kaydedilemedi.'));
+      Alert.alert('Kayıt hatası', String(error?.message ?? 'Besleme kaydı kaydedilemedi.'));
     }
   }
 
@@ -114,7 +114,7 @@ export default function FeedingCreateScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 34 }}>
-      <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+      <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
       <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Besleme Kaydı Ekle</Text>
       <Text style={{ color: colors.muted, marginTop: 5 }}>Yeni besleme kaydını topluluk listesine ekle.</Text>
 

@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, ScrollView, View, Text, TouchableOpacity, TextInput } from 'react-native';
@@ -13,6 +13,7 @@ const PAGE_SIZE = 4;
 const MEMBER_FILTER_MAX_HEIGHT = 260;
 
 export default function Feeding() {
+  const params = useLocalSearchParams<{ source?: string }>();
   const { selectedCommunity } = useCommunity();
   const [refreshTick, setRefreshTick] = useState(0);
   const [showPointPicker, setShowPointPicker] = useState(false);
@@ -23,6 +24,15 @@ export default function Feeding() {
   const [feederFilter, setFeederFilter] = useState('');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [canLoadMoreFromScroll, setCanLoadMoreFromScroll] = useState(false);
+  const source = Array.isArray(params.source) ? params.source[0] : params.source;
+
+  function goBackBySource() {
+    if (source === 'community') {
+      router.replace('/community');
+      return;
+    }
+    router.replace('/home');
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -115,13 +125,13 @@ export default function Feeding() {
         onMomentumScrollBegin={() => setCanLoadMoreFromScroll(true)}
         ListHeaderComponent={(
         <>
-      <TouchableOpacity onPress={() => router.replace('/home')}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+      <TouchableOpacity onPress={goBackBySource} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
         <View>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text }}>Besleme Kayıtları</Text>
           <Text style={{ color: colors.muted }}>{visibleRecords.length}/{records.length} kayıt gösteriliyor</Text>
         </View>
-        <TouchableOpacity onPress={() => router.push('/feeding-create')} style={{ backgroundColor: colors.primary, padding: 13, borderRadius: 15 }}>
+        <TouchableOpacity onPress={() => router.push({ pathname: '/feeding-create', params: source ? { source } : undefined })} style={{ backgroundColor: colors.primary, padding: 13, borderRadius: 15 }}>
           <Text style={{ color: '#fff', fontWeight: '800' }}>＋</Text>
         </TouchableOpacity>
       </View>

@@ -112,17 +112,26 @@ function fileNameFromUri(uri: string, fallback: string): string {
 }
 
 export default function Expenses() {
-  const params = useLocalSearchParams<{ mode?: string }>();
+  const params = useLocalSearchParams<{ mode?: string; source?: string }>();
   const { currentUser } = useAuth();
   const { selectedCommunity } = useCommunity();
   const selectedCommunityId = selectedCommunity?.id ?? null;
   const isCommunityAdmin = !!currentUser && !!selectedCommunity?.adminUserIds.includes(currentUser.id);
+  const source = Array.isArray(params.source) ? params.source[0] : params.source;
   const isMemberHistoryMode = params.mode === 'member-history';
   const isExpensesManageMode = isCommunityAdmin && params.mode === 'expenses-manage';
   const isAdminFinanceView = isCommunityAdmin && !isMemberHistoryMode && !isExpensesManageMode;
   const canManageRecords = isCommunityAdmin && (params.mode === 'manage' || params.mode === 'expenses-manage');
   const canSelectPerformer = canManageRecords;
   const canCreateExpense = canManageRecords || isMemberHistoryMode;
+
+  function goBackBySource() {
+    if (source === 'community' || params.mode === 'expenses-manage') {
+      router.replace('/community');
+      return;
+    }
+    router.replace('/home');
+  }
 
   const [approvedExpenses, setApprovedExpenses] = useState<ExpenseRecord[]>([]);
   const [allCommunityExpenses, setAllCommunityExpenses] = useState<ExpenseRecord[]>([]);
@@ -822,7 +831,7 @@ export default function Expenses() {
         onScroll={onMainScroll}
         scrollEventThrottle={16}
       >
-      <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+      <TouchableOpacity onPress={goBackBySource} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
         <View>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text }}>
@@ -1203,7 +1212,7 @@ export default function Expenses() {
 
       <Modal visible={showCreateModal} animationType="slide" onRequestClose={() => setShowCreateModal(false)}>
         <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
-          <TouchableOpacity onPress={() => setShowCreateModal(false)}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowCreateModal(false)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>
             {editingExpenseId ? 'Masrafı Güncelle' : 'Masraf Ekle'}
           </Text>
@@ -1446,7 +1455,7 @@ export default function Expenses() {
 
       <Modal visible={showContributionEditModal} animationType="slide" onRequestClose={() => setShowContributionEditModal(false)}>
         <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
-          <TouchableOpacity onPress={() => setShowContributionEditModal(false)}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowContributionEditModal(false)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Pati Uzat Kaydını Güncelle</Text>
 
           <Card style={{ marginTop: 18 }}>
@@ -1530,7 +1539,7 @@ export default function Expenses() {
 
       <Modal visible={!!selectedReadonlyExpense} animationType="slide" onRequestClose={() => setSelectedReadonlyExpense(null)}>
         <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
-          <TouchableOpacity onPress={() => setSelectedReadonlyExpense(null)}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => setSelectedReadonlyExpense(null)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Masraf Görüntüleme</Text>
 
           {selectedReadonlyExpense ? (
@@ -1574,7 +1583,7 @@ export default function Expenses() {
 
       <Modal visible={!!selectedContribution} animationType="slide" onRequestClose={() => setSelectedContribution(null)}>
         <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
-          <TouchableOpacity onPress={() => setSelectedContribution(null)}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => setSelectedContribution(null)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Pati Uzat Detayı</Text>
 
           {selectedContribution ? (

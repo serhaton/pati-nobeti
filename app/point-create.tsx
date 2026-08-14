@@ -25,8 +25,8 @@ export default function PointCreateScreen() {
   if (!isCommunityAdmin) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, padding: 20, paddingTop: 58 }}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={{ fontSize: 30 }}>‹</Text>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}>
+          <Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text>
         </TouchableOpacity>
         <Text style={{ marginTop: 14, color: colors.text, fontSize: 24, fontWeight: '800' }}>Yetki gerekli</Text>
         <Text style={{ marginTop: 8, color: colors.muted }}>
@@ -116,7 +116,7 @@ export default function PointCreateScreen() {
         },
       });
     } catch (error: any) {
-      Alert.alert('Supabase kayıt hatası', String(error?.message ?? 'Nokta kaydedilemedi.'));
+      Alert.alert('Kayıt hatası', String(error?.message ?? 'Nokta kaydedilemedi.'));
     } finally {
       setSaving(false);
     }
@@ -124,8 +124,8 @@ export default function PointCreateScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, padding: 20, paddingTop: 58 }}>
-      <TouchableOpacity onPress={() => router.back()}>
-        <Text style={{ fontSize: 30 }}>‹</Text>
+      <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}>
+        <Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text>
       </TouchableOpacity>
 
       <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Mama Noktası Ekle</Text>

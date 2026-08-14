@@ -30,6 +30,20 @@ iOS simulator için:
 npm run ios
 ```
 
+Belirli bir simulator cihazı ile çalıştırma:
+
+```bash
+npm run ios -- -d "iPhone 16"
+```
+
+Alternatif olarak Expo komutunu doğrudan da kullanabilirsin:
+
+```bash
+npx expo run:ios -d "iPhone 16"
+```
+
+Not: `npm run` ile script'e argüman geçerken araya `--` koymalısın.
+
 ## iOS App Store ve TestFlight
 
 EAS CLI kurulumu ve giriş:

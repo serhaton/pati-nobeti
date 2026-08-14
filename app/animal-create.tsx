@@ -54,7 +54,7 @@ export default function AnimalCreateScreen() {
   if (!isCommunityAdmin) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, padding: 20, paddingTop: 58 }}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
         <Text style={{ marginTop: 14, color: colors.text, fontSize: 24, fontWeight: '800' }}>Yetkisiz işlem</Text>
         <Text style={{ marginTop: 8, color: colors.muted }}>Can dost ekleme yalnızca topluluk yöneticilerine açık.</Text>
       </View>
@@ -163,13 +163,13 @@ export default function AnimalCreateScreen() {
 
       router.replace({ pathname: '/animal-detail', params: { id: created.id } });
     } catch (error: any) {
-      Alert.alert('Supabase kayıt hatası', String(error?.message ?? 'Can dost kaydı oluşturulamadı.'));
+      Alert.alert('Kayıt hatası', String(error?.message ?? 'Can dost kaydı oluşturulamadı.'));
     }
   }
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 36 }}>
-      <TouchableOpacity onPress={() => router.back()}><Text style={{ fontSize: 30 }}>‹</Text></TouchableOpacity>
+      <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
       <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Can Dost Ekle</Text>
       <Text style={{ color: colors.muted, marginTop: 5 }}>Detaylı profil bilgilerini girerek kayıt oluştur.</Text>
 

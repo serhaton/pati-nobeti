@@ -84,7 +84,7 @@ export async function createCommunityAndAssignAdmin(input: {
   userId: string;
 }): Promise<{ communityId: string }> {
   if (!isSupabaseDataEnabled()) {
-    throw new Error('Topluluk oluşturma yalnızca Supabase modunda destekleniyor.');
+    throw new Error('Topluluk oluşturma işlemi şu anda kullanılamıyor.');
   }
 
   const { data: communityData, error: communityError } = await supabase
@@ -130,7 +130,7 @@ export async function sendJoinRequest(input: {
   note: string;
 }): Promise<void> {
   if (!isSupabaseDataEnabled()) {
-    throw new Error('Katılım isteği yalnızca Supabase modunda destekleniyor.');
+    throw new Error('Katılım isteği gönderme işlemi şu anda kullanılamıyor.');
   }
 
   // Re-request flow: remove previous request row, then create a fresh pending request.
@@ -203,7 +203,7 @@ export async function approveJoinRequest(input: {
   userId: string;
 }): Promise<void> {
   if (!isSupabaseDataEnabled()) {
-    throw new Error('İstek onayi yalnızca Supabase modunda destekleniyor.');
+    throw new Error('İstek onayı işlemi şu anda kullanılamıyor.');
   }
 
   const { error: requestError } = await supabase
@@ -235,7 +235,7 @@ export async function rejectJoinRequest(input: {
   userId: string;
 }): Promise<void> {
   if (!isSupabaseDataEnabled()) {
-    throw new Error('İstek reddi yalnızca Supabase modunda destekleniyor.');
+    throw new Error('İstek reddi işlemi şu anda kullanılamıyor.');
   }
 
   const { error: requestError } = await supabase
@@ -326,7 +326,7 @@ export async function updateCommunityMemberByAdmin(input: {
   status?: 'active' | 'passive' | 'pending' | 'approved' | 'rejected';
 }): Promise<void> {
   if (!isSupabaseDataEnabled()) {
-    throw new Error('Üye güncelleme yalnızca Supabase modunda destekleniyor.');
+    throw new Error('Üye güncelleme işlemi şu anda kullanılamıyor.');
   }
 
   const payload: Record<string, string> = {};
@@ -353,7 +353,7 @@ export async function leaveCommunityByUser(input: {
   userId: string;
 }): Promise<void> {
   if (!isSupabaseDataEnabled()) {
-    throw new Error('Topluluktan ayrılma yalnızca Supabase modunda destekleniyor.');
+    throw new Error('Topluluktan ayrılma işlemi şu anda kullanılamıyor.');
   }
 
   const { error } = await supabase
