@@ -292,6 +292,36 @@ create index if not exists idx_user_devices_token_active on user_devices (expo_p
 create index if not exists idx_notification_events_status_created_at on notification_events (delivery_status, created_at);
 create index if not exists idx_notification_events_community_created_at on notification_events (community_id, created_at desc);
 
+create or replace function public.register_user_device(
+  p_expo_push_token text,
+  p_platform text,
+  p_last_seen_at timestamptz default now()
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Kullanici dogrulanamadi';
+  end if;
+
+  insert into public.user_devices (user_id, expo_push_token, platform, is_active, last_seen_at)
+  values (auth.uid(), p_expo_push_token, p_platform, true, coalesce(p_last_seen_at, now()))
+  on conflict (expo_push_token)
+  do update
+  set
+    user_id = excluded.user_id,
+    platform = excluded.platform,
+    is_active = true,
+    last_seen_at = excluded.last_seen_at,
+    updated_at = now();
+end;
+$$;
+
+grant execute on function public.register_user_device(text, text, timestamptz) to authenticated;
+
 create or replace function public.touch_user_devices_updated_at()
 returns trigger
 language plpgsql

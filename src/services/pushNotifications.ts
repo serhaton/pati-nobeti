@@ -80,21 +80,38 @@ export async function registerPushTokenForUser(userId: string): Promise<string |
     // Ensure FK target exists if auth trigger has not been applied yet.
     await ensureProfileExists(userId);
 
-    const { error } = await supabase
-      .from('user_devices')
-      .upsert(
-        {
-          user_id: userId,
-          expo_push_token: token,
-          platform: Platform.OS,
-          is_active: true,
-          last_seen_at: new Date().toISOString(),
-        },
-        { onConflict: 'expo_push_token' }
-      );
+    const nowIso = new Date().toISOString();
+    const { error: registerRpcError } = await supabase.rpc('register_user_device', {
+      p_expo_push_token: token,
+      p_platform: Platform.OS,
+      p_last_seen_at: nowIso,
+    });
 
-    if (error) {
-      throw error;
+    if (registerRpcError) {
+      const functionMissing =
+        registerRpcError.code === '42883'
+        || String(registerRpcError.message ?? '').toLowerCase().includes('register_user_device');
+
+      if (!functionMissing) {
+        throw registerRpcError;
+      }
+
+      const { error: fallbackError } = await supabase
+        .from('user_devices')
+        .upsert(
+          {
+            user_id: userId,
+            expo_push_token: token,
+            platform: Platform.OS,
+            is_active: true,
+            last_seen_at: nowIso,
+          },
+          { onConflict: 'expo_push_token' }
+        );
+
+      if (fallbackError) {
+        throw fallbackError;
+      }
     }
 
     console.log('[push] Token registered for user:', userId);

@@ -92,6 +92,45 @@ function expenseStatusLabel(status: ExpenseRecord['approvalStatus']): string {
   return 'Onay bekliyor';
 }
 
+function getExpenseCardTheme(status: ExpenseRecord['approvalStatus'], dueAmount: number) {
+  if (status === 'rejected') {
+    return {
+      cardBackground: '#FDECEC',
+      cardBorder: '#F3B7B2',
+      badgeText: 'REDDEDİLDİ',
+      badgeBackground: '#FAD9D6',
+      badgeColor: '#9B3A34',
+      amountColor: '#9B3A34',
+      progressBorder: '#F3B7B2',
+      progressColor: '#D56A61',
+    };
+  }
+
+  if (dueAmount <= 0) {
+    return {
+      cardBackground: '#EAF7EC',
+      cardBorder: '#B8DEBF',
+      badgeText: 'KAPANDI',
+      badgeBackground: '#D8F0DE',
+      badgeColor: '#2F7A44',
+      amountColor: '#2F7A44',
+      progressBorder: '#B8DEBF',
+      progressColor: '#3E9755',
+    };
+  }
+
+  return {
+    cardBackground: '#FDECEC',
+    cardBorder: '#F3B7B2',
+    badgeText: 'AÇIK BORÇ',
+    badgeBackground: '#FAD9D6',
+    badgeColor: '#9B3A34',
+    amountColor: '#9B3A34',
+    progressBorder: '#F3B7B2',
+    progressColor: '#D56A61',
+  };
+}
+
 function getClosurePercent(amount: number, dueAmount: number): number {
   if (amount <= 0) return 0;
   const raw = ((amount - dueAmount) / amount) * 100;
@@ -966,6 +1005,9 @@ export default function Expenses() {
       ) : null}
 
       {!isLoading && !isAdminFinanceView && visibleApprovedExpenses.map((item) => (
+        (() => {
+          const theme = getExpenseCardTheme(item.approvalStatus, item.dueAmount);
+          return (
         <TouchableOpacity
           key={item.id}
           onPress={() => {
@@ -978,9 +1020,9 @@ export default function Expenses() {
         <Card
           style={{
             marginTop: 11,
-            backgroundColor: item.dueAmount <= 0 ? '#EAF7EC' : '#FDECEC',
+            backgroundColor: theme.cardBackground,
             borderWidth: 1,
-            borderColor: item.dueAmount <= 0 ? '#B8DEBF' : '#F3B7B2',
+            borderColor: theme.cardBorder,
           }}
         >
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
@@ -995,20 +1037,20 @@ export default function Expenses() {
               </Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <Text style={{ fontWeight: '900', color: item.dueAmount <= 0 ? '#2F7A44' : colors.danger }}>{item.amount.toLocaleString('tr-TR')} ₺</Text>
+              <Text style={{ fontWeight: '900', color: theme.amountColor }}>{item.amount.toLocaleString('tr-TR')} ₺</Text>
               <Text
                 style={{
                   marginTop: 6,
                   fontSize: 11,
                   fontWeight: '800',
-                  color: item.dueAmount <= 0 ? '#2F7A44' : '#9B3A34',
-                  backgroundColor: item.dueAmount <= 0 ? '#D8F0DE' : '#FAD9D6',
+                  color: theme.badgeColor,
+                  backgroundColor: theme.badgeBackground,
                   borderRadius: 999,
                   paddingHorizontal: 8,
                   paddingVertical: 4,
                 }}
               >
-                {item.dueAmount <= 0 ? 'KAPANDI' : 'AÇIK BORÇ'}
+                {theme.badgeText}
               </Text>
             </View>
           </View>
@@ -1017,7 +1059,7 @@ export default function Expenses() {
             style={{
               marginTop: 10,
               borderWidth: 1,
-              borderColor: item.dueAmount <= 0 ? '#B8DEBF' : '#F3B7B2',
+              borderColor: theme.progressBorder,
               borderRadius: 12,
               padding: 10,
               backgroundColor: '#FFFFFFD0',
@@ -1026,14 +1068,14 @@ export default function Expenses() {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
               <View>
                 <Text style={{ fontSize: 12, fontWeight: '700', color: colors.muted }}>Kapanma Oranı</Text>
-                <Text style={{ marginTop: 2, fontSize: 24, fontWeight: '900', color: item.dueAmount <= 0 ? '#2F7A44' : '#9B3A34' }}>
+                <Text style={{ marginTop: 2, fontSize: 24, fontWeight: '900', color: theme.amountColor }}>
                   %{getClosurePercent(item.amount, item.dueAmount)}
                 </Text>
               </View>
 
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={{ fontSize: 12, fontWeight: '700', color: colors.muted }}>Kalan Borç</Text>
-                <Text style={{ marginTop: 2, fontSize: 20, fontWeight: '900', color: item.dueAmount <= 0 ? '#2F7A44' : '#9B3A34' }}>
+                <Text style={{ marginTop: 2, fontSize: 20, fontWeight: '900', color: theme.amountColor }}>
                   {item.dueAmount.toLocaleString('tr-TR')} ₺
                 </Text>
               </View>
@@ -1043,7 +1085,7 @@ export default function Expenses() {
                 style={{
                   width: `${getClosurePercent(item.amount, item.dueAmount)}%`,
                   height: '100%',
-                  backgroundColor: item.dueAmount <= 0 ? '#3E9755' : '#D56A61',
+                  backgroundColor: theme.progressColor,
                 }}
               />
             </View>
@@ -1059,6 +1101,8 @@ export default function Expenses() {
           </TouchableOpacity>
         </Card>
         </TouchableOpacity>
+          );
+        })()
       ))}
 
       {isAdminFinanceView ? (

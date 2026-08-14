@@ -73,6 +73,33 @@ function contributionStatusLabel(status: ContributionRecord['approvalStatus']): 
   return 'Onay bekliyor';
 }
 
+function getContributionCardTheme(status: ContributionRecord['approvalStatus'], remainingAmount: number) {
+  if (status === 'rejected') {
+    return {
+      cardBackground: '#FDECEC',
+      cardBorder: '#F3B7B2',
+      highlightColor: '#9B3A34',
+      progressColor: '#D56A61',
+    };
+  }
+
+  if (remainingAmount > 0) {
+    return {
+      cardBackground: '#FFF8EE',
+      cardBorder: '#EAC891',
+      highlightColor: '#9A6720',
+      progressColor: '#D09A4D',
+    };
+  }
+
+  return {
+    cardBackground: '#EAF7EC',
+    cardBorder: '#B8DEBF',
+    highlightColor: '#2F7A44',
+    progressColor: '#3E9755',
+  };
+}
+
 function getAllocationPercent(amount: number, remainingAmount: number): number {
   if (amount <= 0) return 0;
   const raw = ((amount - remainingAmount) / amount) * 100;
@@ -490,19 +517,22 @@ export default function PatiUzat() {
         contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 120 }}
         data={visibleContributions}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <Card style={{ marginBottom: 10 }}>
+        renderItem={({ item }) => {
+          const theme = getContributionCardTheme(item.approvalStatus, item.remainingAmount);
+
+          return (
+          <Card style={{ marginBottom: 10, backgroundColor: theme.cardBackground, borderWidth: 1, borderColor: theme.cardBorder }}>
             <Text style={{ fontWeight: '800', color: colors.text }}>{item.amount.toLocaleString('tr-TR')} ₺</Text>
             <Text style={{ color: colors.muted, marginTop: 3 }}>
               Pati uzatan: {item.contributorUserId ? (memberNameById.get(item.contributorUserId) ?? item.contributorUserId) : 'Belirtilmedi'}
             </Text>
             <Text style={{ color: colors.muted, marginTop: 4 }}>{new Date(item.transferAt).toLocaleString('tr-TR')}</Text>
-            <Text style={{ color: colors.muted, marginTop: 2 }}>{contributionStatusLabel(item.approvalStatus)}</Text>
+            <Text style={{ color: item.approvalStatus === 'rejected' ? '#9B3A34' : colors.muted, marginTop: 2 }}>{contributionStatusLabel(item.approvalStatus)}</Text>
             <View
               style={{
                 marginTop: 10,
                 borderWidth: 1,
-                borderColor: item.remainingAmount > 0 ? '#EAC891' : '#B8DEBF',
+                borderColor: theme.cardBorder,
                 borderRadius: 12,
                 padding: 10,
                 backgroundColor: '#FFFFFFD0',
@@ -511,14 +541,14 @@ export default function PatiUzat() {
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                 <View>
                   <Text style={{ fontSize: 12, fontWeight: '700', color: colors.muted }}>Dağıtım Oranı</Text>
-                  <Text style={{ marginTop: 2, fontSize: 22, fontWeight: '900', color: item.remainingAmount > 0 ? '#9A6720' : '#2F7A44' }}>
+                  <Text style={{ marginTop: 2, fontSize: 22, fontWeight: '900', color: theme.highlightColor }}>
                     %{getAllocationPercent(item.amount, item.remainingAmount)}
                   </Text>
                 </View>
 
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={{ fontSize: 12, fontWeight: '700', color: colors.muted }}>Kalan Bakiye</Text>
-                  <Text style={{ marginTop: 2, fontSize: 18, fontWeight: '900', color: item.remainingAmount > 0 ? '#9A6720' : '#2F7A44' }}>
+                  <Text style={{ marginTop: 2, fontSize: 18, fontWeight: '900', color: theme.highlightColor }}>
                     {item.remainingAmount.toLocaleString('tr-TR')} ₺
                   </Text>
                 </View>
@@ -529,7 +559,7 @@ export default function PatiUzat() {
                   style={{
                     width: `${getAllocationPercent(item.amount, item.remainingAmount)}%`,
                     height: '100%',
-                    backgroundColor: item.remainingAmount > 0 ? '#D09A4D' : '#3E9755',
+                    backgroundColor: theme.progressColor,
                   }}
                 />
               </View>
@@ -582,7 +612,8 @@ export default function PatiUzat() {
               </TouchableOpacity>
             ) : null}
           </Card>
-        )}
+          );
+        }}
         onEndReached={loadMoreContributions}
         onEndReachedThreshold={0.4}
         ListHeaderComponent={(
