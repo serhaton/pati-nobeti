@@ -110,3 +110,46 @@ Notlar:
 3. Apple ve Google OAuth redirect URL'lerini Expo / Supabase tarafında tanımla.
 4. `schema.sql` dosyasındaki tabloları oluştur.
 5. Mock repository'leri Supabase repository'leri ile değiştir.
+
+## Admin Onay Push Notification Kurulumu
+
+Bu projede admin onayı gerektiren aksiyonlar için push notification akışı hazırlandı:
+
+- Mobil uygulama cihaz tokenını `user_devices` tablosuna kaydeder.
+- `community_join_requests`, `expenses`, `contributions` için `pending` kayıtlar `notification_events` tablosuna trigger ile event düşer.
+- Supabase Edge Function (`admin-approval-push`) bu eventleri okuyup topluluk admin cihazlarına push gönderir.
+
+### 1) SQL migration
+
+Sırasıyla çalıştır:
+
+```bash
+# Supabase SQL Editor içinde
+# 1) db/schema.sql
+# 2) db/rls.sql
+# 3) db/auth_triggers.sql
+```
+
+### 2) Edge Function deploy
+
+```bash
+supabase functions deploy admin-approval-push
+```
+
+Lokal test:
+
+```bash
+supabase functions serve admin-approval-push --env-file .env
+```
+
+### 3) Scheduled run (önerilen)
+
+Edge Function'ı her 1 dakikada bir çağıracak bir schedule/job tanımla.
+Supabase Dashboard veya cron ile function endpoint'i periyodik tetiklenmelidir.
+
+### 4) Mobil taraf
+
+- `expo-notifications` kuruldu.
+- Login sonrası token register edilir.
+- Logout'ta token pasife çekilir.
+- Bildirim tıklaması varsayılan olarak yönetici ekranına (`/community`) yönlendirir.

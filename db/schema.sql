@@ -259,3 +259,165 @@ create index if not exists idx_global_veterinarians_active on global_veterinaria
 create index if not exists idx_global_veterinarians_location on global_veterinarians (latitude, longitude);
 create index if not exists idx_community_veterinarians_community_id on community_veterinarians (community_id);
 create index if not exists idx_community_veterinarians_global_vet_id on community_veterinarians (global_veterinarian_id);
+
+create table if not exists user_devices (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references profiles(id) on delete cascade,
+  expo_push_token text not null unique,
+  platform text not null check (platform in ('ios', 'android', 'web')),
+  is_active boolean not null default true,
+  last_seen_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, expo_push_token)
+);
+
+create table if not exists notification_events (
+  id uuid primary key default gen_random_uuid(),
+  event_type text not null check (event_type in ('join_request_pending', 'expense_pending', 'contribution_pending')),
+  community_id uuid not null references communities(id) on delete cascade,
+  source_table text not null,
+  source_id uuid not null,
+  actor_user_id uuid references profiles(id) on delete set null,
+  payload jsonb not null default '{}'::jsonb,
+  delivery_status text not null default 'pending' check (delivery_status in ('pending', 'sent', 'failed')),
+  delivery_attempts integer not null default 0,
+  sent_at timestamptz,
+  last_error text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_user_devices_user_active on user_devices (user_id, is_active);
+create index if not exists idx_user_devices_token_active on user_devices (expo_push_token, is_active);
+create index if not exists idx_notification_events_status_created_at on notification_events (delivery_status, created_at);
+create index if not exists idx_notification_events_community_created_at on notification_events (community_id, created_at desc);
+
+create or replace function public.touch_user_devices_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_user_devices_updated_at on public.user_devices;
+create trigger trg_user_devices_updated_at
+before update on public.user_devices
+for each row execute procedure public.touch_user_devices_updated_at();
+
+create or replace function public.enqueue_join_request_pending_notification()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.status = 'pending' then
+    insert into public.notification_events (
+      event_type,
+      community_id,
+      source_table,
+      source_id,
+      actor_user_id,
+      payload
+    )
+    values (
+      'join_request_pending',
+      new.community_id,
+      'community_join_requests',
+      new.id,
+      new.user_id,
+      jsonb_build_object(
+        'requesterName', coalesce(new.requester_name, ''),
+        'note', coalesce(new.note, '')
+      )
+    );
+  end if;
+
+  return new;
+end;
+$$;
+
+create or replace function public.enqueue_expense_pending_notification()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.approval_status = 'pending' then
+    insert into public.notification_events (
+      event_type,
+      community_id,
+      source_table,
+      source_id,
+      actor_user_id,
+      payload
+    )
+    values (
+      'expense_pending',
+      new.community_id,
+      'expenses',
+      new.id,
+      new.submitted_by,
+      jsonb_build_object(
+        'title', coalesce(new.title, ''),
+        'amount', coalesce(new.amount, 0),
+        'expenseType', coalesce(new.expense_type, '')
+      )
+    );
+  end if;
+
+  return new;
+end;
+$$;
+
+create or replace function public.enqueue_contribution_pending_notification()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.approval_status = 'pending' then
+    insert into public.notification_events (
+      event_type,
+      community_id,
+      source_table,
+      source_id,
+      actor_user_id,
+      payload
+    )
+    values (
+      'contribution_pending',
+      new.community_id,
+      'contributions',
+      new.id,
+      new.contributor_user_id,
+      jsonb_build_object(
+        'amount', coalesce(new.amount, 0),
+        'note', coalesce(new.note, '')
+      )
+    );
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_join_request_pending_notification on public.community_join_requests;
+create trigger trg_join_request_pending_notification
+after insert on public.community_join_requests
+for each row execute procedure public.enqueue_join_request_pending_notification();
+
+drop trigger if exists trg_expense_pending_notification on public.expenses;
+create trigger trg_expense_pending_notification
+after insert on public.expenses
+for each row execute procedure public.enqueue_expense_pending_notification();
+
+drop trigger if exists trg_contribution_pending_notification on public.contributions;
+create trigger trg_contribution_pending_notification
+after insert on public.contributions
+for each row execute procedure public.enqueue_contribution_pending_notification();

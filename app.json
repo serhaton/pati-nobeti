@@ -25,6 +25,7 @@
       "expo-router",
       "expo-image-picker",
       "expo-location",
+      "expo-notifications",
       [
         "react-native-google-mobile-ads",
         {

@@ -8,6 +8,7 @@ import {
   signUpWithEmailPassword,
   supabase,
 } from '../services/supabase';
+import { deactivatePushTokenForUser, registerPushTokenForUser } from '../services/pushNotifications';
 
 export type AuthUser = {
   id: string;
@@ -71,6 +72,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
         const sessionUser = data.session?.user;
         setCurrentUser(sessionUser ? mapSupabaseUser(sessionUser) : null);
+        if (sessionUser) {
+          void registerPushTokenForUser(sessionUser.id);
+        }
       } finally {
         if (mounted) setIsAuthLoading(false);
       }
@@ -83,6 +87,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       const sessionUser = session?.user;
       setCurrentUser(sessionUser ? mapSupabaseUser(sessionUser) : null);
+      if (sessionUser) {
+        void registerPushTokenForUser(sessionUser.id);
+      }
       setIsAuthLoading(false);
     });
 
@@ -126,6 +133,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
   async function signOut() {
     setIsAuthLoading(true);
     try {
+      if (currentUser?.id) {
+        await deactivatePushTokenForUser(currentUser.id);
+      }
       await signOutSupabase();
       setCurrentUser(null);
     } finally {

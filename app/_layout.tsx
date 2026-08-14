@@ -6,6 +6,7 @@ import { View } from 'react-native';
 import { AuthProvider } from '../src/context/AuthContext';
 import { useAuth } from '../src/context/AuthContext';
 import { CommunityProvider, useCommunity } from '../src/context/CommunityContext';
+import { configureForegroundNotificationHandler, subscribeToPushNavigation } from '../src/services/pushNotifications';
 import { colors } from '../src/theme';
 
 void SplashScreen.preventAutoHideAsync();
@@ -42,6 +43,34 @@ function CommunityGuard() {
   return null;
 }
 
+function PushNotificationsBootstrap() {
+  const router = useRouter();
+
+  useEffect(() => {
+    configureForegroundNotificationHandler();
+
+    const unsubscribe = subscribeToPushNavigation(({ screen }) => {
+      if (screen === 'home') {
+        router.push('/home');
+        return;
+      }
+
+      if (screen === 'community') {
+        router.push('/community');
+        return;
+      }
+
+      router.push('/community');
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [router]);
+
+  return null;
+}
+
 export default function Layout() {
   useEffect(() => {
     const splashTimer = setTimeout(() => {
@@ -59,6 +88,7 @@ export default function Layout() {
         <CommunityProvider>
           <StatusBar style="dark" />
           <CommunityGuard />
+          <PushNotificationsBootstrap />
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
         </CommunityProvider>
       </AuthProvider>

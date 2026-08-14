@@ -83,6 +83,8 @@ alter table public.contribution_allocations enable row level security;
 alter table public.community_join_requests enable row level security;
 alter table public.global_veterinarians enable row level security;
 alter table public.community_veterinarians enable row level security;
+alter table public.user_devices enable row level security;
+alter table public.notification_events enable row level security;
 
 drop policy if exists profiles_select on public.profiles;
 drop policy if exists profiles_insert_self on public.profiles;
@@ -581,3 +583,33 @@ on public.community_veterinarians
 for delete
 to authenticated
 using (public.is_community_admin(community_id));
+
+drop policy if exists user_devices_select_self on public.user_devices;
+drop policy if exists user_devices_insert_self on public.user_devices;
+drop policy if exists user_devices_update_self on public.user_devices;
+drop policy if exists user_devices_delete_self on public.user_devices;
+
+create policy user_devices_select_self
+on public.user_devices
+for select
+to authenticated
+using (user_id = auth.uid());
+
+create policy user_devices_insert_self
+on public.user_devices
+for insert
+to authenticated
+with check (user_id = auth.uid());
+
+create policy user_devices_update_self
+on public.user_devices
+for update
+to authenticated
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
+
+create policy user_devices_delete_self
+on public.user_devices
+for delete
+to authenticated
+using (user_id = auth.uid());
