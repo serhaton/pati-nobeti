@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState } from 'react-native';
 
 // .env içine EXPO_PUBLIC_SUPABASE_URL ve EXPO_PUBLIC_SUPABASE_KEY eklenebilir.
 // Veri kaynağı için EXPO_PUBLIC_DATA_SOURCE=mock | supabase kullanılabilir (varsayılan: supabase).
@@ -11,7 +13,23 @@ const key =
   'YOUR_PUBLISHABLE_OR_ANON_KEY';
 const dataSourceRaw = process.env.EXPO_PUBLIC_DATA_SOURCE ?? 'supabase';
 
-export const supabase = createClient(url, key);
+export const supabase = createClient(url, key, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+});
+
+AppState.addEventListener('change', (state) => {
+  if (state === 'active') {
+    supabase.auth.startAutoRefresh();
+    return;
+  }
+
+  supabase.auth.stopAutoRefresh();
+});
 
 export type AppDataSource = 'supabase' | 'mock';
 

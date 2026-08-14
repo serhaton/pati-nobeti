@@ -405,6 +405,23 @@ export async function getUserProfileSettings(userId: string): Promise<UserProfil
     avatarUrl: String(data?.avatar_url ?? ''),
   };
 
+  let fallbackPhoneFromMembership = '';
+  if (!fromDb.phone) {
+    const phoneFromMembership = await supabase
+      .from('community_members')
+      .select('phone')
+      .eq('user_id', userId)
+      .not('phone', 'is', null)
+      .limit(1);
+
+    if (!phoneFromMembership.error) {
+      const membershipPhone = String(phoneFromMembership.data?.[0]?.phone ?? '').trim();
+      fallbackPhoneFromMembership = membershipPhone;
+    } else if (!isMissingColumnError(phoneFromMembership.error, 'phone')) {
+      // Optional fallback source failed; keep profile read resilient.
+    }
+  }
+
   const avatarForDisplay = fromDb.avatarUrl
     ? await resolveFileUrlForDisplay({ fileRef: fromDb.avatarUrl, expiresInSeconds: 1800 })
     : '';
@@ -412,7 +429,7 @@ export async function getUserProfileSettings(userId: string): Promise<UserProfil
   const cached = profileSettingsCache.get(userId);
   const merged: UserProfileSettings = {
     fullName: fromDb.fullName || cached?.fullName || '',
-    phone: fromDb.phone || cached?.phone || '',
+    phone: fromDb.phone || fallbackPhoneFromMembership || cached?.phone || '',
     avatarUrl: avatarForDisplay || cached?.avatarUrl || '',
   };
 
