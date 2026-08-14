@@ -1,4 +1,4 @@
--- Pati Nobeti - Row Level Security policies
+-- Pati Uzat - Row Level Security policies
 -- Run this after schema.sql
 
 create or replace function public.is_community_member(p_community_id uuid)

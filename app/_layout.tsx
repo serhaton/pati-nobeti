@@ -1,9 +1,14 @@
 import { Stack, usePathname, useRouter } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { View } from 'react-native';
 import { AuthProvider } from '../src/context/AuthContext';
 import { useAuth } from '../src/context/AuthContext';
 import { CommunityProvider, useCommunity } from '../src/context/CommunityContext';
+import { colors } from '../src/theme';
+
+void SplashScreen.preventAutoHideAsync();
 
 function CommunityGuard() {
   const router = useRouter();
@@ -38,13 +43,25 @@ function CommunityGuard() {
 }
 
 export default function Layout() {
+  useEffect(() => {
+    const splashTimer = setTimeout(() => {
+      void SplashScreen.hideAsync();
+    }, 2000);
+
+    return () => {
+      clearTimeout(splashTimer);
+    };
+  }, []);
+
   return (
-    <AuthProvider>
-      <CommunityProvider>
-        <StatusBar style="dark" />
-        <CommunityGuard />
-        <Stack screenOptions={{ headerShown: false }} />
-      </CommunityProvider>
-    </AuthProvider>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <AuthProvider>
+        <CommunityProvider>
+          <StatusBar style="dark" />
+          <CommunityGuard />
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+        </CommunityProvider>
+      </AuthProvider>
+    </View>
   );
 }

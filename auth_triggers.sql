@@ -1,4 +1,4 @@
--- Pati Nobeti - Auth triggers
+-- Pati Uzat - Auth triggers
 -- Run this after schema.sql
 
 create or replace function public.handle_new_user()

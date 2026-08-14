@@ -1,4 +1,4 @@
-package com.serhatonal.patinobeti
+package com.serhatonal.patiuzat
 
 import android.app.Application
 import android.content.res.Configuration

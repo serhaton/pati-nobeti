@@ -1,4 +1,4 @@
--- Pati Nobeti - App ile uyumlu Supabase schema (fresh setup)
+-- Pati Uzat - App ile uyumlu Supabase schema (fresh setup)
 create extension if not exists pgcrypto;
 
 create table if not exists profiles (

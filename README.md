@@ -60,7 +60,7 @@ npm run release:ios:submit
 Notlar:
 
 - iOS `buildNumber` her release'te artmalıdır (bu projede `eas.json` içindeki `autoIncrement` bunu otomatik yönetir).
-- App Store Connect tarafında uygulama kaydı ve doğru bundle identifier (`com.serhatonal.patinobeti`) hazır olmalıdır.
+- App Store Connect tarafında uygulama kaydı ve doğru bundle identifier (`com.serhatonal.patiuzat`) hazır olmalıdır.
 - İlk submit sırasında Apple kimlik doğrulama bilgileri EAS tarafından istenir.
 
 ## Sonraki aşama

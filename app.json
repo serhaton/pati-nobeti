@@ -1,11 +1,11 @@
 {
   "expo": {
     "name": "Pati Uzat",
-    "slug": "pati-nobeti",
+    "slug": "pati-uzat",
     "version": "1.0.0",
     "icon": "./assets/app-icon.png",
     "orientation": "portrait",
-    "scheme": "patinobeti",
+    "scheme": "patiuzat",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/app-splash.png",
@@ -45,7 +45,7 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
       ],
-      "package": "com.serhatonal.patinobeti"
+      "package": "com.serhatonal.patiuzat"
     }
   }
 }

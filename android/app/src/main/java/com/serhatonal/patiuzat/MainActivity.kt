@@ -1,4 +1,4 @@
-package com.serhatonal.patinobeti
+package com.serhatonal.patiuzat
 
 import android.os.Build
 import android.os.Bundle

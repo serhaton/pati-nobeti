@@ -138,7 +138,7 @@ async function tryFetch(url, body, contentType) {
     headers: {
       'Content-Type': contentType,
       Accept: 'application/json',
-      'User-Agent': 'pati-nobeti-vet-seeder/1.0',
+      'User-Agent': 'pati-uzat-vet-seeder/1.0',
     },
     body,
   });

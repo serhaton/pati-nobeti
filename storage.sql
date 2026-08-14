@@ -1,4 +1,4 @@
--- Pati Nobeti - Supabase Storage setup
+-- Pati Uzat - Supabase Storage setup
 -- Run once in Supabase SQL Editor
 
 insert into storage.buckets (id, name, public)
