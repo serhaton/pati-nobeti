@@ -11,6 +11,7 @@ import { useAuth } from '../src/context/AuthContext';
 import { useCommunity } from '../src/context/CommunityContext';
 import { colors } from '../src/theme';
 import {
+  approveExpense,
   createExpense,
   deleteExpense,
   ExpenseAllocationSummary,
@@ -20,6 +21,7 @@ import {
   getApprovedExpensesByCommunity,
   getExpensesByCommunity,
   getExpensesBySubmitter,
+  rejectExpense,
   updateExpense,
 } from '../src/services/expenseService';
 import { getVeterinariansByCommunity, VeterinarianRecord } from '../src/services/veterinarianService';
@@ -112,12 +114,13 @@ function fileNameFromUri(uri: string, fallback: string): string {
 }
 
 export default function Expenses() {
-  const params = useLocalSearchParams<{ mode?: string; source?: string }>();
+  const params = useLocalSearchParams<{ mode?: string; source?: string; reviewExpenseId?: string }>();
   const { currentUser } = useAuth();
   const { selectedCommunity } = useCommunity();
   const selectedCommunityId = selectedCommunity?.id ?? null;
   const isCommunityAdmin = !!currentUser && !!selectedCommunity?.adminUserIds.includes(currentUser.id);
   const source = Array.isArray(params.source) ? params.source[0] : params.source;
+  const reviewExpenseId = Array.isArray(params.reviewExpenseId) ? params.reviewExpenseId[0] : params.reviewExpenseId;
   const isMemberHistoryMode = params.mode === 'member-history';
   const isExpensesManageMode = isCommunityAdmin && params.mode === 'expenses-manage';
   const isAdminFinanceView = isCommunityAdmin && !isMemberHistoryMode && !isExpensesManageMode;
@@ -160,6 +163,8 @@ export default function Expenses() {
   const [showCompletedFinanceItems, setShowCompletedFinanceItems] = useState(false);
   const [visibleFinanceCount, setVisibleFinanceCount] = useState(4);
   const [isPagingFinance, setIsPagingFinance] = useState(false);
+  const [handledReviewExpenseId, setHandledReviewExpenseId] = useState<string | null>(null);
+  const [reviewingExpenseActionId, setReviewingExpenseActionId] = useState<string | null>(null);
 
   const [title, setTitle] = useState('');
   const [expenseType, setExpenseType] = useState<ExpenseType>('veteriner');
@@ -366,6 +371,57 @@ export default function Expenses() {
       loadExpenseData();
     }, [loadExpenseData])
   );
+
+  useEffect(() => {
+    if (!isExpensesManageMode || !reviewExpenseId) return;
+    if (handledReviewExpenseId === reviewExpenseId) return;
+    if (allCommunityExpenses.length === 0) return;
+
+    const target = allCommunityExpenses.find((item) => item.id === reviewExpenseId);
+    if (!target) return;
+
+    setSelectedReadonlyExpense(target);
+    setHandledReviewExpenseId(reviewExpenseId);
+  }, [allCommunityExpenses, handledReviewExpenseId, isExpensesManageMode, reviewExpenseId]);
+
+  async function onApproveExpenseFromReview(expense: ExpenseRecord) {
+    if (!selectedCommunityId || !currentUser) return;
+
+    setReviewingExpenseActionId(expense.id);
+    try {
+      await approveExpense({
+        expenseId: expense.id,
+        communityId: selectedCommunityId,
+        approvedBy: currentUser.id,
+      });
+      await loadExpenseData();
+      setSelectedReadonlyExpense(null);
+      Alert.alert('Masraf onaylandı', 'Masraf kaydı onaylandı ve finans akışına dahil edildi.');
+    } catch (error: any) {
+      Alert.alert('Onay hatası', String(error?.message ?? 'Masraf onaylanamadı.'));
+    } finally {
+      setReviewingExpenseActionId(null);
+    }
+  }
+
+  async function onRejectExpenseFromReview(expense: ExpenseRecord) {
+    if (!selectedCommunityId) return;
+
+    setReviewingExpenseActionId(expense.id);
+    try {
+      await rejectExpense({
+        expenseId: expense.id,
+        communityId: selectedCommunityId,
+      });
+      await loadExpenseData();
+      setSelectedReadonlyExpense(null);
+      Alert.alert('Masraf reddedildi', 'Masraf kaydı reddedildi.');
+    } catch (error: any) {
+      Alert.alert('Red hatası', String(error?.message ?? 'Masraf reddedilemedi.'));
+    } finally {
+      setReviewingExpenseActionId(null);
+    }
+  }
 
   function resetForm() {
     setEditingExpenseId(null);
@@ -1568,6 +1624,9 @@ export default function Expenses() {
               <Text style={{ color: colors.text, marginTop: 10, fontWeight: '800' }}>
                 Tutar: {selectedReadonlyExpense.amount.toLocaleString('tr-TR')} ₺
               </Text>
+              <Text style={{ color: colors.muted, marginTop: 4 }}>
+                Durum: {expenseStatusLabel(selectedReadonlyExpense.approvalStatus)}
+              </Text>
               {selectedReadonlyExpense.note ? <Text style={{ color: colors.muted, marginTop: 6 }}>Not: {selectedReadonlyExpense.note}</Text> : null}
 
               <TouchableOpacity
@@ -1576,6 +1635,39 @@ export default function Expenses() {
               >
                 <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Fişleri İndir / Aç</Text>
               </TouchableOpacity>
+
+              {isCommunityAdmin && selectedReadonlyExpense.approvalStatus === 'pending' ? (
+                <View style={{ marginTop: 10, flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity
+                    disabled={reviewingExpenseActionId === selectedReadonlyExpense.id}
+                    onPress={() => onApproveExpenseFromReview(selectedReadonlyExpense)}
+                    style={{
+                      flex: 1,
+                      borderRadius: 10,
+                      padding: 11,
+                      backgroundColor: colors.primary,
+                      opacity: reviewingExpenseActionId === selectedReadonlyExpense.id ? 0.7 : 1,
+                    }}
+                  >
+                    <Text style={{ textAlign: 'center', color: '#fff', fontWeight: '800' }}>Onayla</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    disabled={reviewingExpenseActionId === selectedReadonlyExpense.id}
+                    onPress={() => onRejectExpenseFromReview(selectedReadonlyExpense)}
+                    style={{
+                      flex: 1,
+                      borderRadius: 10,
+                      padding: 11,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      backgroundColor: '#fff',
+                      opacity: reviewingExpenseActionId === selectedReadonlyExpense.id ? 0.7 : 1,
+                    }}
+                  >
+                    <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '800' }}>Reddet</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
             </Card>
           ) : null}
         </ScrollView>

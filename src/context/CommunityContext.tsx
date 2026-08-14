@@ -22,6 +22,7 @@ type CommunityContextValue = {
   allCommunities: Community[];
   communityLoadError: string | null;
   selectCommunityById: (id: string) => void;
+  ensureCommunitySelectedById: (id: string) => Promise<boolean>;
   clearSelectedCommunity: () => void;
   refreshCommunities: () => Promise<void>;
 };
@@ -103,6 +104,24 @@ export function CommunityProvider({ children }: PropsWithChildren) {
     setSelectedCommunity(found);
   }
 
+  const ensureCommunitySelectedById = useCallback(async (id: string) => {
+    const fromCurrentList = allCommunities.find((item) => item.id === id);
+    if (fromCurrentList) {
+      setSelectedCommunity(fromCurrentList);
+      return true;
+    }
+
+    await bootstrapCommunityData();
+
+    const refreshed = communities.find((item) => item.id === id);
+    if (!refreshed) {
+      return false;
+    }
+
+    setSelectedCommunity(refreshed);
+    return true;
+  }, [allCommunities, bootstrapCommunityData]);
+
   function clearSelectedCommunity() {
     setSelectedCommunity(null);
   }
@@ -112,9 +131,10 @@ export function CommunityProvider({ children }: PropsWithChildren) {
     allCommunities,
     communityLoadError,
     selectCommunityById,
+    ensureCommunitySelectedById,
     clearSelectedCommunity,
     refreshCommunities,
-  }), [allCommunities, communityLoadError, selectedCommunity]);
+  }), [allCommunities, communityLoadError, ensureCommunitySelectedById, selectedCommunity, refreshCommunities]);
 
   return <CommunityContext.Provider value={value}>{children}</CommunityContext.Provider>;
 }

@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
@@ -14,10 +14,12 @@ import { getCommunityMembers } from '../src/data/mock';
 import { uploadExpenseReceiptsIfNeeded } from '../src/services/supabaseStorage';
 import { ExpenseRecord, getApprovedExpensesByCommunity } from '../src/services/expenseService';
 import {
+  approveContribution,
   ContributionRecord,
   createContribution,
   getContributionsByCommunity,
   getContributionsByContributor,
+  rejectContribution,
   removeContributionAllocation,
 } from '../src/services/contributionService';
 import { downloadAndOpenRemoteFile } from '../src/services/fileDownload';
@@ -79,11 +81,12 @@ function getAllocationPercent(amount: number, remainingAmount: number): number {
 }
 
 export default function PatiUzat() {
-  const params = useLocalSearchParams<{ view?: string; source?: string }>();
+  const params = useLocalSearchParams<{ view?: string; source?: string; reviewContributionId?: string }>();
   const { currentUser } = useAuth();
   const { selectedCommunity } = useCommunity();
   const selectedCommunityId = selectedCommunity?.id ?? null;
   const source = Array.isArray(params.source) ? params.source[0] : params.source;
+  const reviewContributionId = Array.isArray(params.reviewContributionId) ? params.reviewContributionId[0] : params.reviewContributionId;
   const isCommunityAdmin = !!currentUser && !!selectedCommunity?.adminUserIds.includes(currentUser.id);
   const shouldShowCommunityContributions = isCommunityAdmin && params.view === 'community';
 
@@ -114,6 +117,9 @@ export default function PatiUzat() {
   const [selectedReadonlyExpense, setSelectedReadonlyExpense] = useState<ExpenseRecord | null>(null);
   const [selectedAllocationContext, setSelectedAllocationContext] = useState<{ allocationId: string; contributionId: string } | null>(null);
   const [isRemovingAllocation, setIsRemovingAllocation] = useState(false);
+  const [selectedReviewContribution, setSelectedReviewContribution] = useState<ContributionRecord | null>(null);
+  const [handledReviewContributionId, setHandledReviewContributionId] = useState<string | null>(null);
+  const [actioningReviewContributionId, setActioningReviewContributionId] = useState<string | null>(null);
 
   const selectedContributorName = useMemo(() => {
     const found = communityMembers.find((item) => item.userId === selectedContributorUserId);
@@ -176,6 +182,18 @@ export default function PatiUzat() {
       loadData();
     }, [loadData])
   );
+
+  useEffect(() => {
+    if (!shouldShowCommunityContributions || !reviewContributionId) return;
+    if (handledReviewContributionId === reviewContributionId) return;
+    if (contributions.length === 0) return;
+
+    const target = contributions.find((item) => item.id === reviewContributionId);
+    if (!target) return;
+
+    setSelectedReviewContribution(target);
+    setHandledReviewContributionId(reviewContributionId);
+  }, [contributions, handledReviewContributionId, reviewContributionId, shouldShowCommunityContributions]);
 
   function resetForm() {
     setSelectedContributorUserId(currentUser?.id ?? null);
@@ -365,6 +383,49 @@ export default function PatiUzat() {
     }
   }
 
+  function openContributionReview(item: ContributionRecord) {
+    setSelectedReviewContribution(item);
+  }
+
+  async function onApproveContributionFromReview(contribution: ContributionRecord) {
+    if (!selectedCommunityId || !currentUser) return;
+
+    setActioningReviewContributionId(contribution.id);
+    try {
+      await approveContribution({
+        contributionId: contribution.id,
+        communityId: selectedCommunityId,
+        approvedBy: currentUser.id,
+      });
+      await loadData();
+      setSelectedReviewContribution(null);
+      Alert.alert('Pati Uzat onaylandı', 'Kayıt onaylandı. Kalan tutar dağıtım ekranında görünecek.');
+    } catch (error: any) {
+      Alert.alert('Onay hatası', String(error?.message ?? 'Pati Uzat kaydı onaylanamadı.'));
+    } finally {
+      setActioningReviewContributionId(null);
+    }
+  }
+
+  async function onRejectContributionFromReview(contribution: ContributionRecord) {
+    if (!selectedCommunityId) return;
+
+    setActioningReviewContributionId(contribution.id);
+    try {
+      await rejectContribution({
+        contributionId: contribution.id,
+        communityId: selectedCommunityId,
+      });
+      await loadData();
+      setSelectedReviewContribution(null);
+      Alert.alert('Pati Uzat reddedildi', 'Kayıt reddedildi.');
+    } catch (error: any) {
+      Alert.alert('Red hatası', String(error?.message ?? 'Pati Uzat kaydı reddedilemedi.'));
+    } finally {
+      setActioningReviewContributionId(null);
+    }
+  }
+
   async function submitContribution() {
     if (!selectedCommunityId || !currentUser) return;
 
@@ -512,6 +573,14 @@ export default function PatiUzat() {
             >
               <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Dekontları İndir / Aç</Text>
             </TouchableOpacity>
+            {shouldShowCommunityContributions && item.approvalStatus === 'pending' ? (
+              <TouchableOpacity
+                onPress={() => openContributionReview(item)}
+                style={{ marginTop: 8, backgroundColor: colors.primary, borderRadius: 10, padding: 10 }}
+              >
+                <Text style={{ textAlign: 'center', color: '#fff', fontWeight: '800' }}>Pati Uzat İncele</Text>
+              </TouchableOpacity>
+            ) : null}
           </Card>
         )}
         onEndReached={loadMoreContributions}
@@ -735,6 +804,77 @@ export default function PatiUzat() {
                     {isRemovingAllocation ? 'İşleniyor...' : 'Bu Dağıtımı Geri Al'}
                   </Text>
                 </TouchableOpacity>
+              ) : null}
+            </Card>
+          ) : null}
+        </ScrollView>
+      </Modal>
+
+      <Modal visible={!!selectedReviewContribution} animationType="slide" onRequestClose={() => setSelectedReviewContribution(null)}>
+        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+          <TouchableOpacity onPress={() => setSelectedReviewContribution(null)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
+          <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Pati Uzat İnceleme</Text>
+
+          {selectedReviewContribution ? (
+            <Card style={{ marginTop: 18 }}>
+              <Text style={{ fontWeight: '800', color: colors.text }}>Pati uzatan üye</Text>
+              <Text style={{ color: colors.muted, marginTop: 4 }}>
+                {selectedReviewContribution.contributorUserId
+                  ? (memberNameById.get(selectedReviewContribution.contributorUserId) ?? selectedReviewContribution.contributorUserId)
+                  : 'Belirtilmedi'}
+              </Text>
+
+              <Text style={{ fontWeight: '800', color: colors.text, marginTop: 14 }}>Pati uzatma tarihi</Text>
+              <Text style={{ color: colors.muted, marginTop: 4 }}>{new Date(selectedReviewContribution.transferAt).toLocaleString('tr-TR')}</Text>
+
+              <Text style={{ fontWeight: '800', color: colors.text, marginTop: 14 }}>Tutar</Text>
+              <Text style={{ color: colors.muted, marginTop: 4 }}>{selectedReviewContribution.amount.toLocaleString('tr-TR')} ₺</Text>
+
+              <Text style={{ fontWeight: '800', color: colors.text, marginTop: 14 }}>Durum</Text>
+              <Text style={{ color: colors.muted, marginTop: 4 }}>{contributionStatusLabel(selectedReviewContribution.approvalStatus)}</Text>
+
+              <Text style={{ fontWeight: '800', color: colors.text, marginTop: 14 }}>Not</Text>
+              <Text style={{ color: colors.muted, marginTop: 4 }}>{selectedReviewContribution.note || 'Not girilmemiş.'}</Text>
+
+              <TouchableOpacity
+                onPress={() => openReceipts(selectedReviewContribution.receiptUrls.length ? selectedReviewContribution.receiptUrls : [selectedReviewContribution.receiptUrl])}
+                style={{ marginTop: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, backgroundColor: '#fff' }}
+              >
+                <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Dekontları İndir / Aç</Text>
+              </TouchableOpacity>
+
+              {selectedReviewContribution.approvalStatus === 'pending' ? (
+                <View style={{ marginTop: 10, flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity
+                    disabled={actioningReviewContributionId === selectedReviewContribution.id}
+                    onPress={() => onApproveContributionFromReview(selectedReviewContribution)}
+                    style={{
+                      flex: 1,
+                      borderRadius: 10,
+                      padding: 11,
+                      backgroundColor: colors.primary,
+                      opacity: actioningReviewContributionId === selectedReviewContribution.id ? 0.7 : 1,
+                    }}
+                  >
+                    <Text style={{ textAlign: 'center', color: '#fff', fontWeight: '800' }}>Onayla</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    disabled={actioningReviewContributionId === selectedReviewContribution.id}
+                    onPress={() => onRejectContributionFromReview(selectedReviewContribution)}
+                    style={{
+                      flex: 1,
+                      borderRadius: 10,
+                      padding: 11,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      backgroundColor: '#fff',
+                      opacity: actioningReviewContributionId === selectedReviewContribution.id ? 0.7 : 1,
+                    }}
+                  >
+                    <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '800' }}>Reddet</Text>
+                  </TouchableOpacity>
+                </View>
               ) : null}
             </Card>
           ) : null}

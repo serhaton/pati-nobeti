@@ -45,11 +45,16 @@ function CommunityGuard() {
 
 function PushNotificationsBootstrap() {
   const router = useRouter();
+  const { ensureCommunitySelectedById } = useCommunity();
 
   useEffect(() => {
     configureForegroundNotificationHandler();
 
-    const unsubscribe = subscribeToPushNavigation(({ screen }) => {
+    const unsubscribe = subscribeToPushNavigation(async ({ screen, communityId }) => {
+      if (communityId) {
+        await ensureCommunitySelectedById(communityId);
+      }
+
       if (screen === 'home') {
         router.push('/home');
         return;
@@ -66,7 +71,7 @@ function PushNotificationsBootstrap() {
     return () => {
       unsubscribe();
     };
-  }, [router]);
+  }, [ensureCommunitySelectedById, router]);
 
   return null;
 }

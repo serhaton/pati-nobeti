@@ -15,7 +15,6 @@ import {
   rejectJoinRequest,
 } from '../src/services/communityService';
 import {
-  approveExpense,
   ExpenseRecord,
   getApprovedExpensesByCommunity,
   getPendingExpensesForCommunity,
@@ -44,7 +43,6 @@ export default function Community() {
   const [isLoadingContributionApprovals, setIsLoadingContributionApprovals] = useState(false);
   const [debtCreditBalance, setDebtCreditBalance] = useState(0);
   const [actioningRequestId, setActioningRequestId] = useState<string | null>(null);
-  const [actioningExpenseId, setActioningExpenseId] = useState<string | null>(null);
   const [actioningContributionId, setActioningContributionId] = useState<string | null>(null);
   const [selectedExpenseByContributionId, setSelectedExpenseByContributionId] = useState<Record<string, string>>({});
   const source = Array.isArray(params.source) ? params.source[0] : params.source;
@@ -213,25 +211,6 @@ export default function Community() {
     }
   }
 
-  async function onApproveExpense(expense: ExpenseRecord) {
-    if (!selectedCommunityId || !currentUser) return;
-
-    setActioningExpenseId(expense.id);
-    try {
-      await approveExpense({
-        expenseId: expense.id,
-        communityId: selectedCommunityId,
-        approvedBy: currentUser.id,
-      });
-      await refreshCommunities();
-      await loadPendingExpenseApprovals();
-    } catch (error: any) {
-      Alert.alert('Onay hatası', String(error?.message ?? 'Masraf onaylanamadı.'));
-    } finally {
-      setActioningExpenseId(null);
-    }
-  }
-
   async function onAllocateContribution(contribution: ContributionRecord) {
     if (!selectedCommunityId || !currentUser) return;
 
@@ -396,11 +375,19 @@ export default function Community() {
                   {new Date(expense.expenseAt).toLocaleString('tr-TR')} · {expense.amount.toLocaleString('tr-TR')} ₺
                 </Text>
                 <TouchableOpacity
-                  disabled={actioningExpenseId === expense.id}
-                  onPress={() => onApproveExpense(expense)}
-                  style={{ marginTop: 11, backgroundColor: colors.primary, borderRadius: 12, padding: 11, opacity: actioningExpenseId === expense.id ? 0.7 : 1 }}
+                  onPress={() => {
+                    router.push({
+                      pathname: '/expenses',
+                      params: {
+                        mode: 'expenses-manage',
+                        source: 'community',
+                        reviewExpenseId: expense.id,
+                      },
+                    });
+                  }}
+                  style={{ marginTop: 11, backgroundColor: colors.primary, borderRadius: 12, padding: 11 }}
                 >
-                  <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '700' }}>Masrafı Onayla</Text>
+                  <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '700' }}>Masrafı İncele</Text>
                 </TouchableOpacity>
               </View>
             ))}
@@ -442,41 +429,25 @@ export default function Community() {
                   Tarih: {new Date(contribution.transferAt).toLocaleString('tr-TR')}
                 </Text>
 
-                <View style={{ marginTop: 9, borderWidth: 1, borderColor: colors.border, borderRadius: 10, backgroundColor: '#fff' }}>
-                  {openApprovedExpenses.map((expense) => {
-                    const isSelected = selectedExpenseByContributionId[contribution.id] === expense.id;
-                    return (
-                      <TouchableOpacity
-                        key={`${contribution.id}-${expense.id}`}
-                        onPress={() => setSelectedExpenseByContributionId((prev) => ({ ...prev, [contribution.id]: expense.id }))}
-                        style={{
-                          padding: 10,
-                          borderTopWidth: 1,
-                          borderTopColor: colors.border,
-                          backgroundColor: isSelected ? '#EEF5EE' : '#fff',
-                        }}
-                      >
-                        <Text style={{ color: colors.text, fontWeight: isSelected ? '800' : '600' }}>{expense.title}</Text>
-                        <Text style={{ color: colors.muted, marginTop: 2 }}>
-                          Kalan borç: {expense.dueAmount.toLocaleString('tr-TR')} ₺
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
                 <TouchableOpacity
-                  disabled={actioningContributionId === contribution.id || openApprovedExpenses.length === 0}
-                  onPress={() => onAllocateContribution(contribution)}
+                  onPress={() => {
+                    router.push({
+                      pathname: '/pati-uzat',
+                      params: {
+                        view: 'community',
+                        source: 'community',
+                        reviewContributionId: contribution.id,
+                      },
+                    });
+                  }}
                   style={{
                     marginTop: 11,
                     backgroundColor: colors.primary,
                     borderRadius: 12,
                     padding: 11,
-                    opacity: actioningContributionId === contribution.id || openApprovedExpenses.length === 0 ? 0.6 : 1,
                   }}
                 >
-                  <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '700' }}>Onayla ve Dağıt</Text>
+                  <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '700' }}>Pati Uzat İncele</Text>
                 </TouchableOpacity>
               </View>
             ))}

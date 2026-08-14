@@ -153,3 +153,56 @@ Supabase Dashboard veya cron ile function endpoint'i periyodik tetiklenmelidir.
 - Login sonrası token register edilir.
 - Logout'ta token pasife çekilir.
 - Bildirim tıklaması varsayılan olarak yönetici ekranına (`/community`) yönlendirir.
+
+### 5) Fiziksel cihazda development server'a baglanma (calisan yontem)
+
+Development build fiziksel cihazda server bulamiyorsa asagidaki adimlari ayni sirayla uygula:
+
+1. Native projeyi temiz ureterek cihaza yeniden yukle:
+
+```bash
+npx expo prebuild --clean --platform ios
+npx expo run:ios --device
+```
+
+2. Metro'yu dev client + LAN + scheme ile baslat:
+
+```bash
+npx expo start --dev-client --host lan --scheme patiuzat -c
+```
+
+3. Mac'in local IP'sini al:
+
+```bash
+ipconfig getifaddr en0
+```
+
+Bos donerse:
+
+```bash
+ipconfig getifaddr en1
+```
+
+4. Telefonda development build icinde "Enter URL manually" alanina su formati yaz:
+
+```text
+exp://<MAC_IP>:8081
+```
+
+Ornek:
+
+```text
+exp://192.168.1.34:8081
+```
+
+5. LAN ile baglanamazsa tunnel'a gec:
+
+```bash
+npx expo start --dev-client --host tunnel --scheme patiuzat -c
+```
+
+Notlar:
+
+- USB kablo tek basina yeterli degil; Mac ve iPhone ayni Wi-Fi aginda olmali.
+- iPhone Ayarlar > Pati Uzat > Local Network izni acik olmali.
+- VPN aciksa baglanti sorunlari olabilir, kapatip tekrar dene.

@@ -572,6 +572,73 @@ export async function updateContribution(input: {
   return mapRow(data, allocationMap.get(String(data.id)) ?? []);
 }
 
+export async function approveContribution(input: {
+  contributionId: string;
+  communityId: string;
+  approvedBy: string;
+}): Promise<void> {
+  const nowIso = new Date().toISOString();
+
+  if (!isSupabaseDataEnabled()) {
+    mockContributions = mockContributions.map((item) => {
+      if (item.id !== input.contributionId || item.communityId !== input.communityId) return item;
+      return {
+        ...item,
+        approvalStatus: 'approved',
+        approvedBy: input.approvedBy,
+        approvedAt: nowIso,
+      };
+    });
+    return;
+  }
+
+  const { error } = await supabase
+    .from('contributions')
+    .update({
+      approval_status: 'approved',
+      approved_by: input.approvedBy,
+      approved_at: nowIso,
+    })
+    .eq('id', input.contributionId)
+    .eq('community_id', input.communityId);
+
+  if (error) {
+    throw formatError(error, 'Pati uzatma kaydı onaylanamadı.');
+  }
+}
+
+export async function rejectContribution(input: {
+  contributionId: string;
+  communityId: string;
+}): Promise<void> {
+  if (!isSupabaseDataEnabled()) {
+    mockContributions = mockContributions.map((item) => {
+      if (item.id !== input.contributionId || item.communityId !== input.communityId) return item;
+      return {
+        ...item,
+        approvalStatus: 'rejected',
+        approvedBy: null,
+        approvedAt: null,
+      };
+    });
+    return;
+  }
+
+  const { error } = await supabase
+    .from('contributions')
+    .update({
+      approval_status: 'rejected',
+      approved_by: null,
+      approved_at: null,
+    })
+    .eq('id', input.contributionId)
+    .eq('community_id', input.communityId);
+
+  if (error) {
+    throw formatError(error, 'Pati uzatma kaydı reddedilemedi.');
+  }
+}
+
 export function getContributorDisplayName(communityId: string, userId: string | null): string {
   if (!userId) return 'Belirtilmedi';
   const member = getCommunityMembers(communityId).find((item) => item.userId === userId);

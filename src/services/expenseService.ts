@@ -494,3 +494,35 @@ export async function approveExpense(input: {
     throw formatError(error, 'Masraf onaylanamadı.');
   }
 }
+
+export async function rejectExpense(input: {
+  expenseId: string;
+  communityId: string;
+}): Promise<void> {
+  if (!isSupabaseDataEnabled()) {
+    mockExpenseRecords = mockExpenseRecords.map((item) => {
+      if (item.id !== input.expenseId || item.communityId !== input.communityId) return item;
+      return {
+        ...item,
+        approvalStatus: 'rejected',
+        approvedBy: null,
+        approvedAt: null,
+      };
+    });
+    return;
+  }
+
+  const { error } = await supabase
+    .from('expenses')
+    .update({
+      approval_status: 'rejected',
+      approved_by: null,
+      approved_at: null,
+    })
+    .eq('id', input.expenseId)
+    .eq('community_id', input.communityId);
+
+  if (error) {
+    throw formatError(error, 'Masraf reddedilemedi.');
+  }
+}

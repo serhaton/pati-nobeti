@@ -6,6 +6,13 @@ import { isSupabaseDataEnabled, supabase } from './supabase';
 let activeExpoPushToken: string | null = null;
 let notificationHandlerConfigured = false;
 
+async function ensureProfileExists(userId: string): Promise<void> {
+  const { error } = await supabase.from('profiles').upsert({ id: userId }, { onConflict: 'id' });
+  if (error) {
+    throw error;
+  }
+}
+
 function getProjectId(): string | null {
   const easProjectId = Constants.expoConfig?.extra?.eas?.projectId;
   if (typeof easProjectId === 'string' && easProjectId.length > 0) {
@@ -56,17 +63,22 @@ export async function registerPushTokenForUser(userId: string): Promise<string |
     }
 
     if (status !== 'granted') {
+      console.warn('[push] Notification permission not granted for user:', userId);
       return null;
     }
 
     const projectId = getProjectId();
     if (!projectId) {
+      console.warn('[push] EAS projectId not found. Skipping push token registration.');
       return null;
     }
 
     const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
     const token = tokenResponse.data;
     activeExpoPushToken = token;
+
+    // Ensure FK target exists if auth trigger has not been applied yet.
+    await ensureProfileExists(userId);
 
     const { error } = await supabase
       .from('user_devices')
@@ -85,8 +97,11 @@ export async function registerPushTokenForUser(userId: string): Promise<string |
       throw error;
     }
 
+    console.log('[push] Token registered for user:', userId);
+
     return token;
-  } catch {
+  } catch (error) {
+    console.error('[push] Failed to register push token:', error);
     return null;
   }
 }
