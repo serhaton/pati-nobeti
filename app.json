@@ -16,7 +16,7 @@
       "icon": "./assets/app-icon.png",
       "supportsTablet": true,
       "buildNumber": "1",
-      "bundleIdentifier": "com.serhatonal.patinobeti",
+      "bundleIdentifier": "com.serhatonal.patiuzat",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -38,6 +38,14 @@
       "eas": {
         "projectId": "f3b1269a-ab50-4c23-9822-ae0642d8a5b8"
       }
+    },
+    "android": {
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "package": "com.serhatonal.patinobeti"
     }
   }
 }
