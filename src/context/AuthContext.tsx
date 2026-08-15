@@ -5,7 +5,7 @@ import {
   signInWithEmailPassword,
   signInWithGoogle,
   signOutSupabase,
-  signUpWithEmailPassword,
+  signUpWithEmailAndProfile,
   supabase,
 } from '../services/supabase';
 import { deactivatePushTokenForUser, registerPushTokenForUser } from '../services/pushNotifications';
@@ -24,7 +24,7 @@ type AuthContextValue = {
   isAuthLoading: boolean;
   signInWithProvider: (provider: 'google' | 'apple') => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (input: { email: string; password: string; fullName: string; phone?: string }) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -121,10 +121,22 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }
 
-  async function signUpWithEmail(email: string, password: string) {
+  async function signUpWithEmail(input: { email: string; password: string; fullName: string; phone?: string }) {
     setIsAuthLoading(true);
     try {
-      await signUpWithEmailPassword(email.trim(), password);
+      await signUpWithEmailAndProfile({
+        email: input.email.trim(),
+        password: input.password,
+        fullName: input.fullName,
+        phone: input.phone,
+      });
+
+      // Keep registration flow on login screen even when sign-up creates a session.
+      try {
+        await signOutSupabase();
+      } catch {
+        // Ignore sign-out errors here to avoid blocking successful registration UX.
+      }
     } finally {
       setIsAuthLoading(false);
     }

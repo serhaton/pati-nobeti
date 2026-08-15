@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Alert, TextInput, View, Text, TouchableOpacity } from 'react-native';
 import Constants from 'expo-constants';
 import { useAuth } from '../src/context/AuthContext';
@@ -8,11 +8,18 @@ import { getAuthErrorMessageTr } from '../src/services/authErrorMessage';
 import { colors } from '../src/theme';
 
 export default function Welcome() {
-  const { isAuthLoading, signInWithProvider, signInWithEmail, signUpWithEmail } = useAuth();
+  const { isAuthLoading, signInWithProvider, signInWithEmail } = useAuth();
+  const params = useLocalSearchParams<{ email?: string }>();
+  const prefilledEmail = Array.isArray(params.email) ? params.email[0] : params.email;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
   const currentYear = new Date().getFullYear();
+
+  useEffect(() => {
+    if (!prefilledEmail) return;
+    setEmail(prefilledEmail);
+  }, [prefilledEmail]);
 
   function validateEmailPassword(): boolean {
     if (!email.trim()) {
@@ -48,16 +55,11 @@ export default function Welcome() {
     }
   }
 
-  async function createAccountWithEmail() {
-    if (!validateEmailPassword()) return;
-
-    try {
-      await signUpWithEmail(email, password);
-      Alert.alert('Kayıt başarılı', 'Hesap oluşturuldu. Doğrudan giriş yapabilir veya e-posta doğrulaması sonrasında devam edebilirsin.');
-      router.replace('/community-select');
-    } catch (error: any) {
-      Alert.alert('Kayıt başarısız', getAuthErrorMessageTr(error, 'Hesap oluşturulamadı.'));
-    }
+  function openRegisterScreen() {
+    router.push({
+      pathname: '/register',
+      params: email.trim() ? { email: email.trim() } : undefined,
+    });
   }
 
   return (
@@ -94,7 +96,7 @@ export default function Welcome() {
         <Text style={{ color: '#fff', textAlign: 'center', fontSize: 16, fontWeight: '800' }}>{isAuthLoading ? 'Bekleniyor...' : 'E-posta ile giriş yap'}</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={createAccountWithEmail} disabled={isAuthLoading} style={{
+      <TouchableOpacity onPress={openRegisterScreen} disabled={isAuthLoading} style={{
         backgroundColor: '#fff', padding: 17, borderRadius: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.primary, opacity: isAuthLoading ? 0.7 : 1,
       }}>
         <Text style={{ color: colors.primary, textAlign: 'center', fontSize: 16, fontWeight: '800' }}>E-posta ile hesap oluştur</Text>

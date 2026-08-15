@@ -18,7 +18,9 @@ function CommunityGuard() {
   const { selectedCommunity } = useCommunity();
 
   useEffect(() => {
-    if (!currentUser && pathname !== '/') {
+    const allowWithoutAuth = pathname === '/' || pathname === '/register';
+
+    if (!currentUser && !allowWithoutAuth) {
       router.replace('/');
       return;
     }
@@ -28,7 +30,7 @@ function CommunityGuard() {
       return;
     }
 
-    const allowWithoutCommunity = pathname === '/' || pathname === '/community-select';
+    const allowWithoutCommunity = pathname === '/' || pathname === '/register' || pathname === '/community-select';
 
     if (currentUser && !selectedCommunity && !allowWithoutCommunity) {
       router.replace('/community-select');

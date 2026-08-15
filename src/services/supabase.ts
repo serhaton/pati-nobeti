@@ -63,8 +63,69 @@ export async function signInWithEmailPassword(email: string, password: string) {
 export async function signUpWithEmailPassword(email: string, password: string) {
   ensureSupabaseConfigured();
 
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const normalizedEmail = email.trim().toLowerCase();
+  const username = normalizedEmail.split('@')[0] || normalizedEmail;
+
+  const { data, error } = await supabase.auth.signUp({
+    email: normalizedEmail,
+    password,
+    options: {
+      data: {
+        username,
+      },
+    },
+  });
   if (error) throw error;
+  return data;
+}
+
+export async function signUpWithEmailAndProfile(input: {
+  email: string;
+  password: string;
+  fullName: string;
+  phone?: string;
+}) {
+  ensureSupabaseConfigured();
+
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const fullName = input.fullName.trim();
+  const phone = String(input.phone ?? '').trim();
+  const username = normalizedEmail.split('@')[0] || normalizedEmail;
+
+  const { data, error } = await supabase.auth.signUp({
+    email: normalizedEmail,
+    password: input.password,
+    options: {
+      data: {
+        username,
+        full_name: fullName,
+        name: fullName,
+        phone,
+      },
+    },
+  });
+
+  if (error) throw error;
+
+  const signedUpUserId = data.user?.id;
+  if (signedUpUserId) {
+    const { error: profileError } = await supabase.from('profiles').upsert(
+      {
+        id: signedUpUserId,
+        username,
+        full_name: fullName,
+        name: fullName,
+        phone: phone || null,
+        status: 'active',
+      },
+      { onConflict: 'id' }
+    );
+
+    if (profileError) {
+      throw profileError;
+    }
+  }
+
   return data;
 }
 
