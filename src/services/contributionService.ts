@@ -22,7 +22,6 @@ export type ContributionRecord = {
   receiptUrl: string;
   receiptUrls: string[];
   approvalStatus: ContributionApprovalStatus;
-  expenseId: string | null;
   approvedBy: string | null;
   approvedAt: string | null;
   createdAt: string;
@@ -99,7 +98,6 @@ function mapRow(row: any, allocations: ContributionAllocation[]): ContributionRe
     receiptUrl: receiptUrls[0] ?? String(row.receipt_url ?? ''),
     receiptUrls,
     approvalStatus: normalizeStatus(row.approval_status),
-    expenseId: row.expense_id ? String(row.expense_id) : null,
     approvedBy: row.approved_by ? String(row.approved_by) : null,
     approvedAt: row.approved_at ? toIso(row.approved_at, createdAt) : null,
     createdAt,
@@ -158,7 +156,7 @@ export async function getPendingContributionsForCommunity(communityId: string): 
 
   const { data, error } = await supabase
     .from('contributions')
-    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, expense_id, approved_by, approved_at, created_at')
+    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, approved_by, approved_at, created_at')
     .eq('community_id', communityId)
     .eq('approval_status', 'pending')
     .order('created_at', { ascending: false });
@@ -183,7 +181,7 @@ export async function getContributionsByContributor(communityId: string, contrib
 
   const { data, error } = await supabase
     .from('contributions')
-    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, expense_id, approved_by, approved_at, created_at')
+    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, approved_by, approved_at, created_at')
     .eq('community_id', communityId)
     .eq('contributor_user_id', contributorUserId)
     .order('transfer_at', { ascending: false });
@@ -208,7 +206,7 @@ export async function getContributionsByCommunity(communityId: string): Promise<
 
   const { data, error } = await supabase
     .from('contributions')
-    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, expense_id, approved_by, approved_at, created_at')
+    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, approved_by, approved_at, created_at')
     .eq('community_id', communityId)
     .order('transfer_at', { ascending: false });
 
@@ -232,7 +230,7 @@ export async function getAllocatableContributionsForCommunity(communityId: strin
 
   const { data, error } = await supabase
     .from('contributions')
-    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, expense_id, approved_by, approved_at, created_at')
+    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, approved_by, approved_at, created_at')
     .eq('community_id', communityId)
     .eq('approval_status', 'approved')
     .order('transfer_at', { ascending: false });
@@ -273,7 +271,6 @@ export async function createContribution(input: {
       receiptUrl: primaryReceiptUrl,
       receiptUrls: normalizedReceiptUrls,
       approvalStatus: 'pending',
-      expenseId: null,
       approvedBy: null,
       approvedAt: null,
       createdAt: nowIso,
@@ -299,7 +296,7 @@ export async function createContribution(input: {
       approval_status: 'pending',
       created_by: input.actorUserId,
     })
-    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, expense_id, approved_by, approved_at, created_at')
+    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, approved_by, approved_at, created_at')
     .single();
 
   if (error) {
@@ -561,7 +558,7 @@ export async function updateContribution(input: {
     })
     .eq('id', input.contributionId)
     .eq('community_id', input.communityId)
-    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, expense_id, approved_by, approved_at, created_at')
+    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, approved_by, approved_at, created_at')
     .single();
 
   if (error) {

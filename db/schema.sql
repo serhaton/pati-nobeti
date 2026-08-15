@@ -119,7 +119,6 @@ create table if not exists contributions (
   approval_status text not null default 'pending' check (approval_status in ('pending', 'approved', 'rejected')),
   approved_by uuid references profiles(id) on delete set null,
   approved_at timestamptz,
-  expense_id uuid references expenses(id) on delete set null,
   note text,
   created_at timestamptz not null default now()
 );
@@ -156,16 +155,30 @@ where receipt_url is not null
   and receipt_url <> ''
   and receipt_urls = '[]'::jsonb;
 
-insert into contribution_allocations (community_id, contribution_id, expense_id, amount)
-select c.community_id, c.id, c.expense_id, round(c.amount::numeric, 2)
-from contributions c
-where c.expense_id is not null
-  and c.approval_status = 'approved'
-  and not exists (
+do $$
+begin
+  if exists (
     select 1
-    from contribution_allocations ca
-    where ca.contribution_id = c.id
-  );
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'contributions'
+      and column_name = 'expense_id'
+  ) then
+    insert into contribution_allocations (community_id, contribution_id, expense_id, amount)
+    select c.community_id, c.id, c.expense_id, round(c.amount::numeric, 2)
+    from contributions c
+    where c.expense_id is not null
+      and c.approval_status = 'approved'
+      and not exists (
+        select 1
+        from contribution_allocations ca
+        where ca.contribution_id = c.id
+      );
+
+    drop index if exists idx_contributions_expense_id;
+    alter table contributions drop column if exists expense_id;
+  end if;
+end $$;
 
 create table if not exists community_join_requests (
   id uuid primary key default gen_random_uuid(),
@@ -251,7 +264,6 @@ create index if not exists idx_expenses_approval_status on expenses (approval_st
 create index if not exists idx_expenses_community_veterinarian_id on expenses (community_veterinarian_id);
 create index if not exists idx_contributions_community_id on contributions (community_id);
 create index if not exists idx_contributions_approval_status on contributions (approval_status);
-create index if not exists idx_contributions_expense_id on contributions (expense_id);
 create index if not exists idx_contribution_allocations_community_id on contribution_allocations (community_id);
 create index if not exists idx_contribution_allocations_contribution_id on contribution_allocations (contribution_id);
 create index if not exists idx_contribution_allocations_expense_id on contribution_allocations (expense_id);
