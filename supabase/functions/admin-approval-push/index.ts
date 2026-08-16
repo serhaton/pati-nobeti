@@ -2,10 +2,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0';
 
 type NotificationEventRow = {
   id: string;
-  event_type: 'join_request_pending' | 'expense_pending' | 'contribution_pending' | 'community_pending';
+  event_type: 'join_request_pending' | 'expense_pending' | 'contribution_pending' | 'community_pending' | 'community_approved';
   community_id: string;
   source_table: string;
   source_id: string;
+  actor_user_id?: string | null;
   payload: Record<string, unknown>;
   delivery_attempts: number;
 };
@@ -48,6 +49,14 @@ function buildNotificationContent(event: NotificationEventRow): { title: string;
     return {
       title: 'Yeni topluluk onayı',
       body: `${communityName} kaydı sistem yönetici onayı bekliyor.`,
+    };
+  }
+
+  if (event.event_type === 'community_approved') {
+    const communityName = String(event.payload?.communityName ?? 'Topluluğunuz');
+    return {
+      title: 'Topluluğunuz onaylandı',
+      body: `${communityName} artık aktif. Uygulamadan giriş yapabilirsiniz.`,
     };
   }
 
@@ -118,6 +127,20 @@ async function getAdminPushTokens(adminUserIds: string[]): Promise<string[]> {
   return Array.from(new Set((data ?? []).map((row: any) => String(row.expo_push_token)).filter(Boolean)));
 }
 
+async function getUserPushTokens(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('user_devices')
+    .select('expo_push_token')
+    .eq('is_active', true)
+    .eq('user_id', userId);
+
+  if (error) {
+    throw new Error(`Kullanıcı cihaz tokenları okunamadı: ${error.message}`);
+  }
+
+  return Array.from(new Set((data ?? []).map((row: any) => String(row.expo_push_token)).filter(Boolean)));
+}
+
 async function sendExpoPush(messages: ExpoPushMessage[]): Promise<void> {
   if (messages.length === 0) return;
 
@@ -145,6 +168,39 @@ async function sendExpoPush(messages: ExpoPushMessage[]): Promise<void> {
 
 async function processEvent(event: NotificationEventRow) {
   const attempts = Number(event.delivery_attempts ?? 0) + 1;
+
+  if (event.event_type === 'community_approved') {
+    const recipientUserId = String(event.actor_user_id ?? '').trim();
+    if (!recipientUserId) {
+      await markEvent(event.id, 'failed', attempts, 'No community creator user id found for approved event.');
+      return;
+    }
+
+    const recipientTokens = await getUserPushTokens(recipientUserId);
+    if (recipientTokens.length === 0) {
+      await markEvent(event.id, 'failed', attempts, 'No active push token found for community creator.');
+      return;
+    }
+
+    const { title, body } = buildNotificationContent(event);
+    const messages: ExpoPushMessage[] = recipientTokens.map((token) => ({
+      to: token,
+      sound: 'default',
+      title,
+      body,
+      data: {
+        screen: 'community-select',
+        communityId: event.community_id,
+        eventType: event.event_type,
+        sourceTable: event.source_table,
+        sourceId: event.source_id,
+      },
+    }));
+
+    await sendExpoPush(messages);
+    await markEvent(event.id, 'sent', attempts);
+    return;
+  }
 
   const adminUserIds = event.event_type === 'community_pending'
     ? await getAppAdminUserIds()
@@ -190,7 +246,7 @@ Deno.serve(async () => {
   try {
     const { data, error } = await supabase
       .from('notification_events')
-      .select('id, event_type, community_id, source_table, source_id, payload, delivery_attempts')
+      .select('id, event_type, community_id, source_table, source_id, actor_user_id, payload, delivery_attempts')
       .eq('delivery_status', 'pending')
       .order('created_at', { ascending: true })
       .limit(50);

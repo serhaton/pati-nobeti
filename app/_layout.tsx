@@ -93,6 +93,11 @@ function PushNotificationsBootstrap() {
         return;
       }
 
+      if (eventType === 'community_approved') {
+        router.replace('/community-select');
+        return;
+      }
+
       if (communityId) {
         void ensureCommunitySelectedById(communityId).catch(() => {
           // Navigation should still proceed even if selection refresh fails.

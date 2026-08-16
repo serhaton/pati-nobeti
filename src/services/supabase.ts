@@ -49,6 +49,42 @@ export function isSupabaseDataEnabled(): boolean {
   return getAppDataSource() === 'supabase' && isSupabaseConfigured();
 }
 
+function isJwtIssuedAtFutureError(error: any): boolean {
+  const code = String(error?.code ?? '').toUpperCase();
+  const message = String(error?.message ?? '').toLowerCase();
+  return code === 'PGRST303' || message.includes('jwt issued at future');
+}
+
+async function delay(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function withJwtFutureRetry<T>(
+  label: string,
+  action: () => Promise<T>,
+): Promise<T> {
+  const first = await action();
+
+  const firstError = (first as any)?.error;
+  if (!isJwtIssuedAtFutureError(firstError)) {
+    return first;
+  }
+
+  console.warn('[supabase-retry] jwt-issued-at-future detected, retrying', {
+    label,
+    code: firstError?.code ?? null,
+    message: firstError?.message ?? null,
+  });
+
+  const { error: refreshError } = await supabase.auth.refreshSession();
+  if (refreshError) {
+    logAuthServiceError('withJwtFutureRetry.refreshSession', refreshError, { label });
+  }
+
+  await delay(1500);
+  return action();
+}
+
 function logAuthServiceError(action: string, error: any, context?: Record<string, unknown>) {
   console.error('[auth-service] request failed', {
     action,

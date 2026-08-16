@@ -66,10 +66,27 @@ as $$
   );
 $$;
 
+create or replace function public.debug_auth_context()
+returns table (
+  uid uuid,
+  jwt_sub text,
+  jwt_role text
+)
+language sql
+security invoker
+set search_path = public
+as $$
+  select
+    auth.uid() as uid,
+    auth.jwt() ->> 'sub' as jwt_sub,
+    auth.jwt() ->> 'role' as jwt_role;
+$$;
+
 grant execute on function public.is_community_member(uuid) to authenticated;
 grant execute on function public.is_community_admin(uuid) to authenticated;
 grant execute on function public.can_access_profile(uuid) to authenticated;
 grant execute on function public.is_app_admin() to authenticated;
+grant execute on function public.debug_auth_context() to authenticated;
 
 alter table public.profiles enable row level security;
 alter table public.communities enable row level security;
@@ -118,18 +135,19 @@ create policy communities_select
 on public.communities
 for select
 to authenticated
-using (status = 'approved' or public.is_app_admin());
+using (
+  status = 'approved'
+  or created_by = auth.uid()
+  or public.is_app_admin()
+);
 
 create policy communities_insert
 on public.communities
 for insert
 to authenticated
 with check (
-  (created_by is null or created_by = auth.uid())
-  and (
-    status = 'pending'
-    or public.is_app_admin()
-  )
+  (status = 'pending' and created_by = auth.uid())
+  or public.is_app_admin()
 );
 
 create policy communities_update_admin
@@ -155,6 +173,8 @@ on public.community_members
 for select
 to authenticated
 using (
+  public.is_app_admin()
+  or
   user_id = auth.uid()
   or public.is_community_member(community_id)
 );
@@ -209,6 +229,8 @@ on public.community_members
 for delete
 to authenticated
 using (
+  public.is_app_admin()
+  or
   user_id = auth.uid()
   or public.is_community_admin(community_id)
 );

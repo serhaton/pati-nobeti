@@ -363,7 +363,7 @@ export default function CommunitySelectScreen() {
 
     setIsCreatingCommunity(true);
     try {
-      await createCommunityAndAssignAdmin({
+      const createInput = {
         name: communityName.trim(),
         neighborhood: communityNeighborhood.trim(),
         description: communityDescription.trim() ? communityDescription.trim() : undefined,
@@ -371,9 +371,29 @@ export default function CommunitySelectScreen() {
         longitude: communityCenter.longitude,
         defaultZoom: Math.round(communityZoom),
         userId: currentUser.id,
-      });
+      };
 
-      await refreshCommunities();
+      console.log('[community:create][ui:start]', {
+        name: createInput.name,
+        neighborhood: createInput.neighborhood,
+      });
+      console.log('[community:create][ui:service-input]', createInput);
+
+      await createCommunityAndAssignAdmin(createInput);
+
+      console.log('[community:create][ui:create-ok]');
+
+      try {
+        console.log('[community:create][ui:refresh-start]');
+        await refreshCommunities();
+        console.log('[community:create][ui:refresh-ok]');
+      } catch (refreshError: any) {
+        console.error('[community:create][ui:refresh-failed]', {
+          message: refreshError?.message ?? null,
+        });
+        throw new Error(`[community:create:refresh-read] ${String(refreshError?.message ?? 'Topluluk listesi yenilenemedi.')}`);
+      }
+
       setShowCreateModal(false);
       setCommunityName('');
       setCommunityNeighborhood('');
@@ -381,6 +401,9 @@ export default function CommunitySelectScreen() {
       setCommunityCenter(null);
       Alert.alert('Topluluk oluşturuldu', 'Topluluk kaydın sistem yönetici onayına düştü. Onaylandığında listede görünecek.');
     } catch (error: any) {
+      console.error('[community:create][ui:failed]', {
+        message: error?.message ?? null,
+      });
       Alert.alert('Topluluk oluşturma hatası', String(error?.message ?? 'Topluluk oluşturulamadı.'));
     } finally {
       setIsCreatingCommunity(false);

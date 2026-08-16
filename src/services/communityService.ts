@@ -1,4 +1,4 @@
-import { supabase, isSupabaseDataEnabled } from './supabase';
+import { supabase, isSupabaseDataEnabled, withJwtFutureRetry } from './supabase';
 import { resolveFileUrlForDisplay } from './supabaseStorage';
 
 export type CommunityMembership = {
@@ -70,6 +70,31 @@ function formatError(error: any, fallback: string): Error {
   return new Error(details ? `${code}${details}` : fallback);
 }
 
+function logSupabaseStageError(stage: string, error: any) {
+  console.error(`[community:create][${stage}]`, {
+    code: error?.code ?? null,
+    message: error?.message ?? null,
+    details: error?.details ?? null,
+    hint: error?.hint ?? null,
+  });
+}
+
+function decodeJwtPayload(accessToken: string | null | undefined): Record<string, any> | null {
+  if (!accessToken) return null;
+
+  const parts = accessToken.split('.');
+  if (parts.length < 2) return null;
+
+  try {
+    const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = payloadBase64.padEnd(Math.ceil(payloadBase64.length / 4) * 4, '=');
+    const json = atob(padded);
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
 export async function getMembershipsForUser(userId: string): Promise<CommunityMembership[]> {
   if (!isSupabaseDataEnabled()) return [];
 
@@ -100,39 +125,111 @@ export async function createCommunityAndAssignAdmin(input: {
     throw new Error('Topluluk oluşturma işlemi şu anda kullanılamıyor.');
   }
 
-  const { data: communityData, error: communityError } = await supabase
-    .from('communities')
-    .insert({
-      name: input.name,
-      neighborhood: input.neighborhood,
-      description: input.description ?? null,
-      latitude: input.latitude,
-      longitude: input.longitude,
-      default_zoom: input.defaultZoom ?? 17,
-      status: 'pending',
-      created_by: input.userId,
-    })
-    .select('id')
-    .single();
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError || !authData?.user?.id) {
+    if (authError) logSupabaseStageError('auth-get-user', authError);
+    throw new Error('[community:create:auth] Oturum doğrulanamadı. Lütfen tekrar giriş yapıp yeniden deneyin.');
+  }
+
+  const authUserId = String(authData.user.id);
+  if (authUserId !== String(input.userId)) {
+    console.warn('[community:create][auth-user-mismatch]', {
+      inputUserId: input.userId,
+      authUserId,
+    });
+  }
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) {
+    logSupabaseStageError('auth-get-session', sessionError);
+  }
+
+  const jwtPayload = decodeJwtPayload(sessionData?.session?.access_token ?? null);
+  console.log('[community:create][auth-context:client]', {
+    authUserId,
+    sessionUserId: sessionData?.session?.user?.id ?? null,
+    jwtSub: jwtPayload?.sub ?? null,
+    jwtRole: jwtPayload?.role ?? null,
+    jwtAud: jwtPayload?.aud ?? null,
+    jwtExp: jwtPayload?.exp ?? null,
+  });
+
+  const { data: dbAuthContext, error: dbAuthContextError } = await supabase.rpc('debug_auth_context');
+  const missingDebugAuthContextFn =
+    String(dbAuthContextError?.code ?? '').toLowerCase() === '42883'
+    || String(dbAuthContextError?.message ?? '').toLowerCase().includes('debug_auth_context');
+
+  if (dbAuthContextError && !missingDebugAuthContextFn) {
+    logSupabaseStageError('auth-context-db', dbAuthContextError);
+  } else if (missingDebugAuthContextFn) {
+    console.warn('[community:create][auth-context-db]', {
+      warning: 'debug_auth_context function not found. Run latest db/rls.sql to enable DB auth context logs.',
+    });
+  } else {
+    console.log('[community:create][auth-context:db]', dbAuthContext ?? null);
+  }
+
+  const communityInsertPayload = {
+    name: input.name,
+    neighborhood: input.neighborhood,
+    description: input.description ?? null,
+    latitude: input.latitude,
+    longitude: input.longitude,
+    default_zoom: input.defaultZoom ?? 17,
+    status: 'pending' as const,
+    created_by: authUserId,
+  };
+
+  console.log('[community:create][communities-insert:start]', {
+    name: communityInsertPayload.name,
+    neighborhood: communityInsertPayload.neighborhood,
+    status: communityInsertPayload.status,
+    createdBy: communityInsertPayload.created_by,
+  });
+  console.log('[community:create][communities-insert:payload]', communityInsertPayload);
+
+  const { data: communityData, error: communityError } = await withJwtFutureRetry(
+    'community-create:communities-insert',
+    async () => supabase
+      .from('communities')
+      .insert(communityInsertPayload)
+      .select('id')
+      .single()
+  );
 
   if (communityError) {
-    throw formatError(communityError, 'Topluluk oluşturulamadı.');
+    logSupabaseStageError('communities-insert', communityError);
+    throw new Error(`[community:create:communities-insert] ${formatError(communityError, 'Topluluk oluşturulamadı.').message}`);
   }
 
   const communityId = String(communityData.id);
+  console.log('[community:create][communities-insert:ok]', { communityId });
+
+  const memberInsertPayload = {
+    community_id: communityId,
+    user_id: authUserId,
+    role: 'admin' as const,
+    status: 'pending' as const,
+  };
+
+  console.log('[community:create][community-members-insert:start]', {
+    communityId,
+    role: memberInsertPayload.role,
+    status: memberInsertPayload.status,
+    userId: memberInsertPayload.user_id,
+  });
+  console.log('[community:create][community-members-insert:payload]', memberInsertPayload);
 
   const { error: memberError } = await supabase
     .from('community_members')
-    .insert({
-      community_id: communityId,
-      user_id: input.userId,
-      role: 'admin',
-      status: 'pending',
-    });
+    .insert(memberInsertPayload);
 
   if (memberError) {
-    throw formatError(memberError, 'Topluluk oluşturuldu ancak admin üyeliği oluşturulamadı.');
+    logSupabaseStageError('community-members-insert', memberError);
+    throw new Error(`[community:create:community-members-insert] ${formatError(memberError, 'Topluluk oluşturuldu ancak admin üyeliği oluşturulamadı.').message}`);
   }
+
+  console.log('[community:create][community-members-insert:ok]', { communityId });
 
   return { communityId };
 }
@@ -215,6 +312,12 @@ export async function updateCommunityStatusByAppAdmin(input: {
   }
 
   const nowIso = new Date().toISOString();
+  console.log('[community:admin-approve][communities-update:start]', {
+    communityId: input.communityId,
+    status: input.status,
+    actorUserId: input.actorUserId,
+  });
+
   const { error } = await supabase
     .from('communities')
     .update({
@@ -225,10 +328,20 @@ export async function updateCommunityStatusByAppAdmin(input: {
     .eq('id', input.communityId);
 
   if (error) {
-    throw formatError(error, 'Topluluk durumu güncellenemedi.');
+    logSupabaseStageError('admin-approve.communities-update', error);
+    throw new Error(`[community:admin-approve:communities-update] ${formatError(error, 'Topluluk durumu güncellenemedi.').message}`);
   }
 
+  console.log('[community:admin-approve][communities-update:ok]', {
+    communityId: input.communityId,
+    status: input.status,
+  });
+
   if (input.status === 'approved') {
+    console.log('[community:admin-approve][communities-read-created-by:start]', {
+      communityId: input.communityId,
+    });
+
     const { data: communityRow, error: communityReadError } = await supabase
       .from('communities')
       .select('created_by')
@@ -236,12 +349,22 @@ export async function updateCommunityStatusByAppAdmin(input: {
       .maybeSingle();
 
     if (communityReadError) {
-      throw formatError(communityReadError, 'Topluluk sahibi bilgisi okunamadı.');
+      logSupabaseStageError('admin-approve.communities-read-created-by', communityReadError);
+      throw new Error(`[community:admin-approve:communities-read-created-by] ${formatError(communityReadError, 'Topluluk sahibi bilgisi okunamadı.').message}`);
     }
 
     const createdBy = String(communityRow?.created_by ?? '').trim();
+    console.log('[community:admin-approve][communities-read-created-by:ok]', {
+      communityId: input.communityId,
+      createdBy: createdBy || null,
+    });
 
     if (createdBy) {
+      console.log('[community:admin-approve][community-members-upsert-creator-admin:start]', {
+        communityId: input.communityId,
+        userId: createdBy,
+      });
+
       const { error: upsertCreatorAdminError } = await supabase
         .from('community_members')
         .upsert(
@@ -255,9 +378,19 @@ export async function updateCommunityStatusByAppAdmin(input: {
         );
 
       if (upsertCreatorAdminError) {
-        throw formatError(upsertCreatorAdminError, 'Topluluk kurucusu admin üyeliği aktive edilemedi.');
+        logSupabaseStageError('admin-approve.community-members-upsert-creator-admin', upsertCreatorAdminError);
+        throw new Error(`[community:admin-approve:community-members-upsert-creator-admin] ${formatError(upsertCreatorAdminError, 'Topluluk kurucusu admin üyeliği aktive edilemedi.').message}`);
       }
+
+      console.log('[community:admin-approve][community-members-upsert-creator-admin:ok]', {
+        communityId: input.communityId,
+        userId: createdBy,
+      });
     }
+
+    console.log('[community:admin-approve][community-members-activate-admins:start]', {
+      communityId: input.communityId,
+    });
 
     const { error: memberError } = await supabase
       .from('community_members')
@@ -267,10 +400,19 @@ export async function updateCommunityStatusByAppAdmin(input: {
       .neq('status', 'active');
 
     if (memberError) {
-      throw formatError(memberError, 'Topluluk admin üyelikleri aktive edilemedi.');
+      logSupabaseStageError('admin-approve.community-members-activate-admins', memberError);
+      throw new Error(`[community:admin-approve:community-members-activate-admins] ${formatError(memberError, 'Topluluk admin üyelikleri aktive edilemedi.').message}`);
     }
+
+    console.log('[community:admin-approve][community-members-activate-admins:ok]', {
+      communityId: input.communityId,
+    });
     return;
   }
+
+  console.log('[community:admin-approve][community-members-reject-admins:start]', {
+    communityId: input.communityId,
+  });
 
   const { error: rejectMemberError } = await supabase
     .from('community_members')
@@ -280,8 +422,13 @@ export async function updateCommunityStatusByAppAdmin(input: {
     .eq('status', 'pending');
 
   if (rejectMemberError) {
-    throw formatError(rejectMemberError, 'Topluluk admin üyelikleri reddedilemedi.');
+    logSupabaseStageError('admin-approve.community-members-reject-admins', rejectMemberError);
+    throw new Error(`[community:admin-approve:community-members-reject-admins] ${formatError(rejectMemberError, 'Topluluk admin üyelikleri reddedilemedi.').message}`);
   }
+
+  console.log('[community:admin-approve][community-members-reject-admins:ok]', {
+    communityId: input.communityId,
+  });
 }
 
 export async function deleteCommunityByAppAdmin(input: {

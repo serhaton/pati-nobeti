@@ -59,6 +59,27 @@ begin
   end if;
 end $$;
 
+create or replace function public.set_community_creator()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  -- Ensure creator is always the authenticated user for normal client inserts.
+  if auth.uid() is not null then
+    new.created_by = auth.uid();
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_set_community_creator on public.communities;
+create trigger trg_set_community_creator
+before insert on public.communities
+for each row execute procedure public.set_community_creator();
+
 create or replace function public.guard_community_status_update()
 returns trigger
 language plpgsql
@@ -347,7 +368,7 @@ create table if not exists user_devices (
 
 create table if not exists notification_events (
   id uuid primary key default gen_random_uuid(),
-  event_type text not null check (event_type in ('join_request_pending', 'expense_pending', 'contribution_pending', 'community_pending')),
+  event_type text not null check (event_type in ('join_request_pending', 'expense_pending', 'contribution_pending', 'community_pending', 'community_approved')),
   community_id uuid not null references communities(id) on delete cascade,
   source_table text not null,
   source_id uuid not null,
@@ -365,7 +386,7 @@ alter table notification_events
 
 alter table notification_events
   add constraint notification_events_event_type_check
-  check (event_type in ('join_request_pending', 'expense_pending', 'contribution_pending', 'community_pending'));
+  check (event_type in ('join_request_pending', 'expense_pending', 'contribution_pending', 'community_pending', 'community_approved'));
 
 create index if not exists idx_user_devices_user_active on user_devices (user_id, is_active);
 create index if not exists idx_user_devices_token_active on user_devices (expo_push_token, is_active);
@@ -483,6 +504,39 @@ begin
 end;
 $$;
 
+create or replace function public.enqueue_community_approved_notification()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if old.status = 'pending' and new.status = 'approved' then
+    insert into public.notification_events (
+      event_type,
+      community_id,
+      source_table,
+      source_id,
+      actor_user_id,
+      payload
+    )
+    values (
+      'community_approved',
+      new.id,
+      'communities',
+      new.id,
+      new.created_by,
+      jsonb_build_object(
+        'communityName', coalesce(new.name, ''),
+        'approvedAt', coalesce(new.approved_at, now())
+      )
+    );
+  end if;
+
+  return new;
+end;
+$$;
+
 create or replace function public.enqueue_expense_pending_notification()
 returns trigger
 language plpgsql
@@ -559,6 +613,11 @@ drop trigger if exists trg_community_pending_notification on public.communities;
 create trigger trg_community_pending_notification
 after insert on public.communities
 for each row execute procedure public.enqueue_community_pending_notification();
+
+drop trigger if exists trg_community_approved_notification on public.communities;
+create trigger trg_community_approved_notification
+after update on public.communities
+for each row execute procedure public.enqueue_community_approved_notification();
 
 drop trigger if exists trg_expense_pending_notification on public.expenses;
 create trigger trg_expense_pending_notification

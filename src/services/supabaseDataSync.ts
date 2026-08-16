@@ -6,7 +6,7 @@ import {
   AppUser,
 } from '../data/mock';
 import { FeedingPoint, FeedingRecord, setFeedingPointsData, setFeedingRecordsData } from '../data/feedingPointStore';
-import { isSupabaseDataEnabled, supabase } from './supabase';
+import { isSupabaseDataEnabled, supabase, withJwtFutureRetry } from './supabase';
 import { resolveFileUrlForDisplay } from './supabaseStorage';
 
 export type SupabaseSyncResult = {
@@ -170,7 +170,7 @@ export async function syncMockDataFromSupabase(): Promise<SupabaseSyncResult> {
       feedingLogsRes,
       expensesRes,
       joinRequestsRes,
-    ] = await Promise.all([
+    ] = await withJwtFutureRetry('supabase-sync:all-tables', async () => Promise.all([
       supabase.from('communities').select('*'),
       supabase.from('profiles').select('*'),
       supabase.from('community_members').select('*'),
@@ -179,7 +179,7 @@ export async function syncMockDataFromSupabase(): Promise<SupabaseSyncResult> {
       supabase.from('feeding_logs').select('*'),
       supabase.from('expenses').select('*'),
       supabase.from('community_join_requests').select('*'),
-    ]);
+    ]));
 
     const communitiesQueryError = communitiesRes.error
       ? [communitiesRes.error.message, communitiesRes.error.details, communitiesRes.error.hint]
