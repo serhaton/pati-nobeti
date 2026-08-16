@@ -57,7 +57,10 @@ export default function Animal() {
           <Text style={{ color: colors.muted }}>{communityAnimals.length} kayıtlı kedi ve köpek</Text>
         </View>
         {isCommunityAdmin && !isReadOnlyFromHome ? (
-          <TouchableOpacity onPress={() => router.push('/animal-create')} style={{ backgroundColor: colors.primary, padding: 13, borderRadius: 15 }}>
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: '/animal-create', params: source ? { source } : undefined })}
+            style={{ backgroundColor: colors.primary, padding: 13, borderRadius: 15 }}
+          >
             <Text style={{ color: '#fff', fontWeight: '800' }}>＋</Text>
           </TouchableOpacity>
         ) : null}

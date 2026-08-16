@@ -27,6 +27,7 @@ export type BaseCommunity = {
   latitude: number;
   longitude: number;
   defaultZoom: number;
+  status: 'pending' | 'approved' | 'rejected';
 };
 
 const baseCommunities: BaseCommunity[] = [
@@ -37,6 +38,7 @@ const baseCommunities: BaseCommunity[] = [
     latitude: 40.9857,
     longitude: 29.0262,
     defaultZoom: 17,
+    status: 'approved',
   },
   {
     id: '2',
@@ -45,6 +47,7 @@ const baseCommunities: BaseCommunity[] = [
     latitude: 41.0458,
     longitude: 29.0106,
     defaultZoom: 17,
+    status: 'approved',
   },
   {
     id: '3',
@@ -53,6 +56,7 @@ const baseCommunities: BaseCommunity[] = [
     latitude: 39.9059,
     longitude: 32.8607,
     defaultZoom: 17,
+    status: 'approved',
   },
   {
     id: '4',
@@ -61,6 +65,7 @@ const baseCommunities: BaseCommunity[] = [
     latitude: 41.018101,
     longitude: 29.125607,
     defaultZoom: 17,
+    status: 'approved',
   },
 ];
 

@@ -30,9 +30,24 @@ function CommunityGuard() {
       return;
     }
 
-    const allowWithoutCommunity = pathname === '/' || pathname === '/register' || pathname === '/community-select';
+    const allowWithoutCommunity =
+      pathname === '/'
+      || pathname === '/register'
+      || pathname === '/community-select'
+      || pathname === '/profile'
+      || pathname === '/community-admin-approvals';
 
     if (currentUser && !selectedCommunity && !allowWithoutCommunity) {
+      router.replace('/community-select');
+      return;
+    }
+
+    if (
+      currentUser
+      && selectedCommunity
+      && (selectedCommunity.status === 'pending' || selectedCommunity.status === 'rejected')
+      && !allowWithoutCommunity
+    ) {
       router.replace('/community-select');
       return;
     }
@@ -64,6 +79,11 @@ function PushNotificationsBootstrap() {
           });
         }
         router.replace('/community');
+        return;
+      }
+
+      if (eventType === 'community_pending') {
+        router.replace('/community-admin-approvals');
         return;
       }
 

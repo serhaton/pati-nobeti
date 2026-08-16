@@ -7,7 +7,7 @@ import { Card } from '../src/components/Card';
 import { useCommunity } from '../src/context/CommunityContext';
 import { colors } from '../src/theme';
 import { isSupabaseDataEnabled } from '../src/services/supabase';
-import { getUserProfileSettings } from '../src/services/communityService';
+import { getIsCurrentUserAppAdmin, getUserProfileSettings } from '../src/services/communityService';
 
 export default function Profile() {
   const params = useLocalSearchParams<{ source?: string }>();
@@ -15,6 +15,7 @@ export default function Profile() {
   const { selectedCommunity, clearSelectedCommunity } = useCommunity();
   const [displayName, setDisplayName] = useState(currentUser?.fullName ?? 'Gonullu');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [isAppAdmin, setIsAppAdmin] = useState(false);
   const source = Array.isArray(params.source) ? params.source[0] : params.source;
 
   function goBackBySource() {
@@ -42,18 +43,24 @@ export default function Profile() {
           if (!mounted) return;
           setDisplayName(currentUser.fullName ?? 'Gonullu');
           setAvatarUrl('');
+          setIsAppAdmin(false);
           return;
         }
 
         try {
-          const profile = await getUserProfileSettings(currentUser.id);
+          const [profile, appAdminFlag] = await Promise.all([
+            getUserProfileSettings(currentUser.id),
+            getIsCurrentUserAppAdmin(currentUser.id),
+          ]);
           if (!mounted) return;
           setDisplayName(profile.fullName || currentUser.fullName || 'Gonullu');
           setAvatarUrl(profile.avatarUrl || '');
+          setIsAppAdmin(appAdminFlag);
         } catch {
           if (!mounted) return;
           setDisplayName(currentUser.fullName ?? 'Gonullu');
           setAvatarUrl('');
+          setIsAppAdmin(false);
         }
       }
 
@@ -84,7 +91,7 @@ export default function Profile() {
         <Text style={{ color: colors.muted }}>Seçili: {selectedCommunity?.name ?? '-'}</Text>
       </View>
       <Card style={{ marginTop: 25 }}>
-        {['Topluluklarim', 'Ayarlar'].map((x) => (
+        {['Topluluklarim', 'Ayarlar', ...(isAppAdmin ? ['Topluluk Admin İşlemleri'] : [])].map((x) => (
           <TouchableOpacity
             key={x}
             onPress={() => {
@@ -94,6 +101,10 @@ export default function Profile() {
               }
               if (x === 'Ayarlar') {
                 router.push({ pathname: '/settings', params: source ? { source } : undefined });
+                return;
+              }
+              if (x === 'Topluluk Admin İşlemleri') {
+                router.push({ pathname: '/community-admin-approvals', params: { source: 'profile' } });
               }
             }}
             style={{ paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}

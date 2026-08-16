@@ -34,6 +34,19 @@ export type UserProfileSettings = {
   avatarUrl: string;
 };
 
+export type CommunityApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+export type AppAdminCommunityRecord = {
+  id: string;
+  name: string;
+  neighborhood: string;
+  description: string;
+  status: CommunityApprovalStatus;
+  createdAt: string;
+  createdBy: string | null;
+  createdByName: string;
+};
+
 const profileSettingsCache = new Map<string, UserProfileSettings>();
 
 function isMissingColumnError(error: any, columnName: string): boolean {
@@ -96,6 +109,7 @@ export async function createCommunityAndAssignAdmin(input: {
       latitude: input.latitude,
       longitude: input.longitude,
       default_zoom: input.defaultZoom ?? 17,
+      status: 'pending',
       created_by: input.userId,
     })
     .select('id')
@@ -113,7 +127,7 @@ export async function createCommunityAndAssignAdmin(input: {
       community_id: communityId,
       user_id: input.userId,
       role: 'admin',
-      status: 'active',
+      status: 'pending',
     });
 
   if (memberError) {
@@ -121,6 +135,181 @@ export async function createCommunityAndAssignAdmin(input: {
   }
 
   return { communityId };
+}
+
+export async function getIsCurrentUserAppAdmin(userId: string): Promise<boolean> {
+  if (!isSupabaseDataEnabled()) return false;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('is_app_admin')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) {
+    throw formatError(error, 'Sistem yönetici bilgisi okunamadı.');
+  }
+
+  return Boolean(data?.is_app_admin);
+}
+
+export async function getCommunitiesForAppAdmin(): Promise<AppAdminCommunityRecord[]> {
+  if (!isSupabaseDataEnabled()) return [];
+
+  const { data, error } = await supabase
+    .from('communities')
+    .select('id, name, neighborhood, description, status, created_by, created_at')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw formatError(error, 'Topluluklar okunamadı.');
+  }
+
+  const rows = data ?? [];
+  const creatorIds = Array.from(new Set(rows.map((row: any) => String(row.created_by ?? '')).filter(Boolean)));
+  let creatorNameById = new Map<string, string>();
+
+  if (creatorIds.length > 0) {
+    const { data: creatorRows, error: creatorError } = await supabase
+      .from('profiles')
+      .select('id, full_name, username, name')
+      .in('id', creatorIds);
+
+    if (creatorError) {
+      throw formatError(creatorError, 'Topluluk oluşturan kullanıcı bilgileri okunamadı.');
+    }
+
+    creatorNameById = new Map(
+      (creatorRows ?? []).map((row: any) => [
+        String(row.id),
+        String(row.full_name ?? row.name ?? row.username ?? 'Bilinmiyor'),
+      ])
+    );
+  }
+
+  return rows.map((row: any) => {
+    const rawStatus = String(row.status ?? 'pending').toLowerCase();
+    const status: CommunityApprovalStatus = rawStatus === 'approved' || rawStatus === 'rejected' ? rawStatus : 'pending';
+    const createdBy = row.created_by ? String(row.created_by) : null;
+
+    return {
+      id: String(row.id),
+      name: String(row.name ?? ''),
+      neighborhood: String(row.neighborhood ?? ''),
+      description: String(row.description ?? ''),
+      status,
+      createdAt: String(row.created_at ?? ''),
+      createdBy,
+      createdByName: createdBy ? (creatorNameById.get(createdBy) ?? createdBy) : 'Belirtilmedi',
+    };
+  });
+}
+
+export async function updateCommunityStatusByAppAdmin(input: {
+  communityId: string;
+  status: Exclude<CommunityApprovalStatus, 'pending'>;
+  actorUserId: string;
+}): Promise<void> {
+  if (!isSupabaseDataEnabled()) {
+    throw new Error('Topluluk durum güncelleme işlemi şu anda kullanılamıyor.');
+  }
+
+  const nowIso = new Date().toISOString();
+  const { error } = await supabase
+    .from('communities')
+    .update({
+      status: input.status,
+      approved_at: nowIso,
+      approved_by: input.actorUserId,
+    })
+    .eq('id', input.communityId);
+
+  if (error) {
+    throw formatError(error, 'Topluluk durumu güncellenemedi.');
+  }
+
+  if (input.status === 'approved') {
+    const { data: communityRow, error: communityReadError } = await supabase
+      .from('communities')
+      .select('created_by')
+      .eq('id', input.communityId)
+      .maybeSingle();
+
+    if (communityReadError) {
+      throw formatError(communityReadError, 'Topluluk sahibi bilgisi okunamadı.');
+    }
+
+    const createdBy = String(communityRow?.created_by ?? '').trim();
+
+    if (createdBy) {
+      const { error: upsertCreatorAdminError } = await supabase
+        .from('community_members')
+        .upsert(
+          {
+            community_id: input.communityId,
+            user_id: createdBy,
+            role: 'admin',
+            status: 'active',
+          },
+          { onConflict: 'community_id,user_id' }
+        );
+
+      if (upsertCreatorAdminError) {
+        throw formatError(upsertCreatorAdminError, 'Topluluk kurucusu admin üyeliği aktive edilemedi.');
+      }
+    }
+
+    const { error: memberError } = await supabase
+      .from('community_members')
+      .update({ status: 'active' })
+      .eq('community_id', input.communityId)
+      .eq('role', 'admin')
+      .neq('status', 'active');
+
+    if (memberError) {
+      throw formatError(memberError, 'Topluluk admin üyelikleri aktive edilemedi.');
+    }
+    return;
+  }
+
+  const { error: rejectMemberError } = await supabase
+    .from('community_members')
+    .update({ status: 'rejected' })
+    .eq('community_id', input.communityId)
+    .eq('role', 'admin')
+    .eq('status', 'pending');
+
+  if (rejectMemberError) {
+    throw formatError(rejectMemberError, 'Topluluk admin üyelikleri reddedilemedi.');
+  }
+}
+
+export async function deleteCommunityByAppAdmin(input: {
+  communityId: string;
+}): Promise<{ deletedStorageObjects: number }> {
+  if (!isSupabaseDataEnabled()) {
+    throw new Error('Topluluk silme işlemi şu anda kullanılamıyor.');
+  }
+
+  const { data, error } = await supabase.functions.invoke('admin-delete-community', {
+    body: {
+      communityId: input.communityId,
+    },
+  });
+
+  if (error) {
+    throw formatError(error, 'Topluluk silinemedi.');
+  }
+
+  if (data?.ok === false) {
+    const message = String(data?.error ?? 'Topluluk silinemedi.');
+    throw new Error(message);
+  }
+
+  const deletedStorageObjects = Number((data as any)?.deletedStorageObjects ?? 0);
+  return {
+    deletedStorageObjects: Number.isFinite(deletedStorageObjects) ? deletedStorageObjects : 0,
+  };
 }
 
 export async function sendJoinRequest(input: {

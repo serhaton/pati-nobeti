@@ -12,6 +12,7 @@ export type Community = {
   latitude: number;
   longitude: number;
   defaultZoom: number;
+  status: 'pending' | 'approved' | 'rejected';
   members: number;
   animals: number;
   debt: number;
@@ -40,6 +41,7 @@ function sameCommunity(left: Community, right: Community): boolean {
   if (left.neighborhood !== right.neighborhood) return false;
   if (left.latitude !== right.latitude || left.longitude !== right.longitude) return false;
   if (left.defaultZoom !== right.defaultZoom) return false;
+  if (left.status !== right.status) return false;
   if (left.members !== right.members || left.animals !== right.animals || left.debt !== right.debt) return false;
   if (left.adminUserIds.length !== right.adminUserIds.length) return false;
 

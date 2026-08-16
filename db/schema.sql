@@ -25,10 +25,71 @@ create table if not exists communities (
   latitude double precision,
   longitude double precision,
   default_zoom integer not null default 17,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
   cover_url text,
   created_by uuid references profiles(id),
+  approved_by uuid references profiles(id),
+  approved_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+do $$
+declare
+  has_status_column boolean;
+begin
+  select exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'communities'
+      and column_name = 'status'
+  ) into has_status_column;
+
+  alter table communities
+    add column if not exists status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+    add column if not exists approved_by uuid references profiles(id),
+    add column if not exists approved_at timestamptz;
+
+  -- One-time backfill: if status column was missing before this migration,
+  -- mark existing records as approved.
+  if not has_status_column then
+    update communities
+    set status = 'approved'
+    where status = 'pending';
+  end if;
+end $$;
+
+create or replace function public.guard_community_status_update()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if old.status is distinct from new.status then
+    -- service role / background jobs can proceed.
+    if auth.uid() is null then
+      return new;
+    end if;
+
+    if not exists (
+      select 1
+      from public.profiles p
+      where p.id = auth.uid()
+        and coalesce(p.is_app_admin, false) = true
+    ) then
+      raise exception 'Topluluk durumu yalnızca sistem yöneticisi tarafından güncellenebilir.';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_guard_community_status_update on public.communities;
+create trigger trg_guard_community_status_update
+before update on public.communities
+for each row execute procedure public.guard_community_status_update();
 
 create table if not exists community_members (
   id uuid primary key default gen_random_uuid(),
@@ -286,7 +347,7 @@ create table if not exists user_devices (
 
 create table if not exists notification_events (
   id uuid primary key default gen_random_uuid(),
-  event_type text not null check (event_type in ('join_request_pending', 'expense_pending', 'contribution_pending')),
+  event_type text not null check (event_type in ('join_request_pending', 'expense_pending', 'contribution_pending', 'community_pending')),
   community_id uuid not null references communities(id) on delete cascade,
   source_table text not null,
   source_id uuid not null,
@@ -298,6 +359,13 @@ create table if not exists notification_events (
   last_error text,
   created_at timestamptz not null default now()
 );
+
+alter table notification_events
+  drop constraint if exists notification_events_event_type_check;
+
+alter table notification_events
+  add constraint notification_events_event_type_check
+  check (event_type in ('join_request_pending', 'expense_pending', 'contribution_pending', 'community_pending'));
 
 create index if not exists idx_user_devices_user_active on user_devices (user_id, is_active);
 create index if not exists idx_user_devices_token_active on user_devices (expo_push_token, is_active);
@@ -382,6 +450,39 @@ begin
 end;
 $$;
 
+create or replace function public.enqueue_community_pending_notification()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.status = 'pending' then
+    insert into public.notification_events (
+      event_type,
+      community_id,
+      source_table,
+      source_id,
+      actor_user_id,
+      payload
+    )
+    values (
+      'community_pending',
+      new.id,
+      'communities',
+      new.id,
+      new.created_by,
+      jsonb_build_object(
+        'communityName', coalesce(new.name, ''),
+        'neighborhood', coalesce(new.neighborhood, '')
+      )
+    );
+  end if;
+
+  return new;
+end;
+$$;
+
 create or replace function public.enqueue_expense_pending_notification()
 returns trigger
 language plpgsql
@@ -454,6 +555,11 @@ create trigger trg_join_request_pending_notification
 after insert on public.community_join_requests
 for each row execute procedure public.enqueue_join_request_pending_notification();
 
+drop trigger if exists trg_community_pending_notification on public.communities;
+create trigger trg_community_pending_notification
+after insert on public.communities
+for each row execute procedure public.enqueue_community_pending_notification();
+
 drop trigger if exists trg_expense_pending_notification on public.expenses;
 create trigger trg_expense_pending_notification
 after insert on public.expenses
@@ -463,3 +569,82 @@ drop trigger if exists trg_contribution_pending_notification on public.contribut
 create trigger trg_contribution_pending_notification
 after insert on public.contributions
 for each row execute procedure public.enqueue_contribution_pending_notification();
+
+create or replace function public.parse_storage_reference(p_value text)
+returns table(bucket_id text, object_name text)
+language plpgsql
+immutable
+set search_path = public
+as $$
+declare
+  raw text;
+  payload text;
+  fragment text;
+  slash_index integer;
+begin
+  if p_value is null then
+    return;
+  end if;
+
+  raw := btrim(split_part(p_value, '?', 1));
+  if raw = '' then
+    return;
+  end if;
+
+  if raw like 'sb://%' then
+    payload := substr(raw, 6);
+    slash_index := strpos(payload, '/');
+    if slash_index > 1 then
+      bucket_id := substr(payload, 1, slash_index - 1);
+      object_name := substr(payload, slash_index + 1);
+      if coalesce(bucket_id, '') <> '' and coalesce(object_name, '') <> '' then
+        return next;
+      end if;
+    end if;
+    return;
+  end if;
+
+  if position('/storage/v1/object/' in raw) > 0 then
+    fragment := split_part(raw, '/storage/v1/object/', 2);
+    fragment := split_part(fragment, '?', 1);
+
+    if fragment like 'public/%' then
+      fragment := substr(fragment, 8);
+    elsif fragment like 'sign/%' then
+      fragment := substr(fragment, 6);
+    elsif fragment like 'authenticated/%' then
+      fragment := substr(fragment, 15);
+    end if;
+
+    slash_index := strpos(fragment, '/');
+    if slash_index > 1 then
+      bucket_id := substr(fragment, 1, slash_index - 1);
+      object_name := substr(fragment, slash_index + 1);
+      if coalesce(bucket_id, '') <> '' and coalesce(object_name, '') <> '' then
+        return next;
+      end if;
+    end if;
+
+    return;
+  end if;
+
+  if raw not like '%://%' then
+    bucket_id := 'app-images';
+    object_name := ltrim(raw, '/');
+    if coalesce(object_name, '') <> '' then
+      return next;
+    end if;
+  end if;
+end;
+$$;
+
+create or replace function public.admin_delete_community_and_assets(p_community_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  raise exception 'Deprecated function: use edge function admin-delete-community (Storage API) instead.';
+end;
+$$;

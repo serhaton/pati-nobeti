@@ -118,26 +118,32 @@ create policy communities_select
 on public.communities
 for select
 to authenticated
-using (true);
+using (status = 'approved' or public.is_app_admin());
 
 create policy communities_insert
 on public.communities
 for insert
 to authenticated
-with check (created_by is null or created_by = auth.uid());
+with check (
+  (created_by is null or created_by = auth.uid())
+  and (
+    status = 'pending'
+    or public.is_app_admin()
+  )
+);
 
 create policy communities_update_admin
 on public.communities
 for update
 to authenticated
-using (public.is_community_admin(id))
-with check (public.is_community_admin(id));
+using (public.is_community_admin(id) or public.is_app_admin())
+with check (public.is_community_admin(id) or public.is_app_admin());
 
 create policy communities_delete_admin
 on public.communities
 for delete
 to authenticated
-using (public.is_community_admin(id));
+using (public.is_community_admin(id) or public.is_app_admin());
 
 drop policy if exists community_members_select on public.community_members;
 drop policy if exists community_members_insert on public.community_members;
@@ -158,6 +164,8 @@ on public.community_members
 for insert
 to authenticated
 with check (
+  public.is_app_admin()
+  or
   public.is_community_admin(community_id)
   or (
     user_id = auth.uid()
@@ -167,7 +175,7 @@ with check (
   or (
     user_id = auth.uid()
     and role = 'admin'
-    and status = 'active'
+    and status = 'pending'
     and exists (
       select 1
       from public.communities c
@@ -184,9 +192,11 @@ to authenticated
 using (
   user_id = auth.uid()
   or public.is_community_admin(community_id)
+  or public.is_app_admin()
 )
 with check (
   public.is_community_admin(community_id)
+  or public.is_app_admin()
   or (
     user_id = auth.uid()
     and role = 'member'

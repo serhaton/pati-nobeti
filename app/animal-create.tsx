@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useMemo, useState } from 'react';
 import { Alert, Image, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -17,8 +17,24 @@ function formatDate(date: Date): string {
 }
 
 export default function AnimalCreateScreen() {
+  const params = useLocalSearchParams<{ source?: string }>();
   const { selectedCommunity } = useCommunity();
   const { currentUser } = useAuth();
+  const source = Array.isArray(params.source) ? params.source[0] : params.source;
+
+  function goBackBySource() {
+    if (source === 'home') {
+      router.replace('/home');
+      return;
+    }
+
+    if (source === 'community') {
+      router.replace('/community');
+      return;
+    }
+
+    router.back();
+  }
 
   const isCommunityAdmin = !!currentUser && !!selectedCommunity?.adminUserIds.includes(currentUser.id);
 
@@ -54,7 +70,7 @@ export default function AnimalCreateScreen() {
   if (!isCommunityAdmin) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, padding: 20, paddingTop: 58 }}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
+        <TouchableOpacity onPress={goBackBySource} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
         <Text style={{ marginTop: 14, color: colors.text, fontSize: 24, fontWeight: '800' }}>Yetkisiz işlem</Text>
         <Text style={{ marginTop: 8, color: colors.muted }}>Can dost ekleme yalnızca topluluk yöneticilerine açık.</Text>
       </View>
@@ -161,7 +177,7 @@ export default function AnimalCreateScreen() {
         photoUris,
       });
 
-      router.replace({ pathname: '/animal-detail', params: { id: created.id } });
+      router.replace({ pathname: '/animal-detail', params: source ? { id: created.id, source } : { id: created.id } });
     } catch (error: any) {
       Alert.alert('Kayıt hatası', String(error?.message ?? 'Can dost kaydı oluşturulamadı.'));
     }
@@ -169,7 +185,7 @@ export default function AnimalCreateScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 36 }}>
-      <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
+      <TouchableOpacity onPress={goBackBySource} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
       <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Can Dost Ekle</Text>
       <Text style={{ color: colors.muted, marginTop: 5 }}>Detaylı profil bilgilerini girerek kayıt oluştur.</Text>
 

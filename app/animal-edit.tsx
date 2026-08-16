@@ -206,7 +206,7 @@ export default function AnimalEditScreen() {
         return;
       }
 
-      router.replace({ pathname: '/animal-detail', params: { id: updated.id } });
+      router.replace({ pathname: '/animal-detail', params: source ? { id: updated.id, source } : { id: updated.id } });
     } catch (error: any) {
       Alert.alert('Kayıt hatası', String(error?.message ?? 'Can dost güncellenemedi.'));
     }

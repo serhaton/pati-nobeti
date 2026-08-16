@@ -9,6 +9,7 @@ import { useAuth } from '../src/context/AuthContext';
 import { useCommunity } from '../src/context/CommunityContext';
 import {
   createCommunityAndAssignAdmin,
+  getIsCurrentUserAppAdmin,
   getMembershipsForUser,
   sendJoinRequest,
 } from '../src/services/communityService';
@@ -21,6 +22,7 @@ type NearbyCommunity = {
   id: string;
   name: string;
   neighborhood: string;
+  status: 'pending' | 'approved' | 'rejected';
   latitude: number;
   longitude: number;
   members: number;
@@ -93,6 +95,7 @@ export default function CommunitySelectScreen() {
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [returnToCreateAfterPicker, setReturnToCreateAfterPicker] = useState(false);
   const [isCreatingCommunity, setIsCreatingCommunity] = useState(false);
+  const [isAppAdmin, setIsAppAdmin] = useState(false);
   const [isResolvingAddress, setIsResolvingAddress] = useState(false);
   const [pendingSelectionId, setPendingSelectionId] = useState<string | null>(null);
 
@@ -191,8 +194,42 @@ export default function CommunitySelectScreen() {
     };
   }, [allCommunities.length, currentUser?.id]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadAppAdminFlag() {
+      if (!currentUser || !isSupabaseDataEnabled()) {
+        if (mounted) setIsAppAdmin(false);
+        return;
+      }
+
+      try {
+        const flag = await getIsCurrentUserAppAdmin(currentUser.id);
+        if (!mounted) return;
+        setIsAppAdmin(flag);
+      } catch {
+        if (!mounted) return;
+        setIsAppAdmin(false);
+      }
+    }
+
+    loadAppAdminFlag();
+
+    return () => {
+      mounted = false;
+    };
+  }, [currentUser?.id]);
+
   const communitiesWithDistance = useMemo<NearbyCommunity[]>(() => {
     return allCommunities
+      .filter((community) => {
+        if (community.status === 'rejected') return false;
+        if (community.status === 'approved') return true;
+
+        // Pending communities are visible here only when user already has a relation.
+        const membershipStatus = membershipsByCommunity[community.id];
+        return membershipStatus === 'pending' || membershipStatus === 'active' || membershipStatus === 'approved';
+      })
       .map((community) => {
         const distanceKm = userCoords
           ? distanceInKm(
@@ -216,7 +253,7 @@ export default function CommunitySelectScreen() {
         if (right.distanceKm === null) return -1;
         return left.distanceKm - right.distanceKm;
       });
-  }, [allCommunities, userCoords]);
+  }, [allCommunities, membershipsByCommunity, userCoords]);
 
   const memberCommunityIds = useMemo(() => (
     new Set(
@@ -244,6 +281,10 @@ export default function CommunitySelectScreen() {
     () => communitiesWithDistance.find((community) => community.id === targetCommunityId) ?? null,
     [communitiesWithDistance, targetCommunityId],
   );
+
+  const communityById = useMemo(() => {
+    return new Map(communitiesWithDistance.map((community) => [community.id, community]));
+  }, [communitiesWithDistance]);
 
   useEffect(() => {
     if (!pendingSelectionId) return;
@@ -322,7 +363,7 @@ export default function CommunitySelectScreen() {
 
     setIsCreatingCommunity(true);
     try {
-      const created = await createCommunityAndAssignAdmin({
+      await createCommunityAndAssignAdmin({
         name: communityName.trim(),
         neighborhood: communityNeighborhood.trim(),
         description: communityDescription.trim() ? communityDescription.trim() : undefined,
@@ -333,9 +374,12 @@ export default function CommunitySelectScreen() {
       });
 
       await refreshCommunities();
-      selectCommunityById(created.communityId);
-      setPendingSelectionId(created.communityId);
       setShowCreateModal(false);
+      setCommunityName('');
+      setCommunityNeighborhood('');
+      setCommunityDescription('');
+      setCommunityCenter(null);
+      Alert.alert('Topluluk oluşturuldu', 'Topluluk kaydın sistem yönetici onayına düştü. Onaylandığında listede görünecek.');
     } catch (error: any) {
       Alert.alert('Topluluk oluşturma hatası', String(error?.message ?? 'Topluluk oluşturulamadı.'));
     } finally {
@@ -344,6 +388,12 @@ export default function CommunitySelectScreen() {
   }
 
   function onCommunityPress(communityId: string) {
+    const community = communityById.get(communityId);
+    if (community?.status === 'pending' || community?.status === 'rejected') {
+      Alert.alert('Topluluk seçilemez', 'Bu topluluk şu anda aktif değil. Yalnızca onaylı topluluklara giriş yapabilirsin.');
+      return;
+    }
+
     const membership = getMembershipStatus(communityId);
 
     if (!isSupabaseDataEnabled()) {
@@ -476,6 +526,15 @@ export default function CommunitySelectScreen() {
             <Text style={{ fontWeight: '800', color: colors.danger, fontSize: 16 }}>Veritabani Hatası</Text>
             <Text style={{ color: colors.text, marginTop: 6 }}>{communityLoadError}</Text>
           </Card>
+        ) : null}
+
+        {isAppAdmin ? (
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: '/community-admin-approvals', params: { source: 'community-select' } })}
+            style={{ marginTop: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.primary, borderRadius: 12, padding: 13 }}
+          >
+            <Text style={{ color: colors.primary, fontWeight: '800', textAlign: 'center' }}>Topluluk Admin İşlemleri</Text>
+          </TouchableOpacity>
         ) : null}
 
         {isLocating ? (

@@ -30,21 +30,29 @@ export default function MyCommunitiesScreen() {
         ...membership,
         communityName: community?.name ?? 'Bilinmeyen topluluk',
         neighborhood: community?.neighborhood ?? 'Belirtilmedi',
+        communityStatus: community?.status ?? null,
       };
     });
   }, [allCommunities, memberships]);
 
-  const activeRows = useMemo(() => (
-    mappedRows.filter((row) => row.status === 'active' || row.status === 'approved')
+  const visibleRows = useMemo(() => (
+    mappedRows.filter((row) => {
+      if (!row.communityStatus) return false;
+      if (row.communityStatus === 'rejected') return false;
+      if (row.status === 'rejected') return false;
+      return true;
+    })
   ), [mappedRows]);
 
-  const passiveRows = useMemo(() => (
-    mappedRows.filter((row) => row.status === 'passive')
-  ), [mappedRows]);
+  const activeRows = useMemo(() => (
+    visibleRows.filter((row) => row.status === 'active' || row.status === 'approved')
+  ), [visibleRows]);
 
   const pendingRows = useMemo(() => (
-    mappedRows.filter((row) => row.status === 'pending' || row.status === 'rejected')
-  ), [mappedRows]);
+    visibleRows.filter((row) => row.status === 'pending')
+  ), [visibleRows]);
+
+  const visibleRowsCount = activeRows.length + pendingRows.length;
 
   const loadMemberships = useCallback(async () => {
     if (!currentUser || !isSupabaseDataEnabled()) {
@@ -54,6 +62,8 @@ export default function MyCommunitiesScreen() {
 
     setIsLoading(true);
     try {
+      // Always refresh communities first so status changes (e.g. rejected) are reflected before filtering.
+      await refreshCommunities();
       const rows = await getMembershipsForUser(currentUser.id);
       setMemberships(rows);
     } catch (error: any) {
@@ -61,7 +71,7 @@ export default function MyCommunitiesScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUser, refreshCommunities]);
 
   useFocusEffect(
     useCallback(() => {
@@ -131,9 +141,9 @@ export default function MyCommunitiesScreen() {
         </Card>
       ) : null}
 
-      {!isLoading && isSupabaseDataEnabled() && memberships.length === 0 ? (
+      {!isLoading && isSupabaseDataEnabled() && visibleRowsCount === 0 ? (
         <Card style={{ marginTop: 18 }}>
-          <Text style={{ color: colors.muted }}>Henüz bir topluluk üyeliğin bulunmuyor.</Text>
+          <Text style={{ color: colors.muted }}>Henüz görüntülenebilir bir topluluk üyeliğin bulunmuyor.</Text>
         </Card>
       ) : null}
 
@@ -160,20 +170,8 @@ export default function MyCommunitiesScreen() {
         </Card>
       )) : null}
 
-      {!isLoading && passiveRows.length > 0 ? (
-        <Text style={{ color: colors.text, fontWeight: '800', marginTop: 8, marginBottom: 8 }}>Pasif Üyelikler</Text>
-      ) : null}
-      {!isLoading ? passiveRows.map((row) => (
-        <Card key={`passive-${row.communityId}`} style={{ marginBottom: 10 }}>
-          <Text style={{ color: colors.text, fontWeight: '800' }}>{row.communityName}</Text>
-          <Text style={{ color: colors.muted, marginTop: 4 }}>{row.neighborhood}</Text>
-          <Text style={{ color: colors.muted, marginTop: 2 }}>Rol: {row.role} · Durum: {row.status}</Text>
-          <Text style={{ color: colors.muted, marginTop: 8, fontSize: 12 }}>Yeniden katılım için topluluk seçim ekranından istek gönderebilirsin.</Text>
-        </Card>
-      )) : null}
-
       {!isLoading && pendingRows.length > 0 ? (
-        <Text style={{ color: colors.text, fontWeight: '800', marginTop: 8, marginBottom: 8 }}>Bekleyen / Reddedilen İstekler</Text>
+        <Text style={{ color: colors.text, fontWeight: '800', marginTop: 8, marginBottom: 8 }}>Bekleyen İstekler</Text>
       ) : null}
       {!isLoading ? pendingRows.map((row) => (
         <Card key={`pending-${row.communityId}`} style={{ marginBottom: 10 }}>

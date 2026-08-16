@@ -37,6 +37,12 @@ function mapAnimalType(value: any): 'Kedi' | 'Köpek' {
 }
 
 function mapCommunityRows(rows: any[]): BaseCommunity[] {
+  function normalizeCommunityStatus(value: any): BaseCommunity['status'] {
+    const raw = String(value ?? 'approved').toLowerCase();
+    if (raw === 'pending' || raw === 'rejected') return raw;
+    return 'approved';
+  }
+
   return rows.map((row, index) => ({
     id: toStringId(row.id, `community-${index + 1}`),
     name: String(row.name ?? `Topluluk ${index + 1}`),
@@ -44,6 +50,7 @@ function mapCommunityRows(rows: any[]): BaseCommunity[] {
     latitude: Number(row.latitude ?? row.lat ?? 41.018101),
     longitude: Number(row.longitude ?? row.lng ?? 29.125607),
     defaultZoom: Number(row.default_zoom ?? row.defaultZoom ?? 17),
+    status: normalizeCommunityStatus(row.status),
   }));
 }
 

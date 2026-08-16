@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0';
 
 type NotificationEventRow = {
   id: string;
-  event_type: 'join_request_pending' | 'expense_pending' | 'contribution_pending';
+  event_type: 'join_request_pending' | 'expense_pending' | 'contribution_pending' | 'community_pending';
   community_id: string;
   source_table: string;
   source_id: string;
@@ -43,6 +43,14 @@ function buildNotificationContent(event: NotificationEventRow): { title: string;
     };
   }
 
+  if (event.event_type === 'community_pending') {
+    const communityName = String(event.payload?.communityName ?? 'Yeni topluluk');
+    return {
+      title: 'Yeni topluluk onayı',
+      body: `${communityName} kaydı sistem yönetici onayı bekliyor.`,
+    };
+  }
+
   return {
     title: 'Yeni Pati Uzat onayı',
     body: 'Yeni bir Pati Uzat kaydı yönetici onayı bekliyor.',
@@ -78,6 +86,20 @@ async function getAdminUserIds(communityId: string): Promise<string[]> {
   }
 
   return (data ?? []).map((row: any) => String(row.user_id));
+}
+
+async function getAppAdminUserIds(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('is_app_admin', true)
+    .eq('status', 'active');
+
+  if (error) {
+    throw new Error(`Sistem yöneticileri okunamadı: ${error.message}`);
+  }
+
+  return (data ?? []).map((row: any) => String(row.id));
 }
 
 async function getAdminPushTokens(adminUserIds: string[]): Promise<string[]> {
@@ -124,9 +146,18 @@ async function sendExpoPush(messages: ExpoPushMessage[]): Promise<void> {
 async function processEvent(event: NotificationEventRow) {
   const attempts = Number(event.delivery_attempts ?? 0) + 1;
 
-  const adminUserIds = await getAdminUserIds(event.community_id);
+  const adminUserIds = event.event_type === 'community_pending'
+    ? await getAppAdminUserIds()
+    : await getAdminUserIds(event.community_id);
   if (adminUserIds.length === 0) {
-    await markEvent(event.id, 'failed', attempts, 'No active admin found for community.');
+    await markEvent(
+      event.id,
+      'failed',
+      attempts,
+      event.event_type === 'community_pending'
+        ? 'No active system admin found.'
+        : 'No active admin found for community.'
+    );
     return;
   }
 
@@ -143,7 +174,7 @@ async function processEvent(event: NotificationEventRow) {
     title,
     body,
     data: {
-      screen: 'community',
+      screen: event.event_type === 'community_pending' ? 'community-admin-approvals' : 'community',
       communityId: event.community_id,
       eventType: event.event_type,
       sourceTable: event.source_table,

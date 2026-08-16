@@ -60,13 +60,35 @@ export default function Kasa() {
     return new Map(expenses.map((item) => [item.id, item]));
   }, [expenses]);
 
-  const openDebt = useMemo(() => expenses.reduce((total, item) => total + item.dueAmount, 0), [expenses]);
+  const scopedExpenses = useMemo(() => {
+    if (!selectedCommunityId) return [] as ExpenseRecord[];
+    return expenses.filter((item) => item.communityId === selectedCommunityId);
+  }, [expenses, selectedCommunityId]);
+
+  const scopedContributions = useMemo(() => {
+    if (!selectedCommunityId) return [] as ContributionRecord[];
+    return contributions.filter((item) => item.communityId === selectedCommunityId);
+  }, [contributions, selectedCommunityId]);
+
+  const openDebt = useMemo(() => scopedExpenses.reduce((total, item) => total + item.dueAmount, 0), [scopedExpenses]);
+
+  const approvedExpenseTotal = useMemo(
+    () => scopedExpenses.reduce((total, item) => total + item.amount, 0),
+    [scopedExpenses]
+  );
 
   const remainingApprovedContributions = useMemo(
-    () => contributions
+    () => scopedContributions
       .filter((item) => item.approvalStatus === 'approved')
       .reduce((total, item) => total + item.remainingAmount, 0),
-    [contributions]
+    [scopedContributions]
+  );
+
+  const approvedContributionTotal = useMemo(
+    () => scopedContributions
+      .filter((item) => item.approvalStatus === 'approved')
+      .reduce((total, item) => total + item.amount, 0),
+    [scopedContributions]
   );
 
   const debtCreditBalance = useMemo(
@@ -75,14 +97,14 @@ export default function Kasa() {
   );
 
   const financeTimeline = useMemo(() => {
-    const expenseRows = expenses.map((expense) => ({
+    const expenseRows = scopedExpenses.map((expense) => ({
       kind: 'expense' as const,
       id: `expense-${expense.id}`,
       date: expense.expenseAt,
       expense,
     }));
 
-    const contributionRows = contributions
+    const contributionRows = scopedContributions
       .filter((item) => item.approvalStatus === 'approved')
       .map((contribution) => ({
         kind: 'contribution' as const,
@@ -92,7 +114,7 @@ export default function Kasa() {
       }));
 
     return [...expenseRows, ...contributionRows].sort((left, right) => right.date.localeCompare(left.date));
-  }, [contributions, expenses]);
+  }, [scopedContributions, scopedExpenses]);
 
   function openReceipt(url: string, baseName: string) {
     downloadAndOpenRemoteFile({ url, baseName }).catch(() => {
@@ -192,7 +214,17 @@ export default function Kasa() {
         </Text>
       </Card>
 
-      <Text style={{ marginTop: 18, marginBottom: 8, fontWeight: '800', color: colors.text }}>Kasa Akışı</Text>
+      <View style={{ marginTop: 18, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Text style={{ fontWeight: '800', color: colors.text }}>Kasa Akışı</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Text style={{ fontSize: 12, fontWeight: '800', color: '#9B3A34' }}>
+            B: {approvedExpenseTotal.toLocaleString('tr-TR')} ₺
+          </Text>
+          <Text style={{ fontSize: 12, fontWeight: '800', color: '#2F7A44' }}>
+            A: {approvedContributionTotal.toLocaleString('tr-TR')} ₺
+          </Text>
+        </View>
+      </View>
 
       {isLoading ? (
         <Card>
