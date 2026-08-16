@@ -181,6 +181,8 @@ export async function updateFeedingPoint(
   id: string,
   updates: {
     name: string;
+    lat?: number;
+    lng?: number;
     photoUri?: string;
     removePhoto?: boolean;
   }
@@ -203,6 +205,8 @@ export async function updateFeedingPoint(
       .from('feeding_points')
       .update({
         name: updates.name,
+        latitude: typeof updates.lat === 'number' ? updates.lat : allFeedingPoints[index].lat,
+        longitude: typeof updates.lng === 'number' ? updates.lng : allFeedingPoints[index].lng,
         photo_uri: updates.removePhoto
           ? null
           : (persistedPhotoUri ?? allFeedingPoints[index].photoUri ?? null),
@@ -227,6 +231,8 @@ export async function updateFeedingPoint(
   allFeedingPoints[index] = {
     ...allFeedingPoints[index],
     name: updates.name,
+    lat: typeof updates.lat === 'number' ? updates.lat : allFeedingPoints[index].lat,
+    lng: typeof updates.lng === 'number' ? updates.lng : allFeedingPoints[index].lng,
     photoUri: updates.removePhoto ? undefined : (resolvedPhotoUri ?? allFeedingPoints[index].photoUri),
     status: 'Guncellendi',
   };

@@ -2,7 +2,7 @@ import { Stack, usePathname, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { View } from 'react-native';
+import { KeyboardAvoidingView, Platform, View } from 'react-native';
 import { AuthProvider } from '../src/context/AuthContext';
 import { useAuth } from '../src/context/AuthContext';
 import { CommunityProvider, useCommunity } from '../src/context/CommunityContext';
@@ -128,7 +128,11 @@ export default function Layout() {
   }, []);
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+    >
       <AuthProvider>
         <CommunityProvider>
           <StatusBar style="dark" />
@@ -137,6 +141,6 @@ export default function Layout() {
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
         </CommunityProvider>
       </AuthProvider>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

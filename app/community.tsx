@@ -53,6 +53,22 @@ export default function Community() {
 
   const selectedCommunityId = selectedCommunity?.id ?? null;
   const isCommunityAdmin = !!currentUser && selectedCommunity?.adminUserIds.includes(currentUser.id);
+  const memberNameById = useMemo(() => {
+    if (!selectedCommunityId) return new Map<string, string>();
+    const rows = getCommunityMembers(selectedCommunityId)
+      .filter((member) => !!member.user)
+      .map((member) => ({
+        userId: member.userId,
+        fullName: member.user?.fullName ?? member.user?.username ?? member.userId,
+      }));
+    return new Map(rows.map((item) => [item.userId, item.fullName]));
+  }, [selectedCommunityId]);
+
+  function getPerformerName(userId: string | null): string {
+    if (!userId) return 'Belirtilmedi';
+    return memberNameById.get(userId) ?? userId;
+  }
+
   const communityMenuItems = [
     ...(isCommunityAdmin ? [
       ['🛡️', 'Üye Listesi ve Yetkiler', '/community-members'],
@@ -372,6 +388,9 @@ export default function Community() {
                   {expense.type === 'veteriner' ? 'Veteriner' : 'Mama'} · {expense.vendorName}
                 </Text>
                 <Text style={{ color: colors.muted, fontSize: 12, marginTop: 3 }}>
+                  Yapan: {getPerformerName(expense.submittedBy)}
+                </Text>
+                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 3 }}>
                   {new Date(expense.expenseAt).toLocaleString('tr-TR')} · {expense.amount.toLocaleString('tr-TR')} ₺
                 </Text>
                 <TouchableOpacity
@@ -501,6 +520,9 @@ export default function Community() {
                         <Text style={{ color: colors.text, fontWeight: isSelected ? '800' : '600' }}>{expense.title}</Text>
                         <Text style={{ color: colors.muted, marginTop: 2 }}>
                           Kalan borç: {expense.dueAmount.toLocaleString('tr-TR')} ₺
+                        </Text>
+                        <Text style={{ color: colors.muted, marginTop: 2 }}>
+                          Yapan: {getPerformerName(expense.submittedBy)}
                         </Text>
                       </TouchableOpacity>
                     );

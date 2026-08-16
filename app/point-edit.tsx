@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { useMemo, useState } from 'react';
-import { Alert, Image, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Card } from '../src/components/Card';
 import { useAuth } from '../src/context/AuthContext';
 import { useCommunity } from '../src/context/CommunityContext';
@@ -9,7 +9,7 @@ import { getFeedingPointById, updateFeedingPoint } from '../src/data/feedingPoin
 import { colors } from '../src/theme';
 
 export default function PointEditScreen() {
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; lat?: string; lng?: string }>();
   const { currentUser } = useAuth();
   const { selectedCommunity } = useCommunity();
   const isCommunityAdmin = !!currentUser && !!selectedCommunity?.adminUserIds.includes(currentUser.id);
@@ -20,8 +20,19 @@ export default function PointEditScreen() {
   }, [params.id]);
 
   const [name, setName] = useState(point?.name ?? '');
+  const [latText, setLatText] = useState(point ? point.lat.toString() : '');
+  const [lngText, setLngText] = useState(point ? point.lng.toString() : '');
   const [photoUri, setPhotoUri] = useState<string | null>(point?.photoUri ?? null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const parsedLat = Number(params.lat);
+    const parsedLng = Number(params.lng);
+    if (Number.isFinite(parsedLat) && Number.isFinite(parsedLng)) {
+      setLatText(parsedLat.toString());
+      setLngText(parsedLng.toString());
+    }
+  }, [params.lat, params.lng]);
 
   async function pickFromLibrary() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -87,10 +98,23 @@ export default function PointEditScreen() {
       return;
     }
 
+    const normalizedLat = Number(latText.replace(',', '.'));
+    const normalizedLng = Number(lngText.replace(',', '.'));
+    if (!Number.isFinite(normalizedLat) || !Number.isFinite(normalizedLng)) {
+      Alert.alert('Geçersiz konum', 'Enlem ve boylam sayısal olmalı.');
+      return;
+    }
+    if (normalizedLat < -90 || normalizedLat > 90 || normalizedLng < -180 || normalizedLng > 180) {
+      Alert.alert('Geçersiz konum', 'Enlem -90..90, boylam -180..180 aralığında olmalı.');
+      return;
+    }
+
     setSaving(true);
     try {
       const updated = await updateFeedingPoint(params.id, {
         name: name.trim(),
+        lat: normalizedLat,
+        lng: normalizedLng,
         photoUri: photoUri ?? undefined,
         removePhoto: photoUri === null,
       });
@@ -100,7 +124,16 @@ export default function PointEditScreen() {
         return;
       }
 
-      router.back();
+      router.replace({
+        pathname: '/map',
+        params: {
+          source: 'community',
+          focusLat: String(updated.lat),
+          focusLng: String(updated.lng),
+          focusId: updated.id,
+          refresh: String(Date.now()),
+        },
+      });
     } catch (error: any) {
       Alert.alert('Kayıt hatası', String(error?.message ?? 'Nokta güncellenemedi.'));
     } finally {
@@ -134,17 +167,65 @@ export default function PointEditScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, padding: 20, paddingTop: 58 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}
+    >
       <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}>
         <Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text>
       </TouchableOpacity>
 
       <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Mama Noktasini Düzenle</Text>
-      <Text style={{ color: colors.muted, marginTop: 5 }}>İsim ve fotoğraf bilgisini güncelleyebilirsin.</Text>
+      <Text style={{ color: colors.muted, marginTop: 5 }}>İsim, konum ve fotoğraf bilgisini güncelleyebilirsin.</Text>
 
       <Card style={{ marginTop: 22 }}>
         <Text style={{ fontWeight: '800', color: colors.text }}>Konum</Text>
-        <Text style={{ marginTop: 8, color: colors.muted }}>{point.lat.toFixed(6)}, {point.lng.toFixed(6)}</Text>
+        <Text style={{ marginTop: 8, color: colors.muted }}>
+          {Number(latText.replace(',', '.')).toFixed(6)}, {Number(lngText.replace(',', '.')).toFixed(6)}
+        </Text>
+
+        <View style={{ marginTop: 10, flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.muted, fontSize: 12 }}>Enlem</Text>
+            <TextInput
+              value={latText}
+              onChangeText={setLatText}
+              placeholder="41.018101"
+              keyboardType="decimal-pad"
+              style={{ marginTop: 6, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.muted, fontSize: 12 }}>Boylam</Text>
+            <TextInput
+              value={lngText}
+              onChangeText={setLngText}
+              placeholder="29.125607"
+              keyboardType="decimal-pad"
+              style={{ marginTop: 6, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
+            />
+          </View>
+        </View>
+
+        <TouchableOpacity
+          onPress={() => {
+            router.push({
+              pathname: '/map',
+              params: {
+                source: 'point-edit',
+                mode: 'edit-point-location',
+                pointId: params.id,
+                lat: latText,
+                lng: lngText,
+                focusLat: latText,
+                focusLng: lngText,
+              },
+            });
+          }}
+          style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
+        >
+          <Text style={{ color: colors.text, fontWeight: '700' }}>Haritadan Konum Seç</Text>
+        </TouchableOpacity>
 
         <Text style={{ fontWeight: '800', color: colors.text, marginTop: 18 }}>Nokta ismi</Text>
         <TextInput
@@ -202,6 +283,6 @@ export default function PointEditScreen() {
           {saving ? 'Kaydediliyor...' : 'Degisiklikleri Kaydet'}
         </Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }

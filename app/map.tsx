@@ -38,7 +38,17 @@ function FeedingBowlIcon() {
 export default function MapScreen() {
   const { selectedCommunity } = useCommunity();
   const { currentUser } = useAuth();
-  const params = useLocalSearchParams<{ focusLat?: string; focusLng?: string; focusId?: string; refresh?: string; source?: string }>();
+  const params = useLocalSearchParams<{
+    focusLat?: string;
+    focusLng?: string;
+    focusId?: string;
+    refresh?: string;
+    source?: string;
+    mode?: string;
+    pointId?: string;
+    lat?: string;
+    lng?: string;
+  }>();
   const mapRef = useRef<MapView | null>(null);
   const suppressNextMapPressRef = useRef(false);
   const hasUserInteractedRef = useRef(false);
@@ -51,6 +61,8 @@ export default function MapScreen() {
   const [selectedPoint, setSelectedPoint] = useState<FeedingPoint | null>(null);
   const [highlightedPointId, setHighlightedPointId] = useState<string | null>(null);
   const source = Array.isArray(params.source) ? params.source[0] : params.source;
+  const mode = Array.isArray(params.mode) ? params.mode[0] : params.mode;
+  const pointId = Array.isArray(params.pointId) ? params.pointId[0] : params.pointId;
   const focusLatitude = useMemo(() => Number(params.focusLat), [params.focusLat]);
   const focusLongitude = useMemo(() => Number(params.focusLng), [params.focusLng]);
   const selectedPointRecords = useMemo<FeedingRecord[]>(() => {
@@ -73,6 +85,18 @@ export default function MapScreen() {
   );
 
   function goBackBySource() {
+    if (source === 'point-edit' && pointId) {
+      router.replace({
+        pathname: '/point-edit',
+        params: {
+          id: pointId,
+          lat: Array.isArray(params.lat) ? params.lat[0] : params.lat,
+          lng: Array.isArray(params.lng) ? params.lng[0] : params.lng,
+        },
+      });
+      return;
+    }
+
     if (source === 'community') {
       router.replace('/community');
       return;
@@ -135,6 +159,19 @@ export default function MapScreen() {
 
     hasUserInteractedRef.current = true;
     const { latitude, longitude } = event.nativeEvent.coordinate;
+
+    if (mode === 'edit-point-location' && pointId) {
+      router.replace({
+        pathname: '/point-edit',
+        params: {
+          id: pointId,
+          lat: String(latitude),
+          lng: String(longitude),
+        },
+      });
+      return;
+    }
+
     router.push({
       pathname: '/point-create',
       params: {
@@ -339,7 +376,9 @@ export default function MapScreen() {
           <Text style={{ fontSize: 20 }}>‹</Text>
         </TouchableOpacity>
         <View style={{ backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12 }}>
-          <Text style={{ fontWeight: '800', color: colors.text }}>Mama & Su Noktaları</Text>
+          <Text style={{ fontWeight: '800', color: colors.text }}>
+            {mode === 'edit-point-location' ? 'Konumu Uzun Basarak Seç' : 'Mama & Su Noktaları'}
+          </Text>
         </View>
         <TouchableOpacity onPress={recenterToCurrentLocation} style={{ backgroundColor: colors.primary, borderRadius: 14, padding: 11 }}>
           <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>{isLocating ? '...' : 'Konum'}</Text>

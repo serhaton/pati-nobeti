@@ -636,6 +636,33 @@ export async function rejectContribution(input: {
   }
 }
 
+export async function deleteContribution(input: {
+  contributionId: string;
+  communityId: string;
+}): Promise<void> {
+  if (!isSupabaseDataEnabled()) {
+    const prevLength = mockContributions.length;
+    mockContributions = mockContributions.filter(
+      (item) => !(item.id === input.contributionId && item.communityId === input.communityId)
+    );
+
+    if (mockContributions.length === prevLength) {
+      throw new Error('Pati uzatma kaydı bulunamadı.');
+    }
+    return;
+  }
+
+  const { error } = await supabase
+    .from('contributions')
+    .delete()
+    .eq('id', input.contributionId)
+    .eq('community_id', input.communityId);
+
+  if (error) {
+    throw formatError(error, 'Pati uzatma kaydı silinemedi.');
+  }
+}
+
 export function getContributorDisplayName(communityId: string, userId: string | null): string {
   if (!userId) return 'Belirtilmedi';
   const member = getCommunityMembers(communityId).find((item) => item.userId === userId);

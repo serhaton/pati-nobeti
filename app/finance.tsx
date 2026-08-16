@@ -249,6 +249,9 @@ export default function Kasa() {
                     <Text style={{ alignSelf: 'flex-start', fontSize: 10, fontWeight: '800', color: '#9B3A34', backgroundColor: '#FAD9D6', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>BORÇ</Text>
                     <Text style={{ marginTop: 5, fontWeight: '800', color: colors.text }} numberOfLines={1}>{item.title}</Text>
                     <Text style={{ color: colors.muted, marginTop: 2, fontSize: 12 }} numberOfLines={1}>{item.vendorName}</Text>
+                    <Text style={{ color: colors.muted, marginTop: 2, fontSize: 12 }} numberOfLines={1}>
+                      Yapan: {item.submittedBy ? (memberNameById.get(item.submittedBy) ?? item.submittedBy) : 'Belirtilmedi'}
+                    </Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={{ fontWeight: '900', color: colors.text, fontSize: 14 }}>{item.amount.toLocaleString('tr-TR')} ₺</Text>

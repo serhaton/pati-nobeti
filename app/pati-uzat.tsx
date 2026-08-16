@@ -17,10 +17,12 @@ import {
   approveContribution,
   ContributionRecord,
   createContribution,
+  deleteContribution,
   getContributionsByCommunity,
   getContributionsByContributor,
   rejectContribution,
   removeContributionAllocation,
+  updateContribution,
 } from '../src/services/contributionService';
 import { downloadAndOpenRemoteFile } from '../src/services/fileDownload';
 
@@ -147,6 +149,13 @@ export default function PatiUzat() {
   const [selectedReviewContribution, setSelectedReviewContribution] = useState<ContributionRecord | null>(null);
   const [handledReviewContributionId, setHandledReviewContributionId] = useState<string | null>(null);
   const [actioningReviewContributionId, setActioningReviewContributionId] = useState<string | null>(null);
+  const [showContributionEditModal, setShowContributionEditModal] = useState(false);
+  const [editingContributionId, setEditingContributionId] = useState<string | null>(null);
+  const [contributionTransferAt, setContributionTransferAt] = useState<Date>(new Date());
+  const [contributionAmountText, setContributionAmountText] = useState('');
+  const [contributionNote, setContributionNote] = useState('');
+  const [contributionContributorUserId, setContributionContributorUserId] = useState<string | null>(null);
+  const [showContributionContributorPicker, setShowContributionContributorPicker] = useState(false);
 
   const selectedContributorName = useMemo(() => {
     const found = communityMembers.find((item) => item.userId === selectedContributorUserId);
@@ -255,6 +264,22 @@ export default function PatiUzat() {
     const next = new Date(transferAt);
     next.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
     setTransferAt(next);
+  }
+
+  function onContributionDateChange(_: any, selected?: Date) {
+    if (!selected) return;
+
+    const next = new Date(contributionTransferAt);
+    next.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
+    setContributionTransferAt(next);
+  }
+
+  function onContributionTimeChange(_: any, selected?: Date) {
+    if (!selected) return;
+
+    const next = new Date(contributionTransferAt);
+    next.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
+    setContributionTransferAt(next);
   }
 
   function addReceiptFiles(newFiles: LocalReceiptFile[]) {
@@ -376,6 +401,84 @@ export default function PatiUzat() {
         { text: 'İptal', style: 'cancel' as const },
       ]
     );
+  }
+
+  function openEditContributionModal(item: ContributionRecord) {
+    setEditingContributionId(item.id);
+    setContributionTransferAt(new Date(item.transferAt));
+    setContributionAmountText(item.amount.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).replace(/\./g, ''));
+    setContributionNote(item.note);
+    setContributionContributorUserId(item.contributorUserId);
+    setShowContributionContributorPicker(false);
+    setShowContributionEditModal(true);
+  }
+
+  async function submitContributionUpdate() {
+    if (!selectedCommunityId || !editingContributionId || !contributionContributorUserId) return;
+
+    const parsedAmount = parseAmountText(contributionAmountText);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      Alert.alert('Geçersiz tutar', 'Tutar 0’dan büyük olmalı ve en fazla 2 ondalık basamak içermeli.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await updateContribution({
+        contributionId: editingContributionId,
+        communityId: selectedCommunityId,
+        contributorUserId: contributionContributorUserId,
+        amount: parsedAmount,
+        transferAtIso: contributionTransferAt.toISOString(),
+        note: contributionNote.trim() || undefined,
+      });
+
+      setShowContributionEditModal(false);
+      setEditingContributionId(null);
+      await loadData();
+      Alert.alert('Pati Uzat güncellendi', 'Kayıt başarıyla güncellendi.');
+    } catch (error: any) {
+      Alert.alert('Güncelleme hatası', String(error?.message ?? 'Pati Uzat kaydı güncellenemedi.'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function onDeleteContribution(item: ContributionRecord) {
+    if (!selectedCommunityId) return;
+
+    try {
+      await deleteContribution({ contributionId: item.id, communityId: selectedCommunityId });
+      await loadData();
+      Alert.alert('Pati Uzat silindi', 'Kayıt başarıyla silindi.');
+    } catch (error: any) {
+      Alert.alert('Silme hatası', String(error?.message ?? 'Pati Uzat kaydı silinemedi.'));
+    }
+  }
+
+  function openContributionActions(item: ContributionRecord) {
+    if (!shouldShowCommunityContributions) return;
+
+    const actions: Array<{ text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' }> = [
+      { text: 'Pati Uzat Güncelle', onPress: () => openEditContributionModal(item) },
+      {
+        text: 'Dekontları İndir / Aç',
+        onPress: () => openReceipts(item.receiptUrls.length ? item.receiptUrls : [item.receiptUrl]),
+      },
+      {
+        text: 'Pati Uzat Sil',
+        style: 'destructive',
+        onPress: () => {
+          Alert.alert('Pati Uzat silinsin mi?', 'Bu işlem geri alınamaz.', [
+            { text: 'Vazgeç', style: 'cancel' },
+            { text: 'Sil', style: 'destructive', onPress: () => onDeleteContribution(item) },
+          ]);
+        },
+      },
+      { text: 'Kapat', style: 'cancel' },
+    ];
+
+    Alert.alert('Pati Uzat İşlemi', 'Yapmak istediğin işlemi seç.', actions);
   }
 
   function openAllocationExpense(contributionId: string, allocationId: string, expenseId: string) {
@@ -521,6 +624,11 @@ export default function PatiUzat() {
           const theme = getContributionCardTheme(item.approvalStatus, item.remainingAmount);
 
           return (
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => openContributionActions(item)}
+            disabled={!shouldShowCommunityContributions}
+          >
           <Card style={{ marginBottom: 10, backgroundColor: theme.cardBackground, borderWidth: 1, borderColor: theme.cardBorder }}>
             <Text style={{ fontWeight: '800', color: colors.text }}>{item.amount.toLocaleString('tr-TR')} ₺</Text>
             <Text style={{ color: colors.muted, marginTop: 3 }}>
@@ -612,6 +720,7 @@ export default function PatiUzat() {
               </TouchableOpacity>
             ) : null}
           </Card>
+          </TouchableOpacity>
           );
         }}
         onEndReached={loadMoreContributions}
@@ -792,6 +901,90 @@ export default function PatiUzat() {
         </ScrollView>
       </Modal>
 
+      <Modal visible={showContributionEditModal} animationType="slide" onRequestClose={() => setShowContributionEditModal(false)}>
+        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+          <TouchableOpacity onPress={() => setShowContributionEditModal(false)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
+          <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Pati Uzat Kaydını Güncelle</Text>
+
+          <Card style={{ marginTop: 18 }}>
+            <Text style={{ fontWeight: '800', color: colors.text }}>Pati uzatan üye</Text>
+            <TouchableOpacity
+              onPress={() => setShowContributionContributorPicker((current) => !current)}
+              style={{ marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: '#fff', padding: 12 }}
+            >
+              <Text style={{ color: colors.text }}>
+                {contributionContributorUserId ? (memberNameById.get(contributionContributorUserId) ?? contributionContributorUserId) : 'Üye seç'}
+              </Text>
+            </TouchableOpacity>
+
+            {showContributionContributorPicker ? (
+              <View style={{ marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 10, backgroundColor: '#fff' }}>
+                {communityMembers.map((member) => (
+                  <TouchableOpacity
+                    key={`contributor-${member.userId}`}
+                    onPress={() => {
+                      setContributionContributorUserId(member.userId);
+                      setShowContributionContributorPicker(false);
+                    }}
+                    style={{ padding: 12, borderTopWidth: 1, borderTopColor: colors.border }}
+                  >
+                    <Text style={{ color: colors.text, fontWeight: '700' }}>{member.fullName}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
+
+            <Text style={{ fontWeight: '800', color: colors.text, marginTop: 16 }}>Pati uzatma tarihi</Text>
+            <View style={{ marginTop: 10, flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 13, backgroundColor: '#fff', paddingVertical: 6 }}>
+                <DateTimePicker
+                  value={contributionTransferAt}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                  onChange={onContributionDateChange}
+                />
+              </View>
+              <View style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 13, backgroundColor: '#fff', paddingVertical: 6 }}>
+                <DateTimePicker
+                  value={contributionTransferAt}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                  onChange={onContributionTimeChange}
+                />
+              </View>
+            </View>
+
+            <Text style={{ fontWeight: '800', color: colors.text, marginTop: 16 }}>Tutar</Text>
+            <TextInput
+              value={contributionAmountText}
+              onChangeText={(value) => setContributionAmountText(sanitizeAmountInput(value))}
+              placeholder="Örn. 450,75"
+              keyboardType="decimal-pad"
+              style={{ marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: '#fff', padding: 12 }}
+            />
+
+            <Text style={{ fontWeight: '800', color: colors.text, marginTop: 16 }}>Not</Text>
+            <TextInput
+              value={contributionNote}
+              onChangeText={setContributionNote}
+              placeholder="Ek bilgi"
+              multiline
+              style={{ marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: '#fff', padding: 12, minHeight: 80, textAlignVertical: 'top' }}
+            />
+          </Card>
+
+          <TouchableOpacity
+            onPress={submitContributionUpdate}
+            disabled={isSubmitting}
+            style={{ marginTop: 16, backgroundColor: colors.primary, borderRadius: 12, padding: 12, opacity: isSubmitting ? 0.7 : 1 }}
+          >
+            <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>
+              {isSubmitting ? 'Kaydediliyor...' : 'Pati Uzat Kaydını Güncelle'}
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </Modal>
+
       <Modal visible={!!selectedReadonlyExpense} animationType="slide" onRequestClose={() => {
         setSelectedReadonlyExpense(null);
         setSelectedAllocationContext(null);
@@ -809,6 +1002,9 @@ export default function PatiUzat() {
               <Text style={{ color: colors.muted, marginTop: 4 }}>{selectedReadonlyExpense.vendorName}</Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>{new Date(selectedReadonlyExpense.expenseAt).toLocaleString('tr-TR')}</Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>{selectedReadonlyExpense.amount.toLocaleString('tr-TR')} ₺</Text>
+              <Text style={{ color: colors.muted, marginTop: 2 }}>
+                Yapan: {selectedReadonlyExpense.submittedBy ? (memberNameById.get(selectedReadonlyExpense.submittedBy) ?? selectedReadonlyExpense.submittedBy) : 'Belirtilmedi'}
+              </Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>Kalan borç: {selectedReadonlyExpense.dueAmount.toLocaleString('tr-TR')} ₺</Text>
 
               {selectedReadonlyExpense.note ? <Text style={{ color: colors.muted, marginTop: 8 }}>Not: {selectedReadonlyExpense.note}</Text> : null}
