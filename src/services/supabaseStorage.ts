@@ -1,6 +1,11 @@
 import { isSupabaseDataEnabled, supabase } from './supabase';
 
 const DEFAULT_BUCKET = process.env.EXPO_PUBLIC_SUPABASE_STORAGE_BUCKET ?? 'app-images';
+const MAX_UPLOAD_SIZE_BYTES = 1 * 1024 * 1024;
+
+function formatMaxUploadSizeMb(): string {
+  return (MAX_UPLOAD_SIZE_BYTES / (1024 * 1024)).toFixed(0);
+}
 
 function inferExtension(uri: string): string {
   const clean = uri.split('?')[0].split('#')[0];
@@ -183,6 +188,18 @@ async function getUploadBodyFromUri(uri: string): Promise<ArrayBuffer | Blob> {
   throw new Error('Görsel dosyasi 0 byte olarak okundu. Lütfen farkli bir görsel secip tekrar deneyin.');
 }
 
+async function assertUploadSizeWithinLimit(uri: string): Promise<void> {
+  const response = await fetch(uri);
+  if (!response.ok) {
+    throw new Error('Dosya okunamadı, lütfen tekrar seçip deneyin.');
+  }
+
+  const blob = await response.blob();
+  if (blob.size > MAX_UPLOAD_SIZE_BYTES) {
+    throw new Error(`Dosya boyutu en fazla ${formatMaxUploadSizeMb()} MB olabilir.`);
+  }
+}
+
 export async function uploadImageIfNeeded(input: {
   uri?: string;
   communityId: string;
@@ -200,6 +217,8 @@ export async function uploadImageIfNeeded(input: {
   if (isRemoteUrl(sourceUri)) {
     return normalizedExistingRef;
   }
+
+  await assertUploadSizeWithinLimit(sourceUri);
 
   if (!isSupabaseDataEnabled()) {
     return sourceUri;
@@ -243,6 +262,8 @@ export async function uploadExpenseReceiptIfNeeded(input: {
   if (isRemoteUrl(sourceUri)) {
     return normalizedExistingRef;
   }
+
+  await assertUploadSizeWithinLimit(sourceUri);
 
   if (!isSupabaseDataEnabled()) {
     return sourceUri;
