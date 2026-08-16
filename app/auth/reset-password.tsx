@@ -1,6 +1,6 @@
 import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, ScrollView, Text, TextInput, TouchableOpacity } from 'react-native';
 import { Card } from '../../src/components/Card';
 import { signOutSupabase, supabase } from '../../src/services/supabase';
@@ -54,6 +54,9 @@ export default function ResetPasswordScreen() {
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+  const lastBootstrapSignatureRef = useRef<string | null>(null);
+  const sessionEstablishedRef = useRef(false);
+  const recoverySessionRef = useRef<{ accessToken: string; refreshToken: string } | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -108,6 +111,32 @@ export default function ResetPasswordScreen() {
     let cancelled = false;
 
     async function bootstrapRecoverySession() {
+      const bootstrapSignature = [
+        mergedParams.code ?? '',
+        mergedParams.access_token ?? '',
+        mergedParams.refresh_token ?? '',
+        mergedParams.token_hash ?? '',
+        mergedParams.token ?? '',
+        mergedParams.type ?? '',
+      ].join('|');
+
+      if (sessionEstablishedRef.current) {
+        if (!cancelled) setIsBootstrapping(false);
+        return;
+      }
+
+      if (bootstrapSignature === '|||||') {
+        // No usable recovery params yet, wait for a URL event.
+        if (!cancelled) setIsBootstrapping(false);
+        return;
+      }
+
+      if (lastBootstrapSignatureRef.current === bootstrapSignature) {
+        if (!cancelled) setIsBootstrapping(false);
+        return;
+      }
+      lastBootstrapSignatureRef.current = bootstrapSignature;
+
       try {
         console.log('[reset-password] bootstrap params', {
           currentUrl,
@@ -118,17 +147,11 @@ export default function ResetPasswordScreen() {
           hasToken: !!mergedParams.token,
           hasTokenHash: !!mergedParams.token_hash,
           type: mergedParams.type,
+          signature: bootstrapSignature,
         });
 
-        if (mergedParams.error) {
-          const details = mergedParams.error_description
-            ? decodeURIComponent(mergedParams.error_description)
-            : mergedParams.error;
-          throw new Error(details || 'Sıfırlama bağlantısı geçersiz.');
-        }
-
         if (mergedParams.code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(mergedParams.code);
+          const { data, error } = await supabase.auth.exchangeCodeForSession(mergedParams.code);
           if (error) {
             console.error('[reset-password] exchangeCodeForSession failed', {
               message: error?.message,
@@ -143,6 +166,13 @@ export default function ResetPasswordScreen() {
               raw: error,
             });
             throw error;
+          }
+
+          if (data?.session?.access_token && data?.session?.refresh_token) {
+            recoverySessionRef.current = {
+              accessToken: data.session.access_token,
+              refreshToken: data.session.refresh_token,
+            };
           }
         } else if (mergedParams.access_token && mergedParams.refresh_token) {
           const { error } = await supabase.auth.setSession({
@@ -162,9 +192,14 @@ export default function ResetPasswordScreen() {
             });
             throw error;
           }
+
+          recoverySessionRef.current = {
+            accessToken: mergedParams.access_token,
+            refreshToken: mergedParams.refresh_token,
+          };
         } else if ((mergedParams.token_hash || mergedParams.token) && mergedParams.type) {
           const tokenHash = mergedParams.token_hash ?? mergedParams.token;
-          const { error } = await supabase.auth.verifyOtp({
+          const { data, error } = await supabase.auth.verifyOtp({
             token_hash: tokenHash!,
             type: mergedParams.type as any,
           });
@@ -182,17 +217,52 @@ export default function ResetPasswordScreen() {
             });
             throw error;
           }
+
+          if (data?.session?.access_token && data?.session?.refresh_token) {
+            recoverySessionRef.current = {
+              accessToken: data.session.access_token,
+              refreshToken: data.session.refresh_token,
+            };
+          }
+        } else if (mergedParams.error) {
+          const details = mergedParams.error_description
+            ? decodeURIComponent(mergedParams.error_description)
+            : mergedParams.error;
+          throw new Error(details || 'Sıfırlama bağlantısı geçersiz.');
         } else {
           console.warn('[reset-password] missing recovery params', {
             currentUrl,
             mergedParams,
+            signature: bootstrapSignature,
           });
           throw new Error('Sıfırlama bağlantısı geçersiz veya eksik.');
+        }
+
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData.session && recoverySessionRef.current) {
+          const { error } = await supabase.auth.setSession({
+            access_token: recoverySessionRef.current.accessToken,
+            refresh_token: recoverySessionRef.current.refreshToken,
+          });
+          if (error) {
+            throw error;
+          }
+        }
+
+        const { data: finalSessionData } = await supabase.auth.getSession();
+        if (!finalSessionData.session) {
+          throw new Error('Şifre yenileme oturumu oluşturulamadı. Lütfen bağlantıya tekrar tıkla.');
+        }
+
+        sessionEstablishedRef.current = true;
+        if (!cancelled) {
+          setBootstrapError(null);
         }
       } catch (error: any) {
         console.error('[reset-password] bootstrap failed', {
           currentUrl,
           mergedParams,
+          signature: bootstrapSignature,
           message: error?.message,
           code: error?.code,
           status: error?.status,
@@ -228,6 +298,17 @@ export default function ResetPasswordScreen() {
 
     setIsSaving(true);
     try {
+      const { data: currentSessionData } = await supabase.auth.getSession();
+      if (!currentSessionData.session && recoverySessionRef.current) {
+        const { error: restoreError } = await supabase.auth.setSession({
+          access_token: recoverySessionRef.current.accessToken,
+          refresh_token: recoverySessionRef.current.refreshToken,
+        });
+        if (restoreError) {
+          throw restoreError;
+        }
+      }
+
       const { error } = await supabase.auth.updateUser({ password });
       if (error) {
         console.error('[reset-password] updateUser failed', {
