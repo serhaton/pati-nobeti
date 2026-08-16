@@ -8,7 +8,7 @@ import { getAuthErrorMessageTr } from '../src/services/authErrorMessage';
 import { colors } from '../src/theme';
 
 export default function Welcome() {
-  const { isAuthLoading, signInWithProvider, signInWithEmail } = useAuth();
+  const { isAuthLoading, signInWithProvider, signInWithEmail, forgotPassword } = useAuth();
   const params = useLocalSearchParams<{ email?: string }>();
   const prefilledEmail = Array.isArray(params.email) ? params.email[0] : params.email;
   const [email, setEmail] = useState('');
@@ -55,6 +55,24 @@ export default function Welcome() {
     }
   }
 
+  async function onForgotPassword() {
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail) {
+      Alert.alert('Eksik bilgi', 'Lütfen önce e-posta adresini gir.');
+      return;
+    }
+
+    try {
+      await forgotPassword(normalizedEmail);
+      Alert.alert(
+        'Sıfırlama bağlantısı gönderildi',
+        'E-posta adresini kontrol et. Gelen bağlantı ile şifreni sıfırlayabilirsin.'
+      );
+    } catch (error: any) {
+      Alert.alert('İşlem başarısız', getAuthErrorMessageTr(error, 'Sıfırlama e-postası gönderilemedi.'));
+    }
+  }
+
   function openRegisterScreen() {
     router.push({
       pathname: '/register',
@@ -89,6 +107,10 @@ export default function Welcome() {
         placeholder="Sifre"
         style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: 14, marginBottom: 12 }}
       />
+
+      <TouchableOpacity onPress={onForgotPassword} disabled={isAuthLoading} style={{ alignSelf: 'flex-end', marginBottom: 12, opacity: isAuthLoading ? 0.7 : 1 }}>
+        <Text style={{ color: colors.primary, fontWeight: '700' }}>Sifremi unuttum</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity onPress={continueWithEmail} disabled={isAuthLoading} style={{
         backgroundColor: colors.primary, padding: 17, borderRadius: 16, marginBottom: 10, opacity: isAuthLoading ? 0.7 : 1,

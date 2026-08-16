@@ -77,6 +77,25 @@ export default function RegisterScreen() {
         params: { email: normalizedEmail },
       });
     } catch (error: any) {
+      let parsedRequestId = '';
+      let parsedErrorCode = '';
+      try {
+        const parsed = typeof error?.message === 'string' ? JSON.parse(error.message) : null;
+        parsedRequestId = String(parsed?.headers?.map?.['sb-request-id'] ?? '');
+        parsedErrorCode = String(parsed?.headers?.map?.['x-sb-error-code'] ?? '');
+      } catch {
+        // Ignore parse failures for non-JSON error messages.
+      }
+      console.error('[register] signUpWithEmail failed:', {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+        status: error?.status,
+        sbRequestId: parsedRequestId || undefined,
+        sbErrorCode: parsedErrorCode || undefined,
+        raw: error,
+      });
       Alert.alert('Kayıt başarısız', getAuthErrorMessageTr(error, 'Hesap oluşturulamadı.'));
     }
   }

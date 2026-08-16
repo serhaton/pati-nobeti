@@ -12,10 +12,13 @@ const key =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
   'YOUR_PUBLISHABLE_OR_ANON_KEY';
 const dataSourceRaw = process.env.EXPO_PUBLIC_DATA_SOURCE ?? 'supabase';
+const SIGNUP_EMAIL_REDIRECT_URL = 'patiuzat://auth/confirm';
+const RESET_PASSWORD_REDIRECT_URL = 'patiuzat://auth/reset-password';
 
 export const supabase = createClient(url, key, {
   auth: {
     storage: AsyncStorage,
+    flowType: 'pkce',
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
@@ -46,6 +49,19 @@ export function isSupabaseDataEnabled(): boolean {
   return getAppDataSource() === 'supabase' && isSupabaseConfigured();
 }
 
+function logAuthServiceError(action: string, error: any, context?: Record<string, unknown>) {
+  console.error('[auth-service] request failed', {
+    action,
+    code: error?.code,
+    status: error?.status,
+    message: error?.message,
+    details: error?.details,
+    hint: error?.hint,
+    context,
+    raw: error,
+  });
+}
+
 function ensureSupabaseConfigured() {
   if (!isSupabaseConfigured()) {
     throw new Error('Uygulama servis ayarları eksik. Lütfen daha sonra tekrar deneyin.');
@@ -56,7 +72,10 @@ export async function signInWithEmailPassword(email: string, password: string) {
   ensureSupabaseConfigured();
 
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) throw error;
+  if (error) {
+    logAuthServiceError('signInWithEmailPassword', error, { email });
+    throw error;
+  }
   return data;
 }
 
@@ -64,18 +83,22 @@ export async function signUpWithEmailPassword(email: string, password: string) {
   ensureSupabaseConfigured();
 
   const normalizedEmail = email.trim().toLowerCase();
-  const username = normalizedEmail.split('@')[0] || normalizedEmail;
+  const username = normalizedEmail;
 
   const { data, error } = await supabase.auth.signUp({
     email: normalizedEmail,
     password,
     options: {
+      emailRedirectTo: SIGNUP_EMAIL_REDIRECT_URL,
       data: {
         username,
       },
     },
   });
-  if (error) throw error;
+  if (error) {
+    logAuthServiceError('signUpWithEmailPassword', error, { email: normalizedEmail });
+    throw error;
+  }
   return data;
 }
 
@@ -90,12 +113,13 @@ export async function signUpWithEmailAndProfile(input: {
   const normalizedEmail = input.email.trim().toLowerCase();
   const fullName = input.fullName.trim();
   const phone = String(input.phone ?? '').trim();
-  const username = normalizedEmail.split('@')[0] || normalizedEmail;
+  const username = normalizedEmail;
 
   const { data, error } = await supabase.auth.signUp({
     email: normalizedEmail,
     password: input.password,
     options: {
+      emailRedirectTo: SIGNUP_EMAIL_REDIRECT_URL,
       data: {
         username,
         full_name: fullName,
@@ -104,26 +128,13 @@ export async function signUpWithEmailAndProfile(input: {
       },
     },
   });
-
-  if (error) throw error;
-
-  const signedUpUserId = data.user?.id;
-  if (signedUpUserId) {
-    const { error: profileError } = await supabase.from('profiles').upsert(
-      {
-        id: signedUpUserId,
-        username,
-        full_name: fullName,
-        name: fullName,
-        phone: phone || null,
-        status: 'active',
-      },
-      { onConflict: 'id' }
-    );
-
-    if (profileError) {
-      throw profileError;
-    }
+  if (error) {
+    logAuthServiceError('signUpWithEmailAndProfile', error, {
+      email: normalizedEmail,
+      hasPhone: phone.length > 0,
+      fullNameLength: fullName.length,
+    });
+    throw error;
   }
 
   return data;
@@ -138,7 +149,10 @@ export async function signInWithGoogle() {
     options: { redirectTo },
   });
 
-  if (error) throw error;
+  if (error) {
+    logAuthServiceError('signInWithGoogle', error, { redirectTo });
+    throw error;
+  }
   return data;
 }
 
@@ -151,11 +165,34 @@ export async function signInWithApple() {
     options: { redirectTo },
   });
 
-  if (error) throw error;
+  if (error) {
+    logAuthServiceError('signInWithApple', error, { redirectTo });
+    throw error;
+  }
   return data;
 }
 
 export async function signOutSupabase() {
   const { error } = await supabase.auth.signOut();
-  if (error) throw error;
+  if (error) {
+    logAuthServiceError('signOutSupabase', error);
+    throw error;
+  }
+}
+
+export async function sendPasswordResetEmail(email: string) {
+  ensureSupabaseConfigured();
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const { data, error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+    redirectTo: RESET_PASSWORD_REDIRECT_URL,
+  });
+  if (error) {
+    logAuthServiceError('sendPasswordResetEmail', error, {
+      email: normalizedEmail,
+      redirectTo: RESET_PASSWORD_REDIRECT_URL,
+    });
+    throw error;
+  }
+  return data;
 }

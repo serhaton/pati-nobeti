@@ -1,6 +1,7 @@
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import {
+  sendPasswordResetEmail,
   signInWithApple,
   signInWithEmailPassword,
   signInWithGoogle,
@@ -25,6 +26,7 @@ type AuthContextValue = {
   signInWithProvider: (provider: 'google' | 'apple') => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (input: { email: string; password: string; fullName: string; phone?: string }) => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -142,6 +144,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }
 
+  async function forgotPassword(email: string) {
+    setIsAuthLoading(true);
+    try {
+      await sendPasswordResetEmail(email.trim());
+    } finally {
+      setIsAuthLoading(false);
+    }
+  }
+
   async function signOut() {
     setIsAuthLoading(true);
     try {
@@ -162,6 +173,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       signInWithProvider,
       signInWithEmail,
       signUpWithEmail,
+      forgotPassword,
       signOut,
     }),
     [currentUser, isAuthLoading]

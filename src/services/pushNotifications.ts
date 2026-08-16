@@ -10,7 +10,11 @@ let lastHandledNotificationId: string | null = null;
 async function ensureProfileExists(userId: string): Promise<void> {
   const { error } = await supabase.from('profiles').upsert({ id: userId }, { onConflict: 'id' });
   if (error) {
-    throw error;
+    // Some projects enforce strict profiles RLS. Do not block push registration for this helper step.
+    console.warn('[push] ensureProfileExists skipped due to policy:', {
+      code: error?.code,
+      message: error?.message,
+    });
   }
 }
 
@@ -78,7 +82,7 @@ export async function registerPushTokenForUser(userId: string): Promise<string |
     const token = tokenResponse.data;
     activeExpoPushToken = token;
 
-    // Ensure FK target exists if auth trigger has not been applied yet.
+    // Best-effort only: in strict RLS setups this can fail and should not block token registration.
     await ensureProfileExists(userId);
 
     const nowIso = new Date().toISOString();
