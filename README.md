@@ -206,3 +206,10 @@ Notlar:
 - USB kablo tek basina yeterli degil; Mac ve iPhone ayni Wi-Fi aginda olmali.
 - iPhone Ayarlar > Pati Uzat > Local Network izni acik olmali.
 - VPN aciksa baglanti sorunlari olabilir, kapatip tekrar dene.
+
+
+
+eas env:set --environment preview --name EXPO_PUBLIC_SUPABASE_URL --value "https://mmkayqlhgorteplisyzv.supabase.co" --visibility plaintext
+eas env:set --environment preview --name EXPO_PUBLIC_SUPABASE_KEY --value "sb_publishable_gmQVwZ-erv6R2i4wKDihYg_89erY-Nr" --visibility plaintext
+eas env:set --environment preview --name EXPO_PUBLIC_DATA_SOURCE --value "supabase" --visibility plaintext
+eas build --platform ios --profile preview --local
