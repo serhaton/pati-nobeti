@@ -21,8 +21,11 @@ const HOME_BANNER_UNIT_ID = __DEV__
     ? process.env.EXPO_PUBLIC_ADMOB_IOS_BANNER_ID ?? TestIds.BANNER
     : process.env.EXPO_PUBLIC_ADMOB_ANDROID_BANNER_ID ?? TestIds.BANNER;
 
+const IS_SHOW_ADS_ENABLED = (process.env.EXPO_PUBLIC_SHOW_ADS ?? 'true').toLowerCase() !== 'false';
+
 export default function Home() {
   const insets = useSafeAreaInsets();
+  const showAds = IS_SHOW_ADS_ENABLED;
   const { selectedCommunity } = useCommunity();
   const { currentUser } = useAuth();
   const [approvedExpenses, setApprovedExpenses] = useState<ExpenseRecord[]>([]);
@@ -51,8 +54,9 @@ export default function Home() {
   );
 
   useEffect(() => {
+    if (!showAds) return;
     MobileAds().initialize();
-  }, []);
+  }, [showAds]);
 
   const loadFinanceSummary = useCallback(async () => {
     if (!selectedCommunity?.id) {
@@ -121,7 +125,11 @@ export default function Home() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 110 + insets.bottom }}
+        contentContainerStyle={{
+          padding: 20,
+          paddingTop: 58,
+          paddingBottom: showAds ? 110 + insets.bottom : 24 + insets.bottom,
+        }}
       >
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <View>
@@ -237,26 +245,28 @@ export default function Home() {
         ) : null}
       </ScrollView>
 
-      <View
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          paddingBottom: Math.max(insets.bottom, 8),
-          paddingTop: 8,
-          alignItems: 'center',
-          backgroundColor: colors.background,
-          borderTopWidth: 1,
-          borderTopColor: colors.border,
-        }}
-      >
-        <BannerAd
-          unitId={HOME_BANNER_UNIT_ID}
-          size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
-          requestOptions={{ requestNonPersonalizedAdsOnly: true }}
-        />
-      </View>
+      {showAds ? (
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            paddingBottom: Math.max(insets.bottom, 8),
+            paddingTop: 8,
+            alignItems: 'center',
+            backgroundColor: colors.background,
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
+          }}
+        >
+          <BannerAd
+            unitId={HOME_BANNER_UNIT_ID}
+            size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+            requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }

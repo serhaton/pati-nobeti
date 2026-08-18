@@ -9,7 +9,13 @@ const BANNER_UNIT_ID = __DEV__
     ? process.env.EXPO_PUBLIC_ADMOB_IOS_BANNER_ID ?? TestIds.BANNER
     : process.env.EXPO_PUBLIC_ADMOB_ANDROID_BANNER_ID ?? TestIds.BANNER;
 
+const IS_SHOW_ADS_ENABLED = (process.env.EXPO_PUBLIC_SHOW_ADS ?? 'true').toLowerCase() !== 'false';
+
 export function BottomBannerAd() {
+  if (!IS_SHOW_ADS_ENABLED) {
+    return null;
+  }
+
   const insets = useSafeAreaInsets();
 
   return (

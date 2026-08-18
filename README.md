@@ -44,6 +44,22 @@ npx expo run:ios -d "iPhone 16"
 
 Not: `npm run` ile script'e argüman geçerken araya `--` koymalısın.
 
+## Reklam Konfigürasyonu
+
+Uygulamada reklam görünürlüğü `EXPO_PUBLIC_SHOW_ADS` env değişkeni ile kontrol edilir.
+
+- Varsayılan değer: `true` (değişken tanımlı değilse reklam açık kabul edilir)
+- `EXPO_PUBLIC_SHOW_ADS=true`: reklamlar dev ve production modda gösterilir
+- `EXPO_PUBLIC_SHOW_ADS=false`: reklamlar tüm ortamlarda kapatılır
+- Development modda test reklam ID'leri (`TestIds.BANNER`) kullanılır
+
+Örnek (EAS environment):
+
+```bash
+eas env:set --environment production --name EXPO_PUBLIC_SHOW_ADS --value "true" --visibility plaintext
+eas env:set --environment preview --name EXPO_PUBLIC_SHOW_ADS --value "false" --visibility plaintext
+```
+
 ## iOS App Store ve TestFlight
 
 EAS CLI kurulumu ve giriş:
