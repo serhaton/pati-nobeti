@@ -4,14 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pati Uzat | Gizlilik Politikası</title>
+  <link rel="icon" type="image/png" href="./app-icon.png">
   <style>
     :root {
-      --bg: #f7fbf8;
-      --panel: #ffffff;
-      --brand: #2f7a4e;
-      --text: #1f2a24;
-      --muted: #5a6a60;
-      --border: #d7e3da;
+      --bg: #FCF2E6;
+      --panel: #FFFFFF;
+      --primary: #F07A47;
+      --primary-soft: #FCE9DA;
+      --accent: #C58A3A;
+      --text: #7A5527;
+      --muted: #A27D57;
+      --border: #F2DEC8;
+      --blue: #5B86C9;
     }
 
     * { box-sizing: border-box; }
@@ -20,7 +24,7 @@
       margin: 0;
       font-family: "Avenir Next", "Helvetica Neue", Helvetica, Arial, sans-serif;
       color: var(--text);
-      background: linear-gradient(180deg, #eef7f1 0%, var(--bg) 30%, #fbfdfc 100%);
+      background: linear-gradient(180deg, #fff4e8 0%, var(--bg) 35%, #fff9f3 100%);
       line-height: 1.65;
     }
 
@@ -38,15 +42,38 @@
       margin-bottom: 16px;
     }
 
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      object-fit: cover;
+      background: var(--panel);
+    }
+
+    .brand-name {
+      margin: 0;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.2px;
+    }
+
     h1 {
       margin: 0 0 6px;
-      color: var(--brand);
+      color: var(--primary);
       font-size: 1.9rem;
     }
 
     h2 {
       margin: 22px 0 8px;
-      color: var(--brand);
+      color: var(--primary);
       font-size: 1.15rem;
     }
 
@@ -73,6 +100,10 @@
 <body>
   <main class="wrap">
     <section class="header">
+      <div class="brand-row">
+        <img class="brand-logo" src="./app-icon.png" alt="Pati Uzat Logo">
+        <p class="brand-name">Pati Uzat</p>
+      </div>
       <h1>Gizlilik Politikası</h1>
       <p class="muted">Son güncelleme: 18 Ağustos 2026</p>
       <p>Bu politika, Pati Uzat uygulamasını kullanırken hangi verilerin hangi amaçlarla işlendiği hakkında bilgi verir.</p>

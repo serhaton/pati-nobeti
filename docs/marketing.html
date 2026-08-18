@@ -4,15 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pati Uzat | Tanıtım</title>
+  <link rel="icon" type="image/png" href="./app-icon.png">
   <style>
     :root {
-      --bg: #f6faf7;
-      --panel: #ffffff;
-      --brand: #2f7a4e;
-      --brand-soft: #e3efe6;
-      --text: #1f2a24;
-      --muted: #5a6a60;
-      --border: #d7e3da;
+      --bg: #FCF2E6;
+      --panel: #FFFFFF;
+      --primary: #F07A47;
+      --primary-soft: #FCE9DA;
+      --accent: #C58A3A;
+      --text: #7A5527;
+      --muted: #A27D57;
+      --border: #F2DEC8;
+      --blue: #5B86C9;
     }
 
     * { box-sizing: border-box; }
@@ -21,7 +24,7 @@
       margin: 0;
       font-family: "Avenir Next", "Helvetica Neue", Helvetica, Arial, sans-serif;
       color: var(--text);
-      background: radial-gradient(circle at top right, #eef7f0 0%, var(--bg) 45%, #f9fcfa 100%);
+      background: radial-gradient(circle at top right, #fff5ea 0%, var(--bg) 55%, #fffaf4 100%);
       line-height: 1.6;
     }
 
@@ -32,30 +35,54 @@
     }
 
     .hero {
-      background: linear-gradient(135deg, var(--brand-soft), #f3f9f5);
+      background: linear-gradient(135deg, var(--primary-soft), #fff3e7);
       border: 1px solid var(--border);
       border-radius: 20px;
       padding: 28px;
     }
 
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .brand-logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      object-fit: cover;
+    }
+
+    .brand-name {
+      margin: 0;
+      font-size: 1.05rem;
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
     h1 {
       margin: 0 0 8px;
       font-size: 2rem;
-      color: var(--brand);
+      color: var(--primary);
       line-height: 1.2;
     }
 
     h2 {
       margin: 28px 0 10px;
       font-size: 1.25rem;
-      color: var(--brand);
+      color: var(--primary);
     }
 
     p { margin: 0 0 12px; }
 
     .lead {
       font-size: 1.1rem;
-      color: #264333;
+      color: #8B5C2E;
       margin-bottom: 0;
     }
 
@@ -89,6 +116,10 @@
 <body>
   <main class="wrap">
     <section class="hero">
+      <div class="brand-row">
+        <img class="brand-logo" src="./app-icon.png" alt="Pati Uzat Logo">
+        <p class="brand-name">Pati Uzat</p>
+      </div>
       <h1>Pati Uzat</h1>
       <p class="lead">Sokak hayvanları için topluluk dayanışmasını dijitalde güçlendiren uygulama.</p>
     </section>
