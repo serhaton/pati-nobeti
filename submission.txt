@@ -1,0 +1,17 @@
+Promotional Text
+Pati Uzat ile mahallendeki can dostlar için toplulukça organize olun; mama noktalarını yönetin, giderleri şeffaf şekilde takip edin ve dayanışmayı büyütün.
+
+Description
+Pati Uzat, sokak hayvanlarına destek veren gönüllüler ve topluluk yöneticileri için geliştirilmiş topluluk tabanlı bir koordinasyon uygulamasıdır.
+
+Uygulama ile:
+- Topluluk oluşturabilir veya mevcut topluluklara katılabilirsiniz.
+- Mama/su noktalarını harita üzerinde görüntüleyip yönetebilirsiniz.
+- Hayvan kayıtları, besleme kayıtları ve saha notlarını düzenli takip edebilirsiniz.
+- Mama ve veteriner odaklı gider kayıtlarını topluluk içinde şeffaf biçimde yönetebilirsiniz.
+- Katkı kayıtları ve topluluk içi onay süreçleriyle iş akışını düzenleyebilirsiniz.
+
+Pati Uzat, mahalle dayanışmasını güçlendirirken kayıt, takip ve iletişim süreçlerini tek yerde toplar. Uygulama bir ödeme altyapısı veya finansal hizmet uygulaması değildir; kayıtlar bilgilendirme ve organizasyon amaçlıdır.
+
+Keywords
+sokak hayvanları,topluluk,mama noktası,veteriner,gider takibi,street animals,community
