@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { RefreshableScrollView } from '../src/components/RefreshableScrollView';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Card } from '../src/components/Card';
 import { useAuth } from '../src/context/AuthContext';
@@ -148,7 +149,7 @@ export default function FeedingEditScreen() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 34 }}>
+    <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 34 }}>
       <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
       <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Besleme Kaydı Düzenle</Text>
       <Text style={{ color: colors.muted, marginTop: 5 }}>Seçili kaydın bilgilerini güncelle.</Text>
@@ -185,7 +186,7 @@ export default function FeedingEditScreen() {
                   style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
                 />
 
-                <ScrollView
+                <RefreshableScrollView
                   nestedScrollEnabled
                   showsVerticalScrollIndicator
                   style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, backgroundColor: '#fff', maxHeight: PICKER_MODAL_MAX_HEIGHT }}
@@ -214,7 +215,7 @@ export default function FeedingEditScreen() {
                   ) : (
                     <Text style={{ color: colors.muted, padding: 12 }}>Bu toplulukta aramaya uygun nokta bulunamadı.</Text>
                   )}
-                </ScrollView>
+                </RefreshableScrollView>
 
                 <TouchableOpacity
                   onPress={() => setShowPointPicker(false)}
@@ -258,7 +259,7 @@ export default function FeedingEditScreen() {
                   style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
                 />
 
-                <ScrollView
+                <RefreshableScrollView
                   nestedScrollEnabled
                   showsVerticalScrollIndicator
                   style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, backgroundColor: '#fff', maxHeight: PICKER_MODAL_MAX_HEIGHT }}
@@ -286,7 +287,7 @@ export default function FeedingEditScreen() {
                   ) : (
                     <Text style={{ color: colors.muted, padding: 12 }}>Aramaya uygun topluluk üyesi bulunamadı.</Text>
                   )}
-                </ScrollView>
+                </RefreshableScrollView>
 
                 <TouchableOpacity
                   onPress={() => setShowFeederPicker(false)}
@@ -331,6 +332,6 @@ export default function FeedingEditScreen() {
       <TouchableOpacity onPress={saveFeedingLog} style={{ backgroundColor: colors.primary, borderRadius: 15, padding: 17, marginTop: 15 }}>
         <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>Besleme Kaydini Güncelle</Text>
       </TouchableOpacity>
-    </ScrollView>
+    </RefreshableScrollView>
   );
 }

@@ -759,9 +759,19 @@ export async function getUserProfileSettings(userId: string): Promise<UserProfil
     }
   }
 
-  const avatarForDisplay = fromDb.avatarUrl
-    ? await resolveFileUrlForDisplay({ fileRef: fromDb.avatarUrl, expiresInSeconds: 1800 })
-    : '';
+  let avatarForDisplay = '';
+  if (fromDb.avatarUrl) {
+    try {
+      avatarForDisplay = await resolveFileUrlForDisplay({
+        fileRef: fromDb.avatarUrl,
+        expiresInSeconds: 1800,
+      });
+    } catch {
+      // Missing/deleted storage objects should not block profile screen rendering.
+      const cachedAvatar = profileSettingsCache.get(userId)?.avatarUrl ?? '';
+      avatarForDisplay = fromDb.avatarUrl.startsWith('http') ? fromDb.avatarUrl : cachedAvatar;
+    }
+  }
 
   const cached = profileSettingsCache.get(userId);
   const merged: UserProfileSettings = {

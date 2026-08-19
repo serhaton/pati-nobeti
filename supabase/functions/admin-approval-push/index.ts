@@ -27,7 +27,26 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-function buildNotificationContent(event: NotificationEventRow): { title: string; body: string } {
+async function getActorDisplayName(actorUserId?: string | null): Promise<string | null> {
+  const userId = String(actorUserId ?? '').trim();
+  if (!userId) return null;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('full_name, name, username')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Actor profile could not be read', { userId, message: error.message });
+    return null;
+  }
+
+  const fullName = String(data?.full_name ?? data?.name ?? data?.username ?? '').trim();
+  return fullName || null;
+}
+
+async function buildNotificationContent(event: NotificationEventRow): Promise<{ title: string; body: string }> {
   if (event.event_type === 'join_request_pending') {
     const requesterName = String(event.payload?.requesterName ?? 'Bir kullanıcı');
     return {
@@ -46,9 +65,11 @@ function buildNotificationContent(event: NotificationEventRow): { title: string;
 
   if (event.event_type === 'community_pending') {
     const communityName = String(event.payload?.communityName ?? 'Yeni topluluk');
+    const payloadCreatorName = String(event.payload?.creatorName ?? '').trim();
+    const creatorName = payloadCreatorName || await getActorDisplayName(event.actor_user_id) || 'Bir kullanıcı';
     return {
       title: 'Yeni topluluk onayı',
-      body: `${communityName} kaydı sistem yönetici onayı bekliyor.`,
+      body: `${creatorName} tarafından oluşturulan ${communityName} kaydı sistem yönetici onayı bekliyor.`,
     };
   }
 
@@ -182,7 +203,7 @@ async function processEvent(event: NotificationEventRow) {
       return;
     }
 
-    const { title, body } = buildNotificationContent(event);
+    const { title, body } = await buildNotificationContent(event);
     const messages: ExpoPushMessage[] = recipientTokens.map((token) => ({
       to: token,
       sound: 'default',
@@ -223,7 +244,7 @@ async function processEvent(event: NotificationEventRow) {
     return;
   }
 
-  const { title, body } = buildNotificationContent(event);
+  const { title, body } = await buildNotificationContent(event);
   const messages: ExpoPushMessage[] = adminTokens.map((token) => ({
     to: token,
     sound: 'default',

@@ -1,7 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, Text, TouchableOpacity, View } from 'react-native';
+import { RefreshableScrollView } from '../src/components/RefreshableScrollView';
 import { Card } from '../src/components/Card';
 import { BottomBannerAd } from '../src/components/BottomBannerAd';
 import { useAuth } from '../src/context/AuthContext';
@@ -190,7 +191,7 @@ export default function Kasa() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 120 }}>
+      <RefreshableScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 120 }}>
       <TouchableOpacity onPress={goBackBySource} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
       <View style={{ marginTop: 10 }}>
         <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text }}>Kasa</Text>
@@ -290,7 +291,7 @@ export default function Kasa() {
       })}
 
       <Modal visible={!!selectedExpense} animationType='slide' onRequestClose={() => setSelectedExpense(null)}>
-        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+        <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
           <TouchableOpacity onPress={() => setSelectedExpense(null)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Masraf Detayı</Text>
           {selectedExpense ? (
@@ -311,11 +312,11 @@ export default function Kasa() {
               </TouchableOpacity>
             </Card>
           ) : null}
-        </ScrollView>
+        </RefreshableScrollView>
       </Modal>
 
       <Modal visible={!!selectedContribution} animationType='slide' onRequestClose={() => setSelectedContribution(null)}>
-        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+        <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
           <TouchableOpacity onPress={() => setSelectedContribution(null)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Pati Uzat Detayı</Text>
           {selectedContribution ? (
@@ -366,9 +367,9 @@ export default function Kasa() {
               </TouchableOpacity>
             </Card>
           ) : null}
-        </ScrollView>
+        </RefreshableScrollView>
       </Modal>
-      </ScrollView>
+      </RefreshableScrollView>
       <BottomBannerAd />
     </View>
   );

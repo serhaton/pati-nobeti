@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
-import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Text, TouchableOpacity, View } from 'react-native';
+import { RefreshableScrollView } from '../src/components/RefreshableScrollView';
 import { Card } from '../src/components/Card';
 import { useAuth } from '../src/context/AuthContext';
 import { useCommunity } from '../src/context/CommunityContext';
@@ -39,7 +40,7 @@ export default function AnimalDetailScreen() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 36 }}>
+    <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 36 }}>
       <TouchableOpacity onPress={goBackToAnimalList} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
 
       <View style={{ marginTop: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -100,17 +101,17 @@ export default function AnimalDetailScreen() {
       <Card style={{ marginTop: 12 }}>
         <Text style={{ fontWeight: '800', color: colors.text }}>Fotoğraflar</Text>
         {animal.photoUris.length > 0 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
+          <RefreshableScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               {animal.photoUris.map((uri, index) => (
                 <Image key={`${uri}-${index}`} source={{ uri }} style={{ width: 110, height: 110, borderRadius: 12, backgroundColor: '#E7ECE8' }} />
               ))}
             </View>
-          </ScrollView>
+          </RefreshableScrollView>
         ) : (
           <Text style={{ marginTop: 8, color: colors.muted }}>Fotoğraf eklenmemiş.</Text>
         )}
       </Card>
-    </ScrollView>
+    </RefreshableScrollView>
   );
 }

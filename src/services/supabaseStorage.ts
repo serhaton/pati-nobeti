@@ -91,6 +91,18 @@ function formatStorageError(error: any, fallback: string): Error {
   return new Error(details || fallback);
 }
 
+function isStorageObjectNotFoundError(error: any): boolean {
+  const message = String(error?.message ?? '').toLowerCase();
+  const details = String(error?.details ?? '').toLowerCase();
+  return message.includes('object not found') || details.includes('object not found');
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 function generateGuid(): string {
   const randomUuid = (globalThis as any)?.crypto?.randomUUID;
   if (typeof randomUuid === 'function') {
@@ -142,16 +154,25 @@ export async function createSignedDownloadUrl(input: {
     return trimmedRef;
   }
 
-  const { data, error } = await supabase
-    .storage
-    .from(decoded.bucket)
-    .createSignedUrl(decoded.objectPath, expiresInSeconds);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { data, error } = await supabase
+      .storage
+      .from(decoded.bucket)
+      .createSignedUrl(decoded.objectPath, expiresInSeconds);
 
-  if (error || !data?.signedUrl) {
+    if (!error && data?.signedUrl) {
+      return data.signedUrl;
+    }
+
+    if (error && isStorageObjectNotFoundError(error) && attempt < 2) {
+      await sleep(300);
+      continue;
+    }
+
     throw formatStorageError(error, 'Dosya için geçici erişim bağlantısı üretilemedi.');
   }
 
-  return data.signedUrl;
+  throw new Error('Dosya için geçici erişim bağlantısı üretilemedi.');
 }
 
 export async function resolveFileUrlForDisplay(input: {

@@ -1,7 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { RefreshableScrollView } from '../src/components/RefreshableScrollView';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -128,6 +129,7 @@ export default function PatiUzat() {
   }
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -218,6 +220,15 @@ export default function PatiUzat() {
       loadData();
     }, [loadData])
   );
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await loadData();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [loadData]);
 
   useEffect(() => {
     if (!shouldShowCommunityContributions || !reviewContributionId) return;
@@ -619,6 +630,8 @@ export default function PatiUzat() {
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 120 }}
         data={visibleContributions}
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => {
           const theme = getContributionCardTheme(item.approvalStatus, item.remainingAmount);
@@ -763,7 +776,7 @@ export default function PatiUzat() {
       <BottomBannerAd />
 
       <Modal visible={showCreateModal} animationType="slide" onRequestClose={() => setShowCreateModal(false)}>
-        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+        <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
           <TouchableOpacity onPress={() => setShowCreateModal(false)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Pati Uzat Girişi</Text>
 
@@ -898,11 +911,11 @@ export default function PatiUzat() {
               {isSubmitting ? 'Kaydediliyor...' : 'Pati Uzat Kaydı Gönder'}
             </Text>
           </TouchableOpacity>
-        </ScrollView>
+        </RefreshableScrollView>
       </Modal>
 
       <Modal visible={showContributionEditModal} animationType="slide" onRequestClose={() => setShowContributionEditModal(false)}>
-        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+        <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
           <TouchableOpacity onPress={() => setShowContributionEditModal(false)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Pati Uzat Kaydını Güncelle</Text>
 
@@ -982,14 +995,14 @@ export default function PatiUzat() {
               {isSubmitting ? 'Kaydediliyor...' : 'Pati Uzat Kaydını Güncelle'}
             </Text>
           </TouchableOpacity>
-        </ScrollView>
+        </RefreshableScrollView>
       </Modal>
 
       <Modal visible={!!selectedReadonlyExpense} animationType="slide" onRequestClose={() => {
         setSelectedReadonlyExpense(null);
         setSelectedAllocationContext(null);
       }}>
-        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+        <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
           <TouchableOpacity onPress={() => {
             setSelectedReadonlyExpense(null);
             setSelectedAllocationContext(null);
@@ -1034,11 +1047,11 @@ export default function PatiUzat() {
               ) : null}
             </Card>
           ) : null}
-        </ScrollView>
+        </RefreshableScrollView>
       </Modal>
 
       <Modal visible={!!selectedReviewContribution} animationType="slide" onRequestClose={() => setSelectedReviewContribution(null)}>
-        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+        <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
           <TouchableOpacity onPress={() => setSelectedReviewContribution(null)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Pati Uzat İnceleme</Text>
 
@@ -1105,7 +1118,7 @@ export default function PatiUzat() {
               ) : null}
             </Card>
           ) : null}
-        </ScrollView>
+        </RefreshableScrollView>
       </Modal>
 
     </View>

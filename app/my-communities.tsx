@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Text, TouchableOpacity, View } from 'react-native';
+import { RefreshableScrollView } from '../src/components/RefreshableScrollView';
 import { Card } from '../src/components/Card';
 import { useAuth } from '../src/context/AuthContext';
 import { useCommunity } from '../src/context/CommunityContext';
@@ -124,7 +125,7 @@ export default function MyCommunitiesScreen() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+    <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
       <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
       <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Topluluklarım</Text>
       <Text style={{ color: colors.muted, marginTop: 5 }}>Üye olduğun toplulukları görüntüleyebilir ve ayrılabilirsin.</Text>
@@ -180,6 +181,6 @@ export default function MyCommunitiesScreen() {
           <Text style={{ color: colors.muted, marginTop: 2 }}>Rol: {row.role} · Durum: {row.status}</Text>
         </Card>
       )) : null}
-    </ScrollView>
+    </RefreshableScrollView>
   );
 }

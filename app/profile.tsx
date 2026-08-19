@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
-import { Image, View, Text, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, Image, View, Text, TouchableOpacity } from 'react-native';
 import { useAuth } from '../src/context/AuthContext';
 import { Card } from '../src/components/Card';
 import { useCommunity } from '../src/context/CommunityContext';
@@ -9,13 +9,25 @@ import { colors } from '../src/theme';
 import { isSupabaseDataEnabled } from '../src/services/supabase';
 import { getIsCurrentUserAppAdmin, getUserProfileSettings } from '../src/services/communityService';
 
+function resolveDisplayName(input: { profileName?: string; authName?: string; email?: string }): string {
+  const profileName = String(input.profileName ?? '').trim().replace(/\s+/g, ' ');
+  if (profileName && !profileName.includes('@')) return profileName;
+
+  const authName = String(input.authName ?? '').trim().replace(/\s+/g, ' ');
+  const emailPrefix = String(input.email ?? '').split('@')[0].trim().toLowerCase();
+  if (authName && !authName.includes('@') && authName.toLowerCase() !== emailPrefix) return authName;
+
+  return 'Gönüllü';
+}
+
 export default function Profile() {
   const params = useLocalSearchParams<{ source?: string }>();
   const { currentUser, signOut } = useAuth();
   const { selectedCommunity, clearSelectedCommunity } = useCommunity();
-  const [displayName, setDisplayName] = useState(currentUser?.fullName ?? 'Gonullu');
+  const [displayName, setDisplayName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [isAppAdmin, setIsAppAdmin] = useState(false);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
   const source = Array.isArray(params.source) ? params.source[0] : params.source;
 
   function goBackBySource() {
@@ -39,11 +51,14 @@ export default function Profile() {
       async function loadProfileUi() {
         if (!currentUser) return;
 
+        setIsProfileLoading(true);
+
         if (!isSupabaseDataEnabled()) {
           if (!mounted) return;
-          setDisplayName(currentUser.fullName ?? 'Gonullu');
+          setDisplayName(resolveDisplayName({ authName: currentUser.fullName, email: currentUser.email }));
           setAvatarUrl('');
           setIsAppAdmin(false);
+          setIsProfileLoading(false);
           return;
         }
 
@@ -53,14 +68,17 @@ export default function Profile() {
             getIsCurrentUserAppAdmin(currentUser.id),
           ]);
           if (!mounted) return;
-          setDisplayName(profile.fullName || currentUser.fullName || 'Gonullu');
+          setDisplayName(resolveDisplayName({ profileName: profile.fullName, authName: currentUser.fullName, email: currentUser.email }));
           setAvatarUrl(profile.avatarUrl || '');
           setIsAppAdmin(appAdminFlag);
         } catch {
           if (!mounted) return;
-          setDisplayName(currentUser.fullName ?? 'Gonullu');
+          setDisplayName(resolveDisplayName({ authName: currentUser.fullName, email: currentUser.email }));
           setAvatarUrl('');
           setIsAppAdmin(false);
+        } finally {
+          if (!mounted) return;
+          setIsProfileLoading(false);
         }
       }
 
@@ -87,7 +105,14 @@ export default function Profile() {
         ) : (
           <View style={{ width: 78, height: 78, borderRadius: 28, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 36 }}>👤</Text></View>
         )}
-        <Text style={{ fontSize: 23, fontWeight: '800', color: colors.text, marginTop: 12 }}>{displayName}</Text>
+        {isProfileLoading ? (
+          <View style={{ marginTop: 12, alignItems: 'center' }}>
+            <ActivityIndicator color={colors.primary} />
+            <Text style={{ color: colors.muted, marginTop: 6 }}>Profil yükleniyor...</Text>
+          </View>
+        ) : (
+          <Text style={{ fontSize: 23, fontWeight: '800', color: colors.text, marginTop: 12 }}>{displayName}</Text>
+        )}
         <Text style={{ color: colors.muted }}>Seçili: {selectedCommunity?.name ?? '-'}</Text>
       </View>
       <Card style={{ marginTop: 25 }}>

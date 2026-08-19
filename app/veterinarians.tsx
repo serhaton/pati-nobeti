@@ -1,7 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Linking, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, Modal, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { RefreshableScrollView } from '../src/components/RefreshableScrollView';
 import { Card } from '../src/components/Card';
 import { useAuth } from '../src/context/AuthContext';
 import { useCommunity } from '../src/context/CommunityContext';
@@ -246,7 +247,7 @@ export default function VeterinariansScreen() {
   if (!selectedCommunity) return null;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+    <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
       <TouchableOpacity onPress={goBackBySource} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
       <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Veterinerler</Text>
       <Text style={{ color: colors.muted, marginTop: 5 }}>{selectedCommunity.name}</Text>
@@ -300,7 +301,7 @@ export default function VeterinariansScreen() {
       ))}
 
       <Modal visible={showSelectModal} animationType="slide" onRequestClose={() => setShowSelectModal(false)}>
-        <ScrollView
+        <RefreshableScrollView
           style={{ flex: 1, backgroundColor: colors.background }}
           contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}
           onScroll={(event) => {
@@ -369,11 +370,11 @@ export default function VeterinariansScreen() {
 
             <Text style={{ color: colors.muted, marginTop: 8 }}>Listeden veteriner seçince override ekranına geçilir.</Text>
           </Card>
-        </ScrollView>
+        </RefreshableScrollView>
       </Modal>
 
       <Modal visible={showOverrideModal} animationType="slide" onRequestClose={() => setShowOverrideModal(false)}>
-        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+        <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
           <TouchableOpacity onPress={() => setShowOverrideModal(false)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Topluluk Veterineri Bilgileri</Text>
 
@@ -426,8 +427,8 @@ export default function VeterinariansScreen() {
           >
             <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>Bu Topluluktan Sil</Text>
           </TouchableOpacity>
-        </ScrollView>
+        </RefreshableScrollView>
       </Modal>
-    </ScrollView>
+    </RefreshableScrollView>
   );
 }

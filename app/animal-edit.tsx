@@ -1,7 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useMemo, useState } from 'react';
-import { Alert, Image, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Modal, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { RefreshableScrollView } from '../src/components/RefreshableScrollView';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Card } from '../src/components/Card';
 import { useAuth } from '../src/context/AuthContext';
@@ -213,7 +214,7 @@ export default function AnimalEditScreen() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 36 }}>
+    <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 36 }}>
       <TouchableOpacity onPress={goBackToAnimalList} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
       <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Can Dostu Düzenle</Text>
       <Text style={{ color: colors.muted, marginTop: 5 }}>Profil, sağlık ve fotoğraf alanlarını güncelle.</Text>
@@ -279,7 +280,7 @@ export default function AnimalEditScreen() {
                   placeholder="Cins içinde ara"
                   style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 12, backgroundColor: '#fff' }}
                 />
-                <ScrollView style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, backgroundColor: '#fff', maxHeight: 340 }}>
+                <RefreshableScrollView style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, backgroundColor: '#fff', maxHeight: 340 }}>
                   {breedOptions.length > 0 ? (
                     breedOptions.map((item) => (
                       <TouchableOpacity
@@ -296,7 +297,7 @@ export default function AnimalEditScreen() {
                   ) : (
                     <Text style={{ color: colors.muted, padding: 12 }}>Aramaya uygun cins bulunamadı.</Text>
                   )}
-                </ScrollView>
+                </RefreshableScrollView>
 
                 <TouchableOpacity
                   onPress={() => setShowBreedPicker(false)}
@@ -444,7 +445,7 @@ export default function AnimalEditScreen() {
           <Text style={{ color: colors.text, fontWeight: '700' }}>Galeriden ekle</Text>
         </TouchableOpacity>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
+        <RefreshableScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {photoUris.map((uri, index) => (
               <View key={`${uri}-${index}`}>
@@ -458,12 +459,12 @@ export default function AnimalEditScreen() {
               </View>
             ))}
           </View>
-        </ScrollView>
+        </RefreshableScrollView>
       </Card>
 
       <TouchableOpacity onPress={saveAnimal} style={{ backgroundColor: colors.primary, borderRadius: 15, padding: 17, marginTop: 15 }}>
         <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>Değişiklikleri Kaydet</Text>
       </TouchableOpacity>
-    </ScrollView>
+    </RefreshableScrollView>
   );
 }

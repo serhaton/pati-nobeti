@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { RefreshableScrollView } from '../src/components/RefreshableScrollView';
 import MapView, { Marker, Region } from 'react-native-maps';
 import { Card } from '../src/components/Card';
 import { Logo } from '../src/components/Logo';
@@ -530,7 +531,7 @@ export default function CommunitySelectScreen() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 32 }}>
+    <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 32 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Logo small />
         <TouchableOpacity
@@ -864,7 +865,7 @@ export default function CommunitySelectScreen() {
       </Modal>
 
       <Modal visible={showCreateModal} animationType="slide" onRequestClose={() => setShowCreateModal(false)}>
-        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+        <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
           <TouchableOpacity onPress={() => setShowCreateModal(false)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Yeni Topluluk Oluştur</Text>
           <Text style={{ color: colors.muted, marginTop: 5 }}>İsim gir, merkez seç ve açıklama ekle.</Text>
@@ -940,8 +941,8 @@ export default function CommunitySelectScreen() {
               {isCreatingCommunity ? 'Olusturuluyor...' : 'Topluluğu Oluştur'}
             </Text>
           </TouchableOpacity>
-        </ScrollView>
+        </RefreshableScrollView>
       </Modal>
-    </ScrollView>
+    </RefreshableScrollView>
   );
 }

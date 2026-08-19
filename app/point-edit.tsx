@@ -1,7 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { RefreshableScrollView } from '../src/components/RefreshableScrollView';
 import { Card } from '../src/components/Card';
 import { useAuth } from '../src/context/AuthContext';
 import { useCommunity } from '../src/context/CommunityContext';
@@ -167,7 +168,7 @@ export default function PointEditScreen() {
   }
 
   return (
-    <ScrollView
+    <RefreshableScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
       contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}
     >
@@ -283,6 +284,6 @@ export default function PointEditScreen() {
           {saving ? 'Kaydediliyor...' : 'Degisiklikleri Kaydet'}
         </Text>
       </TouchableOpacity>
-    </ScrollView>
+    </RefreshableScrollView>
   );
 }

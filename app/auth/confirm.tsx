@@ -1,7 +1,8 @@
 import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { RefreshableScrollView } from '../../src/components/RefreshableScrollView';
 import { Card } from '../../src/components/Card';
 import { supabase } from '../../src/services/supabase';
 import { colors } from '../../src/theme';
@@ -87,7 +88,7 @@ export default function AuthConfirmScreen() {
   }, [mergedParams.access_token, mergedParams.code, mergedParams.refresh_token]);
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 36 }}>
+    <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 36 }}>
       <TouchableOpacity onPress={() => router.replace('/')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}>
         <Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text>
       </TouchableOpacity>
@@ -111,6 +112,6 @@ export default function AuthConfirmScreen() {
       >
         <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>Giriş Ekranına Dön</Text>
       </TouchableOpacity>
-    </ScrollView>
+    </RefreshableScrollView>
   );
 }
