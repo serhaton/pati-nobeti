@@ -133,7 +133,7 @@ Bu projede admin onayı gerektiren aksiyonlar için push notification akışı h
 
 - Mobil uygulama cihaz tokenını `user_devices` tablosuna kaydeder.
 - `community_join_requests`, `expenses`, `contributions` için `pending` kayıtlar `notification_events` tablosuna trigger ile event düşer.
-- Supabase Edge Function (`admin-approval-push`) bu eventleri okuyup topluluk admin cihazlarına push gönderir.
+- `notification_events` tablosuna yeni kayıt gelir gelmez ikinci bir trigger Supabase Edge Function (`admin-approval-push`) çağırır ve push anlık gönderilir.
 
 ### 1) SQL migration
 
@@ -158,10 +158,10 @@ Lokal test:
 supabase functions serve admin-approval-push --env-file .env
 ```
 
-### 3) Scheduled run (önerilen)
+### 3) Scheduled run gerekmez
 
-Edge Function'ı her 1 dakikada bir çağıracak bir schedule/job tanımla.
-Supabase Dashboard veya cron ile function endpoint'i periyodik tetiklenmelidir.
+Bu akışta cron/schedule kullanılmaz.
+Push bildirimleri event insert olduktan hemen sonra otomatik tetiklenir.
 
 ### 4) Mobil taraf
 
@@ -231,3 +231,15 @@ eas env:set --environment production --name EXPO_PUBLIC_DATA_SOURCE --value "sup
 eas env:set --environment production --name EXPO_PUBLIC_ADMOB_IOS_BANNER_ID --value "ca-app-pub-4475107857161348/7484551961" --visibility plaintext
 
 eas build --platform ios --profile production --local
+
+
+Fiziksel iPhone için kullanacağın komutlar:
+
+Uygulamayı cihaza yüklemek:
+npx expo run:ios --device
+
+Dev server’ı başlatmak:
+npx expo start --dev-client --host lan --scheme patiuzat -c
+
+LAN bağlanmazsa:
+npx expo start --dev-client --host tunnel --scheme patiuzat -c

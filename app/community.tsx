@@ -29,6 +29,7 @@ import {
   getPendingContributionsForCommunity,
 } from '../src/services/contributionService';
 import { isSupabaseDataEnabled } from '../src/services/supabase';
+import { NOT_SPECIFIED_LABEL, UNKNOWN_MEMBER_LABEL } from '../src/constants/userLabels';
 
 export default function Community() {
   const params = useLocalSearchParams<{ source?: string }>();
@@ -66,12 +67,13 @@ export default function Community() {
   }, [selectedCommunityId]);
 
   function getPerformerName(userId: string | null): string {
-    if (!userId) return 'Belirtilmedi';
-    return memberNameById.get(userId) ?? userId;
+    if (!userId) return NOT_SPECIFIED_LABEL;
+    return memberNameById.get(userId) ?? UNKNOWN_MEMBER_LABEL;
   }
 
   const communityMenuItems = [
     ...(isCommunityAdmin ? [
+      ['🏘️', 'Topluluk', '/community-settings'],
       ['🛡️', 'Üye Listesi ve Yetkiler', '/community-members'],
       ['🐾', 'Can dostlar', '/animal'],
       ['🩺', 'Veterinerler', '/veterinarians'],
@@ -576,7 +578,7 @@ export default function Community() {
               });
               return;
             }
-            if (path === '/community-members' || path === '/finance' || path === '/veterinarians' || path === '/map') {
+            if (path === '/community-members' || path === '/finance' || path === '/veterinarians' || path === '/map' || path === '/community-settings') {
               router.push({
                 pathname: path,
                 params: { source: 'community' },

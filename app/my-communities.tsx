@@ -9,6 +9,7 @@ import { useCommunity } from '../src/context/CommunityContext';
 import { colors } from '../src/theme';
 import { CommunityMembership, getMembershipsForUser, leaveCommunityByUser } from '../src/services/communityService';
 import { isSupabaseDataEnabled } from '../src/services/supabase';
+import { NOT_SPECIFIED_LABEL } from '../src/constants/userLabels';
 
 export default function MyCommunitiesScreen() {
   const { currentUser } = useAuth();
@@ -30,7 +31,7 @@ export default function MyCommunitiesScreen() {
       return {
         ...membership,
         communityName: community?.name ?? 'Bilinmeyen topluluk',
-        neighborhood: community?.neighborhood ?? 'Belirtilmedi',
+        neighborhood: community?.neighborhood ?? NOT_SPECIFIED_LABEL,
         communityStatus: community?.status ?? null,
       };
     });

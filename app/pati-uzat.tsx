@@ -26,6 +26,7 @@ import {
   updateContribution,
 } from '../src/services/contributionService';
 import { downloadAndOpenRemoteFile } from '../src/services/fileDownload';
+import { NOT_SPECIFIED_LABEL, UNKNOWN_MEMBER_LABEL } from '../src/constants/userLabels';
 
 type LocalReceiptFile = {
   uri: string;
@@ -162,12 +163,26 @@ export default function PatiUzat() {
   const selectedContributorName = useMemo(() => {
     const found = communityMembers.find((item) => item.userId === selectedContributorUserId);
     if (found) return found.fullName;
-    return currentUser?.fullName ?? 'Bilinmiyor';
+    if (selectedContributorUserId) return UNKNOWN_MEMBER_LABEL;
+    return currentUser?.fullName ?? UNKNOWN_MEMBER_LABEL;
   }, [communityMembers, currentUser?.fullName, selectedContributorUserId]);
 
   const memberNameById = useMemo(() => {
     return new Map(communityMembers.map((item) => [item.userId, item.fullName]));
   }, [communityMembers]);
+
+  function resolveMemberDisplayName(userId: string | null | undefined, emptyFallback = NOT_SPECIFIED_LABEL): string {
+    if (!userId) return emptyFallback;
+
+    const memberName = memberNameById.get(userId);
+    if (memberName) return memberName;
+
+    return UNKNOWN_MEMBER_LABEL;
+  }
+
+  function resolveContributorDisplayName(userId: string | null | undefined): string {
+    return resolveMemberDisplayName(userId, UNKNOWN_MEMBER_LABEL);
+  }
 
   const approvedExpenseById = useMemo(() => {
     return new Map(approvedExpenses.map((item) => [item.id, item]));
@@ -645,7 +660,7 @@ export default function PatiUzat() {
           <Card style={{ marginBottom: 10, backgroundColor: theme.cardBackground, borderWidth: 1, borderColor: theme.cardBorder }}>
             <Text style={{ fontWeight: '800', color: colors.text }}>{item.amount.toLocaleString('tr-TR')} ₺</Text>
             <Text style={{ color: colors.muted, marginTop: 3 }}>
-              Pati uzatan: {item.contributorUserId ? (memberNameById.get(item.contributorUserId) ?? item.contributorUserId) : 'Belirtilmedi'}
+              Pati uzatan: {resolveContributorDisplayName(item.contributorUserId)}
             </Text>
             <Text style={{ color: colors.muted, marginTop: 4 }}>{new Date(item.transferAt).toLocaleString('tr-TR')}</Text>
             <Text style={{ color: item.approvalStatus === 'rejected' ? '#9B3A34' : colors.muted, marginTop: 2 }}>{contributionStatusLabel(item.approvalStatus)}</Text>
@@ -926,7 +941,7 @@ export default function PatiUzat() {
               style={{ marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: '#fff', padding: 12 }}
             >
               <Text style={{ color: colors.text }}>
-                {contributionContributorUserId ? (memberNameById.get(contributionContributorUserId) ?? contributionContributorUserId) : 'Üye seç'}
+                {contributionContributorUserId ? resolveMemberDisplayName(contributionContributorUserId, UNKNOWN_MEMBER_LABEL) : 'Üye seç'}
               </Text>
             </TouchableOpacity>
 
@@ -1016,7 +1031,7 @@ export default function PatiUzat() {
               <Text style={{ color: colors.muted, marginTop: 2 }}>{new Date(selectedReadonlyExpense.expenseAt).toLocaleString('tr-TR')}</Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>{selectedReadonlyExpense.amount.toLocaleString('tr-TR')} ₺</Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>
-                Yapan: {selectedReadonlyExpense.submittedBy ? (memberNameById.get(selectedReadonlyExpense.submittedBy) ?? selectedReadonlyExpense.submittedBy) : 'Belirtilmedi'}
+                Yapan: {resolveMemberDisplayName(selectedReadonlyExpense.submittedBy)}
               </Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>Kalan borç: {selectedReadonlyExpense.dueAmount.toLocaleString('tr-TR')} ₺</Text>
 
@@ -1060,8 +1075,8 @@ export default function PatiUzat() {
               <Text style={{ fontWeight: '800', color: colors.text }}>Pati uzatan üye</Text>
               <Text style={{ color: colors.muted, marginTop: 4 }}>
                 {selectedReviewContribution.contributorUserId
-                  ? (memberNameById.get(selectedReviewContribution.contributorUserId) ?? selectedReviewContribution.contributorUserId)
-                  : 'Belirtilmedi'}
+                  ? resolveContributorDisplayName(selectedReviewContribution.contributorUserId)
+                  : UNKNOWN_MEMBER_LABEL}
               </Text>
 
               <Text style={{ fontWeight: '800', color: colors.text, marginTop: 14 }}>Pati uzatma tarihi</Text>

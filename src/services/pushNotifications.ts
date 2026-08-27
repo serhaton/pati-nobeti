@@ -86,11 +86,29 @@ export async function registerPushTokenForUser(userId: string): Promise<string |
     await ensureProfileExists(userId);
 
     const nowIso = new Date().toISOString();
-    const { error: registerRpcError } = await supabase.rpc('register_user_device', {
+    const registerPayload = {
       p_expo_push_token: token,
       p_platform: Platform.OS,
       p_last_seen_at: nowIso,
-    });
+    };
+
+    let { error: registerRpcError } = await supabase.rpc('register_user_device', registerPayload);
+
+    const isAuthMissingError = (error: any) => {
+      const code = String(error?.code ?? '').toUpperCase();
+      const message = String(error?.message ?? '').toLowerCase();
+      return code === 'P0001' && message.includes('kullanici dogrulanamadi');
+    };
+
+    if (registerRpcError && isAuthMissingError(registerRpcError)) {
+      // Transient auth context issue can happen right after login/signup; retry once after refresh.
+      await supabase.auth.refreshSession();
+      const retried = await supabase.rpc('register_user_device', {
+        ...registerPayload,
+        p_last_seen_at: new Date().toISOString(),
+      });
+      registerRpcError = retried.error;
+    }
 
     if (registerRpcError) {
       const functionMissing =
@@ -122,8 +140,13 @@ export async function registerPushTokenForUser(userId: string): Promise<string |
     console.log('[push] Token registered for user:', userId);
 
     return token;
-  } catch (error) {
-    console.error('[push] Failed to register push token:', error);
+  } catch (error: any) {
+    // Use warn instead of error to avoid red-screen in development for non-fatal push registration issues.
+    console.warn('[push] Push token registration skipped:', {
+      code: error?.code ?? null,
+      message: error?.message ?? String(error),
+      details: error?.details ?? null,
+    });
     return null;
   }
 }

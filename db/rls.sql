@@ -40,6 +40,7 @@ set search_path = public
 as $$
   select
     p_profile_id = auth.uid()
+    or public.is_app_admin()
     or exists (
       select 1
       from public.community_members me

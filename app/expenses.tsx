@@ -30,6 +30,7 @@ import { uploadExpenseReceiptsIfNeeded } from '../src/services/supabaseStorage';
 import { getCommunityMembers } from '../src/data/mock';
 import { ContributionRecord, getContributionsByCommunity, updateContribution } from '../src/services/contributionService';
 import { downloadAndOpenRemoteFile } from '../src/services/fileDownload';
+import { NOT_SPECIFIED_LABEL, UNKNOWN_MEMBER_LABEL } from '../src/constants/userLabels';
 
 type LocalReceiptFile = {
   uri: string;
@@ -242,6 +243,19 @@ export default function Expenses() {
     return new Map(communityMembers.map((item) => [item.userId, item.fullName]));
   }, [communityMembers]);
 
+  function resolveMemberDisplayName(userId: string | null | undefined, emptyFallback = NOT_SPECIFIED_LABEL): string {
+    if (!userId) return emptyFallback;
+
+    const memberName = memberNameById.get(userId);
+    if (memberName) return memberName;
+
+    return UNKNOWN_MEMBER_LABEL;
+  }
+
+  function resolveContributorDisplayName(userId: string | null | undefined): string {
+    return resolveMemberDisplayName(userId, UNKNOWN_MEMBER_LABEL);
+  }
+
   const approvedExpenseById = useMemo(() => {
     return new Map(approvedExpenses.map((item) => [item.id, item]));
   }, [approvedExpenses]);
@@ -312,9 +326,11 @@ export default function Expenses() {
     if (performedByUserId) {
       const found = memberNameById.get(performedByUserId);
       if (found) return found;
+
+      return UNKNOWN_MEMBER_LABEL;
     }
 
-    return currentUser?.fullName ?? 'Bilinmiyor';
+    return currentUser?.fullName ?? UNKNOWN_MEMBER_LABEL;
   }, [currentUser?.fullName, memberNameById, performedByUserId]);
 
   const editingAllocationSummary = useMemo(() => {
@@ -706,6 +722,10 @@ export default function Expenses() {
     let communityVeterinarianId: string | null = null;
 
     if (expenseType === 'veteriner') {
+      if (communityVets.length === 0) {
+        Alert.alert('Uyarı', 'Topluluk yoneticisi veteriner tanimi yapmali.');
+        return;
+      }
       if (!selectedVet) {
         Alert.alert('Eksik bilgi', 'Veteriner masrafı için topluluk veterineri seçmelisin.');
         return;
@@ -1034,7 +1054,7 @@ export default function Expenses() {
               <Text style={{ color: colors.muted, marginTop: 2 }}>{expenseTypeLabel(item.type)}</Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>Durum: {expenseStatusLabel(item.approvalStatus)}</Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>
-                Yapan: {item.submittedBy ? (memberNameById.get(item.submittedBy) ?? item.submittedBy) : 'Belirtilmedi'}
+                Yapan: {resolveMemberDisplayName(item.submittedBy)}
               </Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
@@ -1138,7 +1158,7 @@ export default function Expenses() {
                         <Text style={{ color: colors.muted, marginTop: 4 }}>{item.vendorName} · {new Date(item.expenseAt).toLocaleString('tr-TR')}</Text>
                         <Text style={{ color: colors.muted, marginTop: 2 }}>{expenseTypeLabel(item.type)}</Text>
                         <Text style={{ color: colors.muted, marginTop: 2 }}>
-                          Yapan: {item.submittedBy ? (memberNameById.get(item.submittedBy) ?? item.submittedBy) : 'Belirtilmedi'}
+                          Yapan: {resolveMemberDisplayName(item.submittedBy)}
                         </Text>
                       </View>
                       <View style={{ alignItems: 'flex-end' }}>
@@ -1225,7 +1245,7 @@ export default function Expenses() {
                       <Text style={{ alignSelf: 'flex-start', fontSize: 11, fontWeight: '800', color: '#7A5318', backgroundColor: '#FCECC8', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>PATI UZAT</Text>
                       <Text style={{ fontWeight: '800', color: colors.text }}>{item.amount.toLocaleString('tr-TR')} ₺</Text>
                       <Text style={{ color: colors.muted, marginTop: 3 }}>
-                        Üye: {item.contributorUserId ? (memberNameById.get(item.contributorUserId) ?? item.contributorUserId) : 'Belirtilmedi'}
+                        Üye: {resolveContributorDisplayName(item.contributorUserId)}
                       </Text>
                       <Text style={{ color: colors.muted, marginTop: 2 }}>{new Date(item.transferAt).toLocaleString('tr-TR')}</Text>
                       <Text style={{ color: colors.muted, marginTop: 2 }}>{contributionStatusLabel(item.approvalStatus)}</Text>
@@ -1379,6 +1399,9 @@ export default function Expenses() {
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
               <TouchableOpacity
                 onPress={() => {
+                  if (communityVets.length === 0) {
+                    Alert.alert('Uyarı', 'Topluluk yoneticisi veteriner tanimi yapmali.');
+                  }
                   setExpenseType('veteriner');
                   setVendorText('');
                 }}
@@ -1566,7 +1589,7 @@ export default function Expenses() {
               style={{ marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: '#fff', padding: 12 }}
             >
               <Text style={{ color: colors.text }}>
-                {contributionContributorUserId ? (memberNameById.get(contributionContributorUserId) ?? contributionContributorUserId) : 'Üye seç'}
+                {contributionContributorUserId ? resolveMemberDisplayName(contributionContributorUserId, UNKNOWN_MEMBER_LABEL) : 'Üye seç'}
               </Text>
             </TouchableOpacity>
 
@@ -1653,7 +1676,7 @@ export default function Expenses() {
                 Tarih: {new Date(selectedReadonlyExpense.expenseAt).toLocaleString('tr-TR')}
               </Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>
-                Yapan: {selectedReadonlyExpense.submittedBy ? (memberNameById.get(selectedReadonlyExpense.submittedBy) ?? selectedReadonlyExpense.submittedBy) : 'Belirtilmedi'}
+                Yapan: {resolveMemberDisplayName(selectedReadonlyExpense.submittedBy)}
               </Text>
 
               <View style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 10, backgroundColor: '#fff' }}>
@@ -1727,7 +1750,7 @@ export default function Expenses() {
             <Card style={{ marginTop: 18 }}>
               <Text style={{ fontWeight: '800', color: colors.text }}>Pati uzatan üye</Text>
               <Text style={{ color: colors.muted, marginTop: 4 }}>
-                {selectedContribution.contributorUserId ? (memberNameById.get(selectedContribution.contributorUserId) ?? selectedContribution.contributorUserId) : 'Belirtilmedi'}
+                {resolveContributorDisplayName(selectedContribution.contributorUserId)}
               </Text>
 
               <Text style={{ fontWeight: '800', color: colors.text, marginTop: 14 }}>Pati uzatma tarihi</Text>

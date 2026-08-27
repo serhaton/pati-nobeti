@@ -18,7 +18,10 @@
       "buildNumber": "4",
       "bundleIdentifier": "com.serhatonal.patiuzat",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Pati Uzat uses your location only while you use the app, for example to center the map near you and help you add a nearby feeding point.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Pati Uzat uses your location only while you use the app, for example to center the map near you and help you add a nearby feeding point.",
+        "NSLocationAlwaysUsageDescription": "Pati Uzat uses your location only while you use the app, for example to center the map near you and help you add a nearby feeding point."
       }
     },
     "plugins": [

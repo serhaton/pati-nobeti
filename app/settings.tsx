@@ -17,14 +17,15 @@ function isRemoteUrl(uri: string): boolean {
 }
 
 export default function SettingsScreen() {
-  const { currentUser } = useAuth();
-  const { selectedCommunity } = useCommunity();
+  const { currentUser, deleteAccount } = useAuth();
+  const { selectedCommunity, clearSelectedCommunity } = useCommunity();
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [photoUri, setPhotoUri] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const avatarSource = useMemo(() => {
     if (!photoUri) return null;
@@ -146,6 +147,48 @@ export default function SettingsScreen() {
     }
   }
 
+  function onDeleteAccountPress() {
+    if (!currentUser) return;
+
+    Alert.alert(
+      'Hesabı Sil',
+      'Bu işlem hesabını ve ilişkili profil verilerini kalıcı olarak siler. Bu işlem geri alınamaz. Devam etmek istiyor musun?',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Devam Et',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Son Onay',
+              'Hesabını kalıcı olarak silmek üzeresin. Emin misin?',
+              [
+                { text: 'İptal', style: 'cancel' },
+                {
+                  text: 'Hesabı Kalıcı Olarak Sil',
+                  style: 'destructive',
+                  onPress: async () => {
+                    setIsDeleting(true);
+                    try {
+                      await deleteAccount();
+                      clearSelectedCommunity();
+                      Alert.alert('Hesap silindi', 'Hesabın başarıyla silindi.');
+                      router.replace('/');
+                    } catch (error: any) {
+                      Alert.alert('Hesap silinemedi', String(error?.message ?? 'Hesap silme işlemi tamamlanamadı.'));
+                    } finally {
+                      setIsDeleting(false);
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  }
+
   return (
     <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
       <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
@@ -213,6 +256,30 @@ export default function SettingsScreen() {
           {isSaving ? 'Kaydediliyor...' : 'Kaydet'}
         </Text>
       </TouchableOpacity>
+
+      <Card style={{ marginTop: 22 }}>
+        <Text style={{ fontWeight: '800', color: colors.text }}>Hesap</Text>
+        <Text style={{ color: colors.muted, marginTop: 8 }}>
+          Hesabını kalıcı olarak silebilirsin. Bu işlem geri alınamaz.
+        </Text>
+        <TouchableOpacity
+          onPress={onDeleteAccountPress}
+          disabled={isDeleting || isSaving || isLoading}
+          style={{
+            marginTop: 14,
+            backgroundColor: '#fff',
+            borderWidth: 1,
+            borderColor: colors.danger,
+            borderRadius: 12,
+            padding: 12,
+            opacity: isDeleting || isSaving || isLoading ? 0.7 : 1,
+          }}
+        >
+          <Text style={{ color: colors.danger, textAlign: 'center', fontWeight: '800' }}>
+            {isDeleting ? 'Hesap siliniyor...' : 'Hesabı Sil'}
+          </Text>
+        </TouchableOpacity>
+      </Card>
     </RefreshableScrollView>
   );
 }

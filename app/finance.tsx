@@ -12,6 +12,7 @@ import { ExpenseRecord, getApprovedExpensesByCommunity } from '../src/services/e
 import { ContributionRecord, getContributionsByCommunity } from '../src/services/contributionService';
 import { getCommunityMembers } from '../src/data/mock';
 import { downloadAndOpenRemoteFile } from '../src/services/fileDownload';
+import { NOT_SPECIFIED_LABEL, UNKNOWN_MEMBER_LABEL } from '../src/constants/userLabels';
 
 function formatContributionStatus(status: ContributionRecord['approvalStatus']): string {
   if (status === 'approved') return 'Onaylandı';
@@ -56,6 +57,15 @@ export default function Kasa() {
       }));
     return new Map(rows.map((item) => [item.userId, item.fullName]));
   }, [selectedCommunityId]);
+
+  function resolveMemberDisplayName(userId: string | null | undefined, emptyFallback = NOT_SPECIFIED_LABEL): string {
+    if (!userId) return emptyFallback;
+    return memberNameById.get(userId) ?? UNKNOWN_MEMBER_LABEL;
+  }
+
+  function resolveContributorDisplayName(userId: string | null | undefined): string {
+    return resolveMemberDisplayName(userId, UNKNOWN_MEMBER_LABEL);
+  }
 
   const expenseById = useMemo(() => {
     return new Map(expenses.map((item) => [item.id, item]));
@@ -251,7 +261,7 @@ export default function Kasa() {
                     <Text style={{ marginTop: 5, fontWeight: '800', color: colors.text }} numberOfLines={1}>{item.title}</Text>
                     <Text style={{ color: colors.muted, marginTop: 2, fontSize: 12 }} numberOfLines={1}>{item.vendorName}</Text>
                     <Text style={{ color: colors.muted, marginTop: 2, fontSize: 12 }} numberOfLines={1}>
-                      Yapan: {item.submittedBy ? (memberNameById.get(item.submittedBy) ?? item.submittedBy) : 'Belirtilmedi'}
+                      Yapan: {resolveMemberDisplayName(item.submittedBy)}
                     </Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
@@ -275,7 +285,7 @@ export default function Kasa() {
                 <View style={{ flex: 1, paddingRight: 8 }}>
                   <Text style={{ alignSelf: 'flex-start', fontSize: 10, fontWeight: '800', color: '#2F7A44', backgroundColor: '#D8F0DE', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>PATI UZAT</Text>
                   <Text style={{ marginTop: 5, fontWeight: '800', color: colors.text }} numberOfLines={1}>Pati destek kaydı</Text>
-                  <Text style={{ color: colors.muted, marginTop: 2, fontSize: 12 }} numberOfLines={1}>Üye: {item.contributorUserId ? (memberNameById.get(item.contributorUserId) ?? item.contributorUserId) : (currentUser?.fullName ?? 'Belirtilmedi')}</Text>
+                  <Text style={{ color: colors.muted, marginTop: 2, fontSize: 12 }} numberOfLines={1}>Üye: {resolveContributorDisplayName(item.contributorUserId)}</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={{ fontWeight: '900', color: colors.text, fontSize: 14 }}>{item.amount.toLocaleString('tr-TR')} ₺</Text>
@@ -300,7 +310,7 @@ export default function Kasa() {
               <Text style={{ color: colors.muted, marginTop: 4 }}>{selectedExpense.vendorName}</Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>{new Date(selectedExpense.expenseAt).toLocaleString('tr-TR')}</Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>Durum: {formatExpenseStatus(selectedExpense.approvalStatus)}</Text>
-              <Text style={{ color: colors.muted, marginTop: 2 }}>Yapan: {selectedExpense.submittedBy ? (memberNameById.get(selectedExpense.submittedBy) ?? selectedExpense.submittedBy) : 'Belirtilmedi'}</Text>
+              <Text style={{ color: colors.muted, marginTop: 2 }}>Yapan: {resolveMemberDisplayName(selectedExpense.submittedBy)}</Text>
               <Text style={{ marginTop: 10, fontWeight: '800', color: colors.text }}>Toplam: {selectedExpense.amount.toLocaleString('tr-TR')} ₺</Text>
               <Text style={{ marginTop: 2, fontWeight: '800', color: selectedExpense.dueAmount > 0 ? '#9B3A34' : '#2F7A44' }}>Kalan borç: {selectedExpense.dueAmount.toLocaleString('tr-TR')} ₺</Text>
               {selectedExpense.note ? <Text style={{ color: colors.muted, marginTop: 8 }}>Not: {selectedExpense.note}</Text> : null}
@@ -324,7 +334,7 @@ export default function Kasa() {
               <Text style={{ fontWeight: '800', color: colors.text }}>{selectedContribution.amount.toLocaleString('tr-TR')} ₺ destek</Text>
               <Text style={{ color: colors.muted, marginTop: 4 }}>Tarih: {new Date(selectedContribution.transferAt).toLocaleString('tr-TR')}</Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>Durum: {formatContributionStatus(selectedContribution.approvalStatus)}</Text>
-              <Text style={{ color: colors.muted, marginTop: 2 }}>Üye: {selectedContribution.contributorUserId ? (memberNameById.get(selectedContribution.contributorUserId) ?? selectedContribution.contributorUserId) : (currentUser?.fullName ?? 'Belirtilmedi')}</Text>
+              <Text style={{ color: colors.muted, marginTop: 2 }}>Üye: {resolveContributorDisplayName(selectedContribution.contributorUserId)}</Text>
               <Text style={{ marginTop: 10, fontWeight: '800', color: colors.text }}>Kalan bakiye: {selectedContribution.remainingAmount.toLocaleString('tr-TR')} ₺</Text>
               {selectedContribution.note ? <Text style={{ color: colors.muted, marginTop: 8 }}>Not: {selectedContribution.note}</Text> : null}
 

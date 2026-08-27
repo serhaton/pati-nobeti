@@ -28,6 +28,7 @@ export type BaseCommunity = {
   longitude: number;
   defaultZoom: number;
   status: 'pending' | 'approved' | 'rejected';
+  createdBy?: string | null;
 };
 
 const baseCommunities: BaseCommunity[] = [
