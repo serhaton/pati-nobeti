@@ -60,11 +60,11 @@
     <key>NSCameraUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your camera</string>
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <string>Pati Uzat uses your location only while you use the app, for example to center the map near you and help you add a nearby feeding point.</string>
+    <string>Pati Uzat, uygulamayı kullanırken konumunuza erişir; yakındaki toplulukları bulmanızı ve Besleme Noktaları haritasını mevcut konumunuza odaklamanızı sağlar.</string>
     <key>NSLocationAlwaysUsageDescription</key>
-    <string>Pati Uzat uses your location only while you use the app, for example to center the map near you and help you add a nearby feeding point.</string>
+    <string>Pati Uzat, uygulamayı kullanırken konumunuza erişir; yakındaki toplulukları bulmanızı ve Besleme Noktaları haritasını mevcut konumunuza odaklamanızı sağlar.</string>
     <key>NSLocationWhenInUseUsageDescription</key>
-    <string>Pati Uzat uses your location only while you use the app, for example to center the map near you and help you add a nearby feeding point.</string>
+    <string>Pati Uzat, uygulamayı kullanırken konumunuza erişir; yakındaki toplulukları bulmanızı ve Besleme Noktaları haritasını mevcut konumunuza odaklamanızı sağlar.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your microphone</string>
     <key>NSPhotoLibraryUsageDescription</key>

@@ -19,9 +19,9 @@
       "bundleIdentifier": "com.serhatonal.patiuzat",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSLocationWhenInUseUsageDescription": "Pati Uzat uses your location only while you use the app, for example to center the map near you and help you add a nearby feeding point.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Pati Uzat uses your location only while you use the app, for example to center the map near you and help you add a nearby feeding point.",
-        "NSLocationAlwaysUsageDescription": "Pati Uzat uses your location only while you use the app, for example to center the map near you and help you add a nearby feeding point."
+        "NSLocationWhenInUseUsageDescription": "Pati Uzat, uygulamayı kullanırken konumunuza erişir; yakındaki toplulukları bulmanızı ve Besleme Noktaları haritasını mevcut konumunuza odaklamanızı sağlar.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Pati Uzat, uygulamayı kullanırken konumunuza erişir; yakındaki toplulukları bulmanızı ve Besleme Noktaları haritasını mevcut konumunuza odaklamanızı sağlar.",
+        "NSLocationAlwaysUsageDescription": "Pati Uzat, uygulamayı kullanırken konumunuza erişir; yakındaki toplulukları bulmanızı ve Besleme Noktaları haritasını mevcut konumunuza odaklamanızı sağlar."
       }
     },
     "plugins": [
