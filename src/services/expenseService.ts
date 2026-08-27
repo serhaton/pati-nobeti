@@ -1,5 +1,6 @@
 import { expenses as mockExpenses } from '../data/mock';
 import { isSupabaseDataEnabled, supabase } from './supabase';
+import { NOT_SPECIFIED_LABEL } from '../constants/userLabels';
 
 export type ExpenseType = 'mama' | 'veteriner' | 'diger';
 export type ExpenseApprovalStatus = 'pending' | 'approved' | 'rejected';
@@ -86,7 +87,7 @@ function mapRow(row: any): ExpenseRecord {
     communityId: String(row.community_id),
     title: String(row.title ?? 'Masraf'),
     type: normalizeType(row),
-    vendorName: String(row.vendor_text ?? row.vendor ?? 'Belirtilmedi'),
+    vendorName: String(row.vendor_text ?? row.vendor ?? NOT_SPECIFIED_LABEL),
     communityVeterinarianId: row.community_veterinarian_id ? String(row.community_veterinarian_id) : null,
     expenseAt: toIso(row.expense_at, createdAt),
     amount: toNumber(row.amount),

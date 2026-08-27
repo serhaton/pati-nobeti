@@ -1,7 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Modal, ScrollView, View, Text, TouchableOpacity, TextInput } from 'react-native';
+import { FlatList, Modal, View, Text, TouchableOpacity, TextInput } from 'react-native';
+import { RefreshableScrollView } from '../src/components/RefreshableScrollView';
 import { BottomBannerAd } from '../src/components/BottomBannerAd';
 import { useCommunity } from '../src/context/CommunityContext';
 import { Card } from '../src/components/Card';
@@ -170,7 +171,7 @@ export default function Feeding() {
                   style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
                 />
 
-                <ScrollView
+                <RefreshableScrollView
                   nestedScrollEnabled
                   showsVerticalScrollIndicator
                   style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, backgroundColor: '#fff', maxHeight: MEMBER_FILTER_MAX_HEIGHT }}
@@ -209,7 +210,7 @@ export default function Feeding() {
                   ) : (
                     <Text style={{ color: colors.muted, padding: 12 }}>Bu toplulukta aramaya uygun nokta bulunamadı.</Text>
                   )}
-                </ScrollView>
+                </RefreshableScrollView>
 
                 <TouchableOpacity
                   onPress={() => setShowPointPicker(false)}
@@ -253,7 +254,7 @@ export default function Feeding() {
                   style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, padding: 14, backgroundColor: '#fff' }}
                 />
 
-                <ScrollView
+                <RefreshableScrollView
                   nestedScrollEnabled
                   showsVerticalScrollIndicator
                   style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 13, backgroundColor: '#fff', maxHeight: MEMBER_FILTER_MAX_HEIGHT }}
@@ -293,7 +294,7 @@ export default function Feeding() {
                   ) : (
                     <Text style={{ color: colors.muted, padding: 12 }}>Aramaya uygun topluluk üyesi bulunamadı.</Text>
                   )}
-                </ScrollView>
+                </RefreshableScrollView>
 
                 <TouchableOpacity
                   onPress={() => setShowFeederPicker(false)}

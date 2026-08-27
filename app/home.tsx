@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Image, ScrollView, View, Text, TouchableOpacity, Platform } from 'react-native';
+import { Image, View, Text, TouchableOpacity, Platform } from 'react-native';
+import { RefreshableScrollView } from '../src/components/RefreshableScrollView';
 import { BannerAd, BannerAdSize, MobileAds, TestIds } from 'react-native-google-mobile-ads';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../src/context/AuthContext';
@@ -33,6 +34,23 @@ export default function Home() {
   const [profileDisplayName, setProfileDisplayName] = useState(currentUser?.fullName ?? 'Gonullu');
   const [profileAvatarUrl, setProfileAvatarUrl] = useState('');
 
+  const normalizedFullName = useMemo(() => {
+    const normalized = String(profileDisplayName ?? '').trim().replace(/\s+/g, ' ');
+    return normalized || 'Gönüllü';
+  }, [profileDisplayName]);
+
+  const greetingDisplayName = useMemo(() => {
+    const rawName = String(normalizedFullName ?? '').trim();
+    if (!rawName || rawName.includes('@')) return 'Gönüllü';
+
+    const emailPrefix = String(currentUser?.email ?? '').split('@')[0].trim().toLowerCase();
+    if (emailPrefix && rawName.toLowerCase() === emailPrefix) {
+      return 'Gönüllü';
+    }
+
+    return rawName;
+  }, [currentUser?.email, normalizedFullName]);
+
   const isCommunityAdmin = !!currentUser && selectedCommunity?.adminUserIds.includes(currentUser.id);
   const todayFedCount = selectedCommunity ? getTodayFeedingRecordCountByCommunity(selectedCommunity.id) : 0;
 
@@ -52,6 +70,13 @@ export default function Home() {
     () => approvedContributionRemainingTotal - openDebt,
     [approvedContributionRemainingTotal, openDebt]
   );
+
+  const greetingText = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Günaydın';
+    if (hour < 18) return 'İyi günler';
+    return 'İyi akşamlar';
+  }, []);
 
   useEffect(() => {
     if (!showAds) return;
@@ -79,6 +104,25 @@ export default function Home() {
     }
   }, [selectedCommunity?.id]);
 
+  const loadProfileUi = useCallback(async () => {
+    if (!currentUser) return;
+
+    if (!isSupabaseDataEnabled()) {
+      setProfileDisplayName(currentUser.fullName ?? 'Gonullu');
+      setProfileAvatarUrl('');
+      return;
+    }
+
+    try {
+      const profile = await getUserProfileSettings(currentUser.id);
+      setProfileDisplayName(profile.fullName || currentUser.fullName || 'Gonullu');
+      setProfileAvatarUrl(profile.avatarUrl || '');
+    } catch {
+      setProfileDisplayName(currentUser.fullName ?? 'Gonullu');
+      setProfileAvatarUrl('');
+    }
+  }, [currentUser]);
+
   useFocusEffect(
     useCallback(() => {
       loadFinanceSummary();
@@ -87,43 +131,18 @@ export default function Home() {
 
   useFocusEffect(
     useCallback(() => {
-      let mounted = true;
-
-      async function loadProfileUi() {
-        if (!currentUser) return;
-
-        if (!isSupabaseDataEnabled()) {
-          if (!mounted) return;
-          setProfileDisplayName(currentUser.fullName ?? 'Gonullu');
-          setProfileAvatarUrl('');
-          return;
-        }
-
-        try {
-          const profile = await getUserProfileSettings(currentUser.id);
-          if (!mounted) return;
-          setProfileDisplayName(profile.fullName || currentUser.fullName || 'Gonullu');
-          setProfileAvatarUrl(profile.avatarUrl || '');
-        } catch {
-          if (!mounted) return;
-          setProfileDisplayName(currentUser.fullName ?? 'Gonullu');
-          setProfileAvatarUrl('');
-        }
-      }
-
-      loadProfileUi();
-
-      return () => {
-        mounted = false;
-      };
-    }, [currentUser?.fullName, currentUser?.id])
+      void loadProfileUi();
+    }, [loadProfileUi])
   );
 
   if (!selectedCommunity) return null;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView
+      <RefreshableScrollView
+        onRefreshAction={async () => {
+          await Promise.all([loadFinanceSummary(), loadProfileUi()]);
+        }}
         style={{ flex: 1 }}
         contentContainerStyle={{
           padding: 20,
@@ -148,7 +167,7 @@ export default function Home() {
         </View>
 
         <View style={{ marginTop: 26 }}>
-          <Text style={{ color: colors.muted, fontSize: 14 }}>Gunaydin {profileDisplayName} 👋</Text>
+          <Text style={{ color: colors.muted, fontSize: 14 }}>{greetingText} {greetingDisplayName} 👋</Text>
           <Text style={{ color: colors.text, fontSize: 27, fontWeight: '800', marginTop: 5 }}>Bugün neler oldu?</Text>
         </View>
 
@@ -243,7 +262,7 @@ export default function Home() {
             </TouchableOpacity>
           </>
         ) : null}
-      </ScrollView>
+      </RefreshableScrollView>
 
       {showAds ? (
         <View

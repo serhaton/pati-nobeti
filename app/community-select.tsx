@@ -1,14 +1,17 @@
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { RefreshableScrollView } from '../src/components/RefreshableScrollView';
 import MapView, { Marker, Region } from 'react-native-maps';
 import { Card } from '../src/components/Card';
 import { Logo } from '../src/components/Logo';
 import { useAuth } from '../src/context/AuthContext';
 import { useCommunity } from '../src/context/CommunityContext';
 import {
+  CreatedByUserCommunityRecord,
   createCommunityAndAssignAdmin,
+  getCommunitiesCreatedByUser,
   getIsCurrentUserAppAdmin,
   getMembershipsForUser,
   sendJoinRequest,
@@ -23,6 +26,7 @@ type NearbyCommunity = {
   name: string;
   neighborhood: string;
   status: 'pending' | 'approved' | 'rejected';
+  createdBy?: string | null;
   latitude: number;
   longitude: number;
   members: number;
@@ -98,6 +102,7 @@ export default function CommunitySelectScreen() {
   const [isAppAdmin, setIsAppAdmin] = useState(false);
   const [isResolvingAddress, setIsResolvingAddress] = useState(false);
   const [pendingSelectionId, setPendingSelectionId] = useState<string | null>(null);
+  const [creatorCommunities, setCreatorCommunities] = useState<CreatedByUserCommunityRecord[]>([]);
 
   const [pickerRegion, setPickerRegion] = useState<Region>({
     latitude: 41.018101,
@@ -220,16 +225,59 @@ export default function CommunitySelectScreen() {
     };
   }, [currentUser?.id]);
 
-  const communitiesWithDistance = useMemo<NearbyCommunity[]>(() => {
-    return allCommunities
-      .filter((community) => {
-        if (community.status === 'rejected') return false;
-        if (community.status === 'approved') return true;
+  useEffect(() => {
+    let mounted = true;
 
-        // Pending communities are visible here only when user already has a relation.
-        const membershipStatus = membershipsByCommunity[community.id];
-        return membershipStatus === 'pending' || membershipStatus === 'active' || membershipStatus === 'approved';
-      })
+    async function loadCreatorCommunities() {
+      if (!currentUser || !isSupabaseDataEnabled()) {
+        if (mounted) setCreatorCommunities([]);
+        return;
+      }
+
+      try {
+        const rows = await getCommunitiesCreatedByUser(currentUser.id);
+        if (!mounted) return;
+        setCreatorCommunities(rows);
+      } catch {
+        if (!mounted) return;
+        setCreatorCommunities([]);
+      }
+    }
+
+    loadCreatorCommunities();
+
+    return () => {
+      mounted = false;
+    };
+  }, [allCommunities.length, currentUser?.id]);
+
+  const mergedCommunities = useMemo(() => {
+    const byId = new Map(allCommunities.map((item) => [item.id, item]));
+
+    creatorCommunities.forEach((community) => {
+      if (byId.has(community.id)) return;
+      byId.set(community.id, {
+        id: community.id,
+        name: community.name,
+        neighborhood: community.neighborhood,
+        latitude: community.latitude,
+        longitude: community.longitude,
+        defaultZoom: community.defaultZoom,
+        status: community.status,
+        createdBy: community.createdBy,
+        members: 0,
+        animals: 0,
+        debt: 0,
+        adminUserIds: [],
+      });
+    });
+
+    return Array.from(byId.values());
+  }, [allCommunities, creatorCommunities]);
+
+  const communitiesWithDistance = useMemo<NearbyCommunity[]>(() => {
+    return mergedCommunities
+      .filter((community) => community.status !== 'rejected')
       .map((community) => {
         const distanceKm = userCoords
           ? distanceInKm(
@@ -253,29 +301,33 @@ export default function CommunitySelectScreen() {
         if (right.distanceKm === null) return -1;
         return left.distanceKm - right.distanceKm;
       });
-  }, [allCommunities, membershipsByCommunity, userCoords]);
+  }, [currentUser, membershipsByCommunity, mergedCommunities, userCoords]);
 
   const memberCommunityIds = useMemo(() => (
     new Set(
       Object.entries(membershipsByCommunity)
-        .filter(([, status]) => status === 'active' || status === 'approved')
+        .filter(([, status]) => status === 'active' || status === 'approved' || status === 'pending')
         .map(([communityId]) => communityId)
     )
   ), [membershipsByCommunity]);
 
   const memberCommunities = useMemo<NearbyCommunity[]>(() => {
-    return communitiesWithDistance.filter((community) => memberCommunityIds.has(community.id));
-  }, [communitiesWithDistance, memberCommunityIds]);
+    return communitiesWithDistance.filter((community) => {
+      if (memberCommunityIds.has(community.id)) return true;
+      return !!currentUser && community.createdBy === currentUser.id;
+    });
+  }, [communitiesWithDistance, currentUser, memberCommunityIds]);
 
   const nearbyNonMemberCommunities = useMemo<NearbyCommunity[]>(() => {
     return communitiesWithDistance
-      .filter((community) => !memberCommunityIds.has(community.id))
+      .filter((community) => {
+        if (community.status !== 'approved') return false;
+        if (memberCommunityIds.has(community.id)) return false;
+        if (!!currentUser && community.createdBy === currentUser.id) return false;
+        return true;
+      })
       .filter((community) => community.distanceKm !== null && community.distanceKm <= SEARCH_RADIUS_KM);
-  }, [communitiesWithDistance, memberCommunityIds]);
-
-  const allNonMemberCommunities = useMemo<NearbyCommunity[]>(() => {
-    return communitiesWithDistance.filter((community) => !memberCommunityIds.has(community.id));
-  }, [communitiesWithDistance, memberCommunityIds]);
+  }, [communitiesWithDistance, currentUser, memberCommunityIds]);
 
   const targetCommunity = useMemo(
     () => communitiesWithDistance.find((community) => community.id === targetCommunityId) ?? null,
@@ -379,7 +431,29 @@ export default function CommunitySelectScreen() {
       });
       console.log('[community:create][ui:service-input]', createInput);
 
-      await createCommunityAndAssignAdmin(createInput);
+      const { communityId } = await createCommunityAndAssignAdmin(createInput);
+
+      setCreatorCommunities((prev) => {
+        if (prev.some((item) => item.id === communityId)) return prev;
+        return [
+          {
+            id: communityId,
+            name: createInput.name,
+            neighborhood: createInput.neighborhood,
+            latitude: createInput.latitude,
+            longitude: createInput.longitude,
+            defaultZoom: createInput.defaultZoom ?? 17,
+            status: 'pending',
+            createdBy: currentUser.id,
+          },
+          ...prev,
+        ];
+      });
+
+      setMembershipsByCommunity((prev) => ({
+        ...prev,
+        [communityId]: prev[communityId] ?? 'pending',
+      }));
 
       console.log('[community:create][ui:create-ok]');
 
@@ -412,12 +486,14 @@ export default function CommunitySelectScreen() {
 
   function onCommunityPress(communityId: string) {
     const community = communityById.get(communityId);
-    if (community?.status === 'pending' || community?.status === 'rejected') {
+    const membership = getMembershipStatus(communityId);
+
+    const canEnterWithMembership = membership === 'active' || membership === 'approved';
+
+    if ((community?.status === 'pending' || community?.status === 'rejected') && !canEnterWithMembership) {
       Alert.alert('Topluluk seçilemez', 'Bu topluluk şu anda aktif değil. Yalnızca onaylı topluluklara giriş yapabilirsin.');
       return;
     }
-
-    const membership = getMembershipStatus(communityId);
 
     if (!isSupabaseDataEnabled()) {
       selectAndContinue(communityId);
@@ -530,7 +606,7 @@ export default function CommunitySelectScreen() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 32 }}>
+    <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 32 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Logo small />
         <TouchableOpacity
@@ -587,7 +663,7 @@ export default function CommunitySelectScreen() {
 
         {!communityLoadError && !isLocating && memberCommunities.length === 0 ? (
           <Card style={{ marginBottom: 10 }}>
-            <Text style={{ color: colors.muted }}>Henüz aktif oldugun bir topluluk yok.</Text>
+            <Text style={{ color: colors.muted }}>Henüz dahil oldugun bir topluluk yok.</Text>
           </Card>
         ) : null}
 
@@ -595,12 +671,17 @@ export default function CommunitySelectScreen() {
           const isSelected = selectedCommunity?.id === community.id;
           const membershipStatus = getMembershipStatus(community.id);
           const membershipRole = getMembershipRole(community.id);
+          const isCreatorPendingApproval = community.status === 'pending' && !!currentUser && community.createdBy === currentUser.id;
+          const effectiveMembershipStatus: MembershipStatus = membershipStatus === 'none' && isCreatorPendingApproval
+            ? 'pending'
+            : membershipStatus;
+          const isAwaitingAppAdminApproval = community.status === 'pending' && (effectiveMembershipStatus === 'pending' || isCreatorPendingApproval);
 
-          const actionLabel = membershipStatus === 'active' || membershipStatus === 'approved' || membershipStatus === 'passive'
+          const actionLabel = effectiveMembershipStatus === 'active' || effectiveMembershipStatus === 'approved' || effectiveMembershipStatus === 'passive'
             ? 'Bu Toplulukla Devam Et'
-            : membershipStatus === 'pending'
+            : effectiveMembershipStatus === 'pending'
               ? 'Katılım isteği beklemede'
-              : membershipStatus === 'rejected'
+              : effectiveMembershipStatus === 'rejected'
                 ? 'Yeniden katılım isteği gonder'
                 : 'Topluluğa katılım isteği gonder';
 
@@ -613,9 +694,15 @@ export default function CommunitySelectScreen() {
                   {community.members} üye · {community.animals} can{community.distanceKm !== null ? ` · ${community.distanceKm.toFixed(1)} km` : ''}
                 </Text>
 
+                {isAwaitingAppAdminApproval ? (
+                  <Text style={{ color: colors.muted, marginTop: 4, fontSize: 12 }}>
+                    Durum: Uygulama yöneticisi onayında
+                  </Text>
+                ) : null}
+
                 {isSupabaseDataEnabled() ? (
                   <Text style={{ color: colors.muted, marginTop: 7, fontSize: 12 }}>
-                    Üyelik durumu: {membershipStatus}{membershipRole !== 'none' ? ` · Rol: ${membershipRole}` : ''}
+                    Üyelik durumu: {effectiveMembershipStatus}{membershipRole !== 'none' ? ` · Rol: ${membershipRole}` : ''}
                   </Text>
                 ) : null}
 
@@ -661,61 +748,6 @@ export default function CommunitySelectScreen() {
 
           return (
             <TouchableOpacity key={community.id} onPress={() => onCommunityPress(community.id)}>
-              <Card style={{ marginBottom: 10, borderColor: isSelected ? colors.primary : colors.border, borderWidth: isSelected ? 2 : 1 }}>
-                <Text style={{ fontWeight: '800', color: colors.text, fontSize: 17 }}>{community.name}</Text>
-                <Text style={{ color: colors.muted, marginTop: 5 }}>{community.neighborhood}</Text>
-                <Text style={{ color: colors.muted, marginTop: 2 }}>
-                  {community.members} üye · {community.animals} can{community.distanceKm !== null ? ` · ${community.distanceKm.toFixed(1)} km` : ''}
-                </Text>
-
-                {isSupabaseDataEnabled() ? (
-                  <Text style={{ color: colors.muted, marginTop: 7, fontSize: 12 }}>
-                    Üyelik durumu: {membershipStatus}{membershipRole !== 'none' ? ` · Rol: ${membershipRole}` : ''}
-                  </Text>
-                ) : null}
-
-                <View
-                  style={{
-                    marginTop: 10,
-                    backgroundColor: membershipStatus === 'pending' ? '#8BA899' : colors.primary,
-                    borderRadius: 10,
-                    paddingVertical: 9,
-                  }}
-                >
-                  <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '800' }}>{actionLabel}</Text>
-                </View>
-              </Card>
-            </TouchableOpacity>
-          );
-        })}
-
-        {!communityLoadError && !isLocating ? (
-          <Text style={{ marginTop: 12, marginBottom: 8, color: colors.text, fontWeight: '800' }}>
-            Tüm Topluluklar (Üye Olmadiklarin)
-          </Text>
-        ) : null}
-
-        {!communityLoadError && !isLocating && allNonMemberCommunities.length === 0 ? (
-          <Card style={{ marginBottom: 10 }}>
-            <Text style={{ color: colors.muted }}>Üye olmadığın topluluk bulunamadı.</Text>
-          </Card>
-        ) : null}
-
-        {allNonMemberCommunities.map((community) => {
-          const isSelected = selectedCommunity?.id === community.id;
-          const membershipStatus = getMembershipStatus(community.id);
-          const membershipRole = getMembershipRole(community.id);
-
-          const actionLabel = membershipStatus === 'pending'
-            ? 'Katılım isteği beklemede'
-            : membershipStatus === 'rejected'
-              ? 'Yeniden katılım isteği gonder'
-              : membershipStatus === 'passive'
-                ? 'Yeniden katılım isteği gonder'
-              : 'Topluluğa katılım isteği gonder';
-
-          return (
-            <TouchableOpacity key={`all-${community.id}`} onPress={() => onCommunityPress(community.id)}>
               <Card style={{ marginBottom: 10, borderColor: isSelected ? colors.primary : colors.border, borderWidth: isSelected ? 2 : 1 }}>
                 <Text style={{ fontWeight: '800', color: colors.text, fontSize: 17 }}>{community.name}</Text>
                 <Text style={{ color: colors.muted, marginTop: 5 }}>{community.neighborhood}</Text>
@@ -864,7 +896,7 @@ export default function CommunitySelectScreen() {
       </Modal>
 
       <Modal visible={showCreateModal} animationType="slide" onRequestClose={() => setShowCreateModal(false)}>
-        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+        <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
           <TouchableOpacity onPress={() => setShowCreateModal(false)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Yeni Topluluk Oluştur</Text>
           <Text style={{ color: colors.muted, marginTop: 5 }}>İsim gir, merkez seç ve açıklama ekle.</Text>
@@ -940,8 +972,8 @@ export default function CommunitySelectScreen() {
               {isCreatingCommunity ? 'Olusturuluyor...' : 'Topluluğu Oluştur'}
             </Text>
           </TouchableOpacity>
-        </ScrollView>
+        </RefreshableScrollView>
       </Modal>
-    </ScrollView>
+    </RefreshableScrollView>
   );
 }

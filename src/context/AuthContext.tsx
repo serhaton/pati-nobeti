@@ -1,6 +1,7 @@
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import {
+  deleteCurrentUserAccount,
   sendPasswordResetEmail,
   signInWithApple,
   signInWithEmailPassword,
@@ -27,6 +28,7 @@ type AuthContextValue = {
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (input: { email: string; password: string; fullName: string; phone?: string }) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
+  deleteAccount: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -166,6 +168,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }
 
+  async function deleteAccount() {
+    setIsAuthLoading(true);
+    try {
+      if (currentUser?.id) {
+        await deactivatePushTokenForUser(currentUser.id);
+      }
+      await deleteCurrentUserAccount();
+      setCurrentUser(null);
+    } finally {
+      setIsAuthLoading(false);
+    }
+  }
+
   const value = useMemo<AuthContextValue>(
     () => ({
       currentUser,
@@ -174,6 +189,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       signInWithEmail,
       signUpWithEmail,
       forgotPassword,
+      deleteAccount,
       signOut,
     }),
     [currentUser, isAuthLoading]

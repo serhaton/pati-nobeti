@@ -8,6 +8,7 @@ import {
 import { FeedingPoint, FeedingRecord, setFeedingPointsData, setFeedingRecordsData } from '../data/feedingPointStore';
 import { isSupabaseDataEnabled, supabase, withJwtFutureRetry } from './supabase';
 import { resolveFileUrlForDisplay } from './supabaseStorage';
+import { NOT_SPECIFIED_LABEL, UNKNOWN_MEMBER_LABEL } from '../constants/userLabels';
 
 export type SupabaseSyncResult = {
   usedSupabaseMode: boolean;
@@ -46,11 +47,12 @@ function mapCommunityRows(rows: any[]): BaseCommunity[] {
   return rows.map((row, index) => ({
     id: toStringId(row.id, `community-${index + 1}`),
     name: String(row.name ?? `Topluluk ${index + 1}`),
-    neighborhood: String(row.neighborhood ?? 'Belirtilmedi'),
+    neighborhood: String(row.neighborhood ?? NOT_SPECIFIED_LABEL),
     latitude: Number(row.latitude ?? row.lat ?? 41.018101),
     longitude: Number(row.longitude ?? row.lng ?? 29.125607),
     defaultZoom: Number(row.default_zoom ?? row.defaultZoom ?? 17),
     status: normalizeCommunityStatus(row.status),
+    createdBy: row.created_by ? String(row.created_by) : null,
   }));
 }
 
@@ -88,7 +90,7 @@ async function mapAnimalRows(rows: any[]): Promise<CommunityAnimal[]> {
     gender: row.gender === 'Erkek' || row.gender === 'Dişi' || row.gender === 'Bilinmiyor' ? row.gender : 'Bilinmiyor',
     isSterilized: Boolean(row.neutered ?? false),
     birthDate: String(row.birth_date ?? '2022-01-01'),
-    location: String(row.location ?? row.neighborhood ?? 'Belirtilmedi'),
+    location: String(row.location ?? row.neighborhood ?? NOT_SPECIFIED_LABEL),
     vaccinationSchedule: [],
     treatmentSchedule: [],
     photoUris: row.photo_url
@@ -119,6 +121,10 @@ function mapFeedingLogRows(rows: any[], users: AppUser[] = []): FeedingRecord[] 
     const fedAtDate = row.fed_at ? new Date(row.fed_at) : new Date();
     const fedByUserId = row.fed_by ? String(row.fed_by) : '';
     const fallbackUserName = fedByUserId ? userNameById.get(fedByUserId) : undefined;
+    const resolvedFeederName = fedByUserId
+      ? (fallbackUserName ?? UNKNOWN_MEMBER_LABEL)
+      : String(row.feeder_name ?? row.fed_by_name ?? UNKNOWN_MEMBER_LABEL);
+
     return {
       id: toStringId(row.id, `record-${index + 1}`),
       pointId: toStringId(row.feeding_point_id, '1'),
@@ -128,7 +134,7 @@ function mapFeedingLogRows(rows: any[], users: AppUser[] = []): FeedingRecord[] 
         hour: '2-digit',
         minute: '2-digit',
       }),
-      feederName: String(row.feeder_name ?? row.fed_by_name ?? fallbackUserName ?? 'Bilinmiyor'),
+      feederName: resolvedFeederName,
       note: row.notes ? String(row.notes) : undefined,
       fedAtDateTime: fedAtDate.toISOString(),
     };
@@ -240,7 +246,7 @@ export async function syncMockDataFromSupabase(): Promise<SupabaseSyncResult> {
         amount: Number(row.amount ?? 0),
         paid: Number((row.amount ?? 0) - (row.due_amount ?? 0)),
         category: String(row.category ?? 'Diger'),
-        date: row.expense_at ? new Date(row.expense_at).toLocaleDateString('tr-TR') : (row.created_at ? new Date(row.created_at).toLocaleDateString('tr-TR') : 'Belirtilmedi'),
+        date: row.expense_at ? new Date(row.expense_at).toLocaleDateString('tr-TR') : (row.created_at ? new Date(row.created_at).toLocaleDateString('tr-TR') : NOT_SPECIFIED_LABEL),
       }));
       applySupabaseSnapshot({ expenses: mappedExpenses });
     }

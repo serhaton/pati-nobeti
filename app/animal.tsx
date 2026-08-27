@@ -1,13 +1,15 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';
-import { ScrollView, View, Text, TouchableOpacity, TextInput, Image } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, Image } from 'react-native';
+import { RefreshableScrollView } from '../src/components/RefreshableScrollView';
 import { Card } from '../src/components/Card';
 import { BottomBannerAd } from '../src/components/BottomBannerAd';
 import { useAuth } from '../src/context/AuthContext';
 import { useCommunity } from '../src/context/CommunityContext';
 import { CommunityAnimal, getAnimalsByCommunity } from '../src/data/animalStore';
 import { colors } from '../src/theme';
+import { NOT_SPECIFIED_LABEL } from '../src/constants/userLabels';
 
 export default function Animal() {
   const params = useLocalSearchParams<{ source?: string }>();
@@ -49,7 +51,7 @@ export default function Animal() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 120 }}>
+      <RefreshableScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 120 }}>
       <TouchableOpacity onPress={goBackBySource} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
         <View>
@@ -84,7 +86,7 @@ export default function Animal() {
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontWeight: '800', color: colors.text }}>{animal.type === 'Kedi' ? '🐱' : '🐶'} {animal.name}</Text>
                   <Text style={{ color: colors.muted, marginTop: 5 }}>{animal.breed} · {animal.gender} · {animal.isSterilized ? 'Kısırlaştırılmış' : 'Kısırlaştırılmamış'}</Text>
-                  <Text style={{ color: colors.text, marginTop: 10 }}>📍 {animal.location || 'Belirtilmedi'}</Text>
+                  <Text style={{ color: colors.text, marginTop: 10 }}>📍 {animal.location || NOT_SPECIFIED_LABEL}</Text>
                   <View style={{ flexDirection: 'row', gap: 8, marginTop: 13 }}>
                     <View style={{ backgroundColor: colors.primarySoft, borderRadius: 10, padding: 8 }}>
                       <Text style={{ color: colors.primary, fontSize: 12 }}>Aşı: {animal.vaccinationSchedule.length} kayıt</Text>
@@ -123,7 +125,7 @@ export default function Animal() {
           <Text style={{ color: colors.muted }}>Aramaya uygun can dost bulunamadı.</Text>
         </Card>
       )}
-      </ScrollView>
+      </RefreshableScrollView>
       <BottomBannerAd />
     </View>
   );

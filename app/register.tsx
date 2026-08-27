@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { RefreshableScrollView } from '../src/components/RefreshableScrollView';
 import { useAuth } from '../src/context/AuthContext';
 import { getAuthErrorMessageTr } from '../src/services/authErrorMessage';
 import { colors } from '../src/theme';
@@ -101,7 +102,7 @@ export default function RegisterScreen() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 34 }}>
+    <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 34 }}>
       <TouchableOpacity onPress={() => router.replace('/')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}>
         <Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text>
       </TouchableOpacity>
@@ -182,6 +183,6 @@ export default function RegisterScreen() {
           </Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </RefreshableScrollView>
   );
 }

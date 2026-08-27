@@ -1,5 +1,6 @@
 import { supabase, isSupabaseDataEnabled, withJwtFutureRetry } from './supabase';
 import { resolveFileUrlForDisplay } from './supabaseStorage';
+import { NOT_SPECIFIED_LABEL, UNKNOWN_MEMBER_LABEL } from '../constants/userLabels';
 
 export type CommunityMembership = {
   communityId: string;
@@ -45,6 +46,22 @@ export type AppAdminCommunityRecord = {
   createdAt: string;
   createdBy: string | null;
   createdByName: string;
+};
+
+export type CreatedByUserCommunityRecord = {
+  id: string;
+  name: string;
+  neighborhood: string;
+  latitude: number;
+  longitude: number;
+  defaultZoom: number;
+  status: CommunityApprovalStatus;
+  createdBy: string | null;
+};
+
+type CreatorProfileLite = {
+  displayName: string;
+  email: string | null;
 };
 
 const profileSettingsCache = new Map<string, UserProfileSettings>();
@@ -110,6 +127,63 @@ export async function getMembershipsForUser(userId: string): Promise<CommunityMe
     status: String(row.status ?? 'pending'),
     role: String(row.role ?? 'member'),
   }));
+}
+
+export async function getCommunitiesCreatedByUser(userId: string): Promise<CreatedByUserCommunityRecord[]> {
+  if (!isSupabaseDataEnabled()) return [];
+
+  const { data, error } = await supabase
+    .from('communities')
+    .select('id, name, neighborhood, latitude, longitude, default_zoom, status, created_by')
+    .eq('created_by', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw formatError(error, 'Oluşturduğun topluluklar okunamadı.');
+
+  return (data ?? []).map((row: any) => {
+    const rawStatus = String(row.status ?? 'pending').toLowerCase();
+    const status: CommunityApprovalStatus = rawStatus === 'approved' || rawStatus === 'rejected' ? rawStatus : 'pending';
+
+    return {
+      id: String(row.id),
+      name: String(row.name ?? ''),
+      neighborhood: String(row.neighborhood ?? ''),
+      latitude: Number(row.latitude ?? 41.018101),
+      longitude: Number(row.longitude ?? 29.125607),
+      defaultZoom: Number(row.default_zoom ?? 17),
+      status,
+      createdBy: row.created_by ? String(row.created_by) : null,
+    };
+  });
+}
+
+export async function updateCommunitySettingsByAdmin(input: {
+  communityId: string;
+  adminUserId: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  defaultZoom: number;
+}): Promise<void> {
+  if (!isSupabaseDataEnabled()) {
+    throw new Error('Topluluk güncelleme işlemi şu anda kullanılamıyor.');
+  }
+
+  const payload = {
+    name: input.name.trim(),
+    latitude: input.latitude,
+    longitude: input.longitude,
+    default_zoom: input.defaultZoom,
+  };
+
+  const { error } = await supabase
+    .from('communities')
+    .update(payload)
+    .eq('id', input.communityId);
+
+  if (error) {
+    throw formatError(error, 'Topluluk bilgileri güncellenemedi.');
+  }
 }
 
 export async function createCommunityAndAssignAdmin(input: {
@@ -220,9 +294,12 @@ export async function createCommunityAndAssignAdmin(input: {
   });
   console.log('[community:create][community-members-insert:payload]', memberInsertPayload);
 
-  const { error: memberError } = await supabase
-    .from('community_members')
-    .insert(memberInsertPayload);
+  const { error: memberError } = await withJwtFutureRetry(
+    'community-create:community-members-insert',
+    async () => supabase
+      .from('community_members')
+      .insert(memberInsertPayload)
+  );
 
   if (memberError) {
     logSupabaseStageError('community-members-insert', memberError);
@@ -264,22 +341,25 @@ export async function getCommunitiesForAppAdmin(): Promise<AppAdminCommunityReco
 
   const rows = data ?? [];
   const creatorIds = Array.from(new Set(rows.map((row: any) => String(row.created_by ?? '')).filter(Boolean)));
-  let creatorNameById = new Map<string, string>();
+  let creatorInfoById = new Map<string, CreatorProfileLite>();
 
   if (creatorIds.length > 0) {
     const { data: creatorRows, error: creatorError } = await supabase
       .from('profiles')
-      .select('id, full_name, username, name')
+      .select('id, full_name, username, name, email')
       .in('id', creatorIds);
 
     if (creatorError) {
       throw formatError(creatorError, 'Topluluk oluşturan kullanıcı bilgileri okunamadı.');
     }
 
-    creatorNameById = new Map(
+    creatorInfoById = new Map(
       (creatorRows ?? []).map((row: any) => [
         String(row.id),
-        String(row.full_name ?? row.name ?? row.username ?? 'Bilinmiyor'),
+        {
+          displayName: String(row.full_name ?? row.name ?? row.username ?? UNKNOWN_MEMBER_LABEL),
+          email: row.email ? String(row.email) : null,
+        },
       ])
     );
   }
@@ -288,6 +368,12 @@ export async function getCommunitiesForAppAdmin(): Promise<AppAdminCommunityReco
     const rawStatus = String(row.status ?? 'pending').toLowerCase();
     const status: CommunityApprovalStatus = rawStatus === 'approved' || rawStatus === 'rejected' ? rawStatus : 'pending';
     const createdBy = row.created_by ? String(row.created_by) : null;
+    const creatorInfo = createdBy ? creatorInfoById.get(createdBy) : null;
+    const createdByName = creatorInfo
+      ? (creatorInfo.email
+        ? `${creatorInfo.displayName} (${creatorInfo.email})`
+        : creatorInfo.displayName)
+      : (createdBy ? UNKNOWN_MEMBER_LABEL : NOT_SPECIFIED_LABEL);
 
     return {
       id: String(row.id),
@@ -297,7 +383,7 @@ export async function getCommunitiesForAppAdmin(): Promise<AppAdminCommunityReco
       status,
       createdAt: String(row.created_at ?? ''),
       createdBy,
-      createdByName: createdBy ? (creatorNameById.get(createdBy) ?? createdBy) : 'Belirtilmedi',
+      createdByName,
     };
   });
 }
@@ -407,6 +493,20 @@ export async function updateCommunityStatusByAppAdmin(input: {
     console.log('[community:admin-approve][community-members-activate-admins:ok]', {
       communityId: input.communityId,
     });
+
+    // Fallback dispatch: if DB-level net.http_post trigger path is delayed/misconfigured,
+    // force processing of pending notification events from the client side.
+    try {
+      await supabase.functions.invoke('admin-approval-push', {
+        body: {},
+      });
+    } catch (dispatchError: any) {
+      console.warn('[community:admin-approve][notify-dispatch-fallback:failed]', {
+        communityId: input.communityId,
+        message: dispatchError?.message ?? null,
+      });
+    }
+
     return;
   }
 
@@ -438,13 +538,91 @@ export async function deleteCommunityByAppAdmin(input: {
     throw new Error('Topluluk silme işlemi şu anda kullanılamıyor.');
   }
 
-  const { data, error } = await supabase.functions.invoke('admin-delete-community', {
-    body: {
-      communityId: input.communityId,
-    },
-  });
+  const getValidAccessToken = async (): Promise<string> => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    let accessToken = String(sessionData?.session?.access_token ?? '').trim();
+
+    if (!accessToken) {
+      const { data: refreshedData } = await supabase.auth.refreshSession();
+      accessToken = String(refreshedData?.session?.access_token ?? '').trim();
+    }
+
+    if (!accessToken) {
+      throw new Error('Oturum doğrulanamadı. Lütfen tekrar giriş yapıp yeniden dene.');
+    }
+
+    return accessToken;
+  };
+
+  const invokeDelete = async () => {
+    const accessToken = await getValidAccessToken();
+
+    return supabase.functions.invoke('admin-delete-community', {
+      body: {
+        communityId: input.communityId,
+      },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+  };
+
+  let { data, error } = await invokeDelete();
 
   if (error) {
+    let authRelated = false;
+    let firstErrorMessage = '';
+
+    try {
+      const context = (error as any)?.context;
+      if (context && typeof context.json === 'function') {
+        const jsonBody = await context.json();
+        const backendErrorText = String(jsonBody?.error ?? '').toLowerCase();
+        firstErrorMessage = String(jsonBody?.error ?? jsonBody?.message ?? '').trim();
+        authRelated = backendErrorText.includes('yetkisiz') || backendErrorText.includes('doğrulanamadı') || backendErrorText.includes('dogrulanamadi');
+      } else if (context && typeof context.text === 'function') {
+        firstErrorMessage = String(await context.text()).trim();
+        const backendErrorText = firstErrorMessage.toLowerCase();
+        authRelated = backendErrorText.includes('yetkisiz') || backendErrorText.includes('doğrulanamadı') || backendErrorText.includes('dogrulanamadi');
+      }
+    } catch {
+      authRelated = false;
+    }
+
+    if (authRelated) {
+      await supabase.auth.refreshSession();
+      const retried = await invokeDelete();
+      data = retried.data;
+      error = retried.error;
+
+      if (error && firstErrorMessage) {
+        const retriedContext = (error as any)?.context;
+        if (!retriedContext || (typeof retriedContext.json !== 'function' && typeof retriedContext.text !== 'function')) {
+          throw new Error(firstErrorMessage);
+        }
+      }
+    }
+  }
+
+  if (error) {
+    let edgeMessage = '';
+
+    try {
+      const context = (error as any)?.context;
+      if (context && typeof context.json === 'function') {
+        const jsonBody = await context.json();
+        edgeMessage = String(jsonBody?.error ?? jsonBody?.message ?? '').trim();
+      } else if (context && typeof context.text === 'function') {
+        edgeMessage = String(await context.text()).trim();
+      }
+    } catch {
+      // Fall back to default formatError path below.
+    }
+
+    if (edgeMessage) {
+      throw new Error(edgeMessage);
+    }
+
     throw formatError(error, 'Topluluk silinemedi.');
   }
 
@@ -759,9 +937,19 @@ export async function getUserProfileSettings(userId: string): Promise<UserProfil
     }
   }
 
-  const avatarForDisplay = fromDb.avatarUrl
-    ? await resolveFileUrlForDisplay({ fileRef: fromDb.avatarUrl, expiresInSeconds: 1800 })
-    : '';
+  let avatarForDisplay = '';
+  if (fromDb.avatarUrl) {
+    try {
+      avatarForDisplay = await resolveFileUrlForDisplay({
+        fileRef: fromDb.avatarUrl,
+        expiresInSeconds: 1800,
+      });
+    } catch {
+      // Missing/deleted storage objects should not block profile screen rendering.
+      const cachedAvatar = profileSettingsCache.get(userId)?.avatarUrl ?? '';
+      avatarForDisplay = fromDb.avatarUrl.startsWith('http') ? fromDb.avatarUrl : cachedAvatar;
+    }
+  }
 
   const cached = profileSettingsCache.get(userId);
   const merged: UserProfileSettings = {

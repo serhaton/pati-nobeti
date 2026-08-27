@@ -3,6 +3,7 @@ create extension if not exists pgcrypto;
 
 create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
+  email text,
   username text unique,
   full_name text,
   name text,
@@ -14,6 +15,7 @@ create table if not exists profiles (
 );
 
 alter table profiles
+  add column if not exists email text,
   add column if not exists is_app_admin boolean not null default false,
   add column if not exists phone text;
 
@@ -628,6 +630,38 @@ drop trigger if exists trg_contribution_pending_notification on public.contribut
 create trigger trg_contribution_pending_notification
 after insert on public.contributions
 for each row execute procedure public.enqueue_contribution_pending_notification();
+
+create extension if not exists pg_net;
+
+create or replace function public.dispatch_notification_event_immediately()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  -- Keep notification_events as source of truth, but trigger push dispatch immediately.
+  perform net.http_post(
+    url := 'https://mmkayqlhgorteplisyzv.functions.supabase.co/admin-approval-push',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json'
+    ),
+    body := jsonb_build_object('eventId', new.id)
+  );
+
+  return new;
+exception
+  when others then
+    -- Never block writes because of push delivery transport failures.
+    raise warning 'dispatch_notification_event_immediately failed for event %: %', new.id, sqlerrm;
+    return new;
+end;
+$$;
+
+drop trigger if exists trg_dispatch_notification_event_immediately on public.notification_events;
+create trigger trg_dispatch_notification_event_immediately
+after insert on public.notification_events
+for each row execute procedure public.dispatch_notification_event_immediately();
 
 create or replace function public.parse_storage_reference(p_value text)
 returns table(bucket_id text, object_name text)

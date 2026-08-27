@@ -51,7 +51,7 @@ function CommunityGuard() {
     if (
       currentUser
       && selectedCommunity
-      && (selectedCommunity.status === 'pending' || selectedCommunity.status === 'rejected')
+      && selectedCommunity.status === 'rejected'
       && !allowWithoutCommunity
     ) {
       router.replace('/community-select');

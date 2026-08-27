@@ -232,3 +232,22 @@ export async function sendPasswordResetEmail(email: string) {
   }
   return data;
 }
+
+export async function deleteCurrentUserAccount() {
+  ensureSupabaseConfigured();
+
+  const { data, error } = await supabase.functions.invoke('self-delete-account', {
+    body: {},
+  });
+
+  if (error) {
+    logAuthServiceError('deleteCurrentUserAccount', error);
+    throw error;
+  }
+
+  if (data?.ok === false) {
+    throw new Error(String(data?.error ?? 'Hesap silinemedi.'));
+  }
+
+  return data;
+}

@@ -8,6 +8,7 @@ type NotificationEventRow = {
   source_id: string;
   actor_user_id?: string | null;
   payload: Record<string, unknown>;
+  delivery_status: 'pending' | 'sent' | 'failed';
   delivery_attempts: number;
 };
 
@@ -27,7 +28,26 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-function buildNotificationContent(event: NotificationEventRow): { title: string; body: string } {
+async function getActorDisplayName(actorUserId?: string | null): Promise<string | null> {
+  const userId = String(actorUserId ?? '').trim();
+  if (!userId) return null;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('full_name, name, username')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Actor profile could not be read', { userId, message: error.message });
+    return null;
+  }
+
+  const fullName = String(data?.full_name ?? data?.name ?? data?.username ?? '').trim();
+  return fullName || null;
+}
+
+async function buildNotificationContent(event: NotificationEventRow): Promise<{ title: string; body: string }> {
   if (event.event_type === 'join_request_pending') {
     const requesterName = String(event.payload?.requesterName ?? 'Bir kullanıcı');
     return {
@@ -46,9 +66,11 @@ function buildNotificationContent(event: NotificationEventRow): { title: string;
 
   if (event.event_type === 'community_pending') {
     const communityName = String(event.payload?.communityName ?? 'Yeni topluluk');
+    const payloadCreatorName = String(event.payload?.creatorName ?? '').trim();
+    const creatorName = payloadCreatorName || await getActorDisplayName(event.actor_user_id) || 'Bir kullanıcı';
     return {
       title: 'Yeni topluluk onayı',
-      body: `${communityName} kaydı sistem yönetici onayı bekliyor.`,
+      body: `${creatorName} tarafından oluşturulan ${communityName} kaydı sistem yönetici onayı bekliyor.`,
     };
   }
 
@@ -182,7 +204,7 @@ async function processEvent(event: NotificationEventRow) {
       return;
     }
 
-    const { title, body } = buildNotificationContent(event);
+    const { title, body } = await buildNotificationContent(event);
     const messages: ExpoPushMessage[] = recipientTokens.map((token) => ({
       to: token,
       sound: 'default',
@@ -223,7 +245,7 @@ async function processEvent(event: NotificationEventRow) {
     return;
   }
 
-  const { title, body } = buildNotificationContent(event);
+  const { title, body } = await buildNotificationContent(event);
   const messages: ExpoPushMessage[] = adminTokens.map((token) => ({
     to: token,
     sound: 'default',
@@ -242,14 +264,33 @@ async function processEvent(event: NotificationEventRow) {
   await markEvent(event.id, 'sent', attempts);
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
   try {
-    const { data, error } = await supabase
+    if (req.method !== 'POST') {
+      return new Response(JSON.stringify({ ok: false, error: 'Method not allowed' }), {
+        status: 405,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    let eventId: string | null = null;
+    try {
+      const body = await req.json();
+      const rawEventId = String(body?.eventId ?? '').trim();
+      eventId = rawEventId || null;
+    } catch {
+      eventId = null;
+    }
+
+    const baseQuery = supabase
       .from('notification_events')
-      .select('id, event_type, community_id, source_table, source_id, actor_user_id, payload, delivery_attempts')
-      .eq('delivery_status', 'pending')
-      .order('created_at', { ascending: true })
-      .limit(50);
+      .select('id, event_type, community_id, source_table, source_id, actor_user_id, payload, delivery_status, delivery_attempts');
+
+    const query = eventId
+      ? baseQuery.eq('id', eventId).limit(1)
+      : baseQuery.eq('delivery_status', 'pending').order('created_at', { ascending: true }).limit(50);
+
+    const { data, error } = await query;
 
     if (error) {
       return new Response(JSON.stringify({ ok: false, error: error.message }), {
@@ -260,7 +301,14 @@ Deno.serve(async () => {
 
     const events = (data ?? []) as NotificationEventRow[];
 
+    let skipped = 0;
+
     for (const event of events) {
+      if (event.delivery_status !== 'pending') {
+        skipped += 1;
+        continue;
+      }
+
       try {
         await processEvent(event);
       } catch (eventError: any) {
@@ -269,7 +317,7 @@ Deno.serve(async () => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, processed: events.length }), {
+    return new Response(JSON.stringify({ ok: true, processed: events.length - skipped, skipped }), {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error: any) {

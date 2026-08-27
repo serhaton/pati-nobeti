@@ -18,7 +18,10 @@
       "buildNumber": "4",
       "bundleIdentifier": "com.serhatonal.patiuzat",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Pati Uzat, uygulamayı kullanırken konumunuza erişir; yakındaki toplulukları bulmanızı ve Besleme Noktaları haritasını mevcut konumunuza odaklamanızı sağlar.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Pati Uzat, uygulamayı kullanırken konumunuza erişir; yakındaki toplulukları bulmanızı ve Besleme Noktaları haritasını mevcut konumunuza odaklamanızı sağlar.",
+        "NSLocationAlwaysUsageDescription": "Pati Uzat, uygulamayı kullanırken konumunuza erişir; yakındaki toplulukları bulmanızı ve Besleme Noktaları haritasını mevcut konumunuza odaklamanızı sağlar."
       }
     },
     "plugins": [

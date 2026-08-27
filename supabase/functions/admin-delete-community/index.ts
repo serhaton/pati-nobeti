@@ -77,11 +77,12 @@ async function requireAppAdmin(authHeader: string | null): Promise<string> {
     throw new Error('Yetkisiz istek: kullanıcı oturumu bulunamadı.');
   }
 
-  const jwt = authHeader.slice('Bearer '.length).trim();
+  const jwt = authHeader.slice(7).trim();
   const { data: userData, error: userError } = await supabase.auth.getUser(jwt);
 
   if (userError || !userData.user) {
-    throw new Error('Yetkisiz istek: kullanıcı doğrulanamadı.');
+    const reason = String(userError?.message ?? 'unknown auth error');
+    throw new Error(`Yetkisiz istek: kullanıcı doğrulanamadı. (${reason})`);
   }
 
   const userId = String(userData.user.id);
@@ -110,12 +111,12 @@ async function collectStorageRefs(communityId: string): Promise<StorageRef[]> {
   const refs: string[] = [];
 
   const [communityRes, memberRes, animalRes, feedingPointRes, expenseRes, contributionRes] = await Promise.all([
-    supabase.from('communities').select('cover_url').eq('id', communityId).maybeSingle(),
-    supabase.from('community_members').select('photo_url').eq('community_id', communityId),
-    supabase.from('animals').select('photo_url').eq('community_id', communityId),
-    supabase.from('feeding_points').select('photo_uri').eq('community_id', communityId),
-    supabase.from('expenses').select('receipt_url, receipt_urls').eq('community_id', communityId),
-    supabase.from('contributions').select('receipt_url, receipt_urls').eq('community_id', communityId),
+    supabase.from('communities').select('*').eq('id', communityId).maybeSingle(),
+    supabase.from('community_members').select('*').eq('community_id', communityId),
+    supabase.from('animals').select('*').eq('community_id', communityId),
+    supabase.from('feeding_points').select('*').eq('community_id', communityId),
+    supabase.from('expenses').select('*').eq('community_id', communityId),
+    supabase.from('contributions').select('*').eq('community_id', communityId),
   ]);
 
   const allErrors = [
@@ -131,7 +132,7 @@ async function collectStorageRefs(communityId: string): Promise<StorageRef[]> {
     throw new Error(`Topluluk dosya referansları okunamadı: ${allErrors[0]?.message}`);
   }
 
-  if (communityRes.data?.cover_url) refs.push(String(communityRes.data.cover_url));
+  if ((communityRes.data as any)?.cover_url) refs.push(String((communityRes.data as any).cover_url));
 
   (memberRes.data ?? []).forEach((row: any) => {
     if (row.photo_url) refs.push(String(row.photo_url));

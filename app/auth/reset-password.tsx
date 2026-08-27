@@ -1,7 +1,8 @@
 import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, ScrollView, Text, TextInput, TouchableOpacity } from 'react-native';
+import { Alert, Text, TextInput, TouchableOpacity } from 'react-native';
+import { RefreshableScrollView } from '../../src/components/RefreshableScrollView';
 import { Card } from '../../src/components/Card';
 import { signOutSupabase, supabase } from '../../src/services/supabase';
 import { colors } from '../../src/theme';
@@ -333,7 +334,7 @@ export default function ResetPasswordScreen() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 36 }}>
+    <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 36 }}>
       <TouchableOpacity onPress={() => router.replace('/')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}>
         <Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text>
       </TouchableOpacity>
@@ -393,6 +394,6 @@ export default function ResetPasswordScreen() {
           </Text>
         </TouchableOpacity>
       ) : null}
-    </ScrollView>
+    </RefreshableScrollView>
   );
 }

@@ -1,7 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { RefreshableScrollView } from '../src/components/RefreshableScrollView';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -25,6 +26,7 @@ import {
   updateContribution,
 } from '../src/services/contributionService';
 import { downloadAndOpenRemoteFile } from '../src/services/fileDownload';
+import { NOT_SPECIFIED_LABEL, UNKNOWN_MEMBER_LABEL } from '../src/constants/userLabels';
 
 type LocalReceiptFile = {
   uri: string;
@@ -128,6 +130,7 @@ export default function PatiUzat() {
   }
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -160,12 +163,26 @@ export default function PatiUzat() {
   const selectedContributorName = useMemo(() => {
     const found = communityMembers.find((item) => item.userId === selectedContributorUserId);
     if (found) return found.fullName;
-    return currentUser?.fullName ?? 'Bilinmiyor';
+    if (selectedContributorUserId) return UNKNOWN_MEMBER_LABEL;
+    return currentUser?.fullName ?? UNKNOWN_MEMBER_LABEL;
   }, [communityMembers, currentUser?.fullName, selectedContributorUserId]);
 
   const memberNameById = useMemo(() => {
     return new Map(communityMembers.map((item) => [item.userId, item.fullName]));
   }, [communityMembers]);
+
+  function resolveMemberDisplayName(userId: string | null | undefined, emptyFallback = NOT_SPECIFIED_LABEL): string {
+    if (!userId) return emptyFallback;
+
+    const memberName = memberNameById.get(userId);
+    if (memberName) return memberName;
+
+    return UNKNOWN_MEMBER_LABEL;
+  }
+
+  function resolveContributorDisplayName(userId: string | null | undefined): string {
+    return resolveMemberDisplayName(userId, UNKNOWN_MEMBER_LABEL);
+  }
 
   const approvedExpenseById = useMemo(() => {
     return new Map(approvedExpenses.map((item) => [item.id, item]));
@@ -218,6 +235,15 @@ export default function PatiUzat() {
       loadData();
     }, [loadData])
   );
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await loadData();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [loadData]);
 
   useEffect(() => {
     if (!shouldShowCommunityContributions || !reviewContributionId) return;
@@ -619,6 +645,8 @@ export default function PatiUzat() {
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 120 }}
         data={visibleContributions}
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => {
           const theme = getContributionCardTheme(item.approvalStatus, item.remainingAmount);
@@ -632,7 +660,7 @@ export default function PatiUzat() {
           <Card style={{ marginBottom: 10, backgroundColor: theme.cardBackground, borderWidth: 1, borderColor: theme.cardBorder }}>
             <Text style={{ fontWeight: '800', color: colors.text }}>{item.amount.toLocaleString('tr-TR')} ₺</Text>
             <Text style={{ color: colors.muted, marginTop: 3 }}>
-              Pati uzatan: {item.contributorUserId ? (memberNameById.get(item.contributorUserId) ?? item.contributorUserId) : 'Belirtilmedi'}
+              Pati uzatan: {resolveContributorDisplayName(item.contributorUserId)}
             </Text>
             <Text style={{ color: colors.muted, marginTop: 4 }}>{new Date(item.transferAt).toLocaleString('tr-TR')}</Text>
             <Text style={{ color: item.approvalStatus === 'rejected' ? '#9B3A34' : colors.muted, marginTop: 2 }}>{contributionStatusLabel(item.approvalStatus)}</Text>
@@ -763,7 +791,7 @@ export default function PatiUzat() {
       <BottomBannerAd />
 
       <Modal visible={showCreateModal} animationType="slide" onRequestClose={() => setShowCreateModal(false)}>
-        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+        <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
           <TouchableOpacity onPress={() => setShowCreateModal(false)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Pati Uzat Girişi</Text>
 
@@ -898,11 +926,11 @@ export default function PatiUzat() {
               {isSubmitting ? 'Kaydediliyor...' : 'Pati Uzat Kaydı Gönder'}
             </Text>
           </TouchableOpacity>
-        </ScrollView>
+        </RefreshableScrollView>
       </Modal>
 
       <Modal visible={showContributionEditModal} animationType="slide" onRequestClose={() => setShowContributionEditModal(false)}>
-        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+        <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
           <TouchableOpacity onPress={() => setShowContributionEditModal(false)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Pati Uzat Kaydını Güncelle</Text>
 
@@ -913,7 +941,7 @@ export default function PatiUzat() {
               style={{ marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: '#fff', padding: 12 }}
             >
               <Text style={{ color: colors.text }}>
-                {contributionContributorUserId ? (memberNameById.get(contributionContributorUserId) ?? contributionContributorUserId) : 'Üye seç'}
+                {contributionContributorUserId ? resolveMemberDisplayName(contributionContributorUserId, UNKNOWN_MEMBER_LABEL) : 'Üye seç'}
               </Text>
             </TouchableOpacity>
 
@@ -982,14 +1010,14 @@ export default function PatiUzat() {
               {isSubmitting ? 'Kaydediliyor...' : 'Pati Uzat Kaydını Güncelle'}
             </Text>
           </TouchableOpacity>
-        </ScrollView>
+        </RefreshableScrollView>
       </Modal>
 
       <Modal visible={!!selectedReadonlyExpense} animationType="slide" onRequestClose={() => {
         setSelectedReadonlyExpense(null);
         setSelectedAllocationContext(null);
       }}>
-        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+        <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
           <TouchableOpacity onPress={() => {
             setSelectedReadonlyExpense(null);
             setSelectedAllocationContext(null);
@@ -1003,7 +1031,7 @@ export default function PatiUzat() {
               <Text style={{ color: colors.muted, marginTop: 2 }}>{new Date(selectedReadonlyExpense.expenseAt).toLocaleString('tr-TR')}</Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>{selectedReadonlyExpense.amount.toLocaleString('tr-TR')} ₺</Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>
-                Yapan: {selectedReadonlyExpense.submittedBy ? (memberNameById.get(selectedReadonlyExpense.submittedBy) ?? selectedReadonlyExpense.submittedBy) : 'Belirtilmedi'}
+                Yapan: {resolveMemberDisplayName(selectedReadonlyExpense.submittedBy)}
               </Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>Kalan borç: {selectedReadonlyExpense.dueAmount.toLocaleString('tr-TR')} ₺</Text>
 
@@ -1034,11 +1062,11 @@ export default function PatiUzat() {
               ) : null}
             </Card>
           ) : null}
-        </ScrollView>
+        </RefreshableScrollView>
       </Modal>
 
       <Modal visible={!!selectedReviewContribution} animationType="slide" onRequestClose={() => setSelectedReviewContribution(null)}>
-        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
+        <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 40 }}>
           <TouchableOpacity onPress={() => setSelectedReviewContribution(null)}><Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text></TouchableOpacity>
           <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Pati Uzat İnceleme</Text>
 
@@ -1047,8 +1075,8 @@ export default function PatiUzat() {
               <Text style={{ fontWeight: '800', color: colors.text }}>Pati uzatan üye</Text>
               <Text style={{ color: colors.muted, marginTop: 4 }}>
                 {selectedReviewContribution.contributorUserId
-                  ? (memberNameById.get(selectedReviewContribution.contributorUserId) ?? selectedReviewContribution.contributorUserId)
-                  : 'Belirtilmedi'}
+                  ? resolveContributorDisplayName(selectedReviewContribution.contributorUserId)
+                  : UNKNOWN_MEMBER_LABEL}
               </Text>
 
               <Text style={{ fontWeight: '800', color: colors.text, marginTop: 14 }}>Pati uzatma tarihi</Text>
@@ -1105,7 +1133,7 @@ export default function PatiUzat() {
               ) : null}
             </Card>
           ) : null}
-        </ScrollView>
+        </RefreshableScrollView>
       </Modal>
 
     </View>

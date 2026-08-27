@@ -1,7 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Text, TouchableOpacity, View } from 'react-native';
+import { RefreshableScrollView } from '../src/components/RefreshableScrollView';
 import { Card } from '../src/components/Card';
 import { useAuth } from '../src/context/AuthContext';
 import { useCommunity } from '../src/context/CommunityContext';
@@ -170,7 +171,7 @@ export default function CommunityAdminApprovalsScreen() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 36 }}>
+    <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 36 }}>
       <TouchableOpacity onPress={goBackBySource} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}>
         <Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text>
       </TouchableOpacity>
@@ -269,6 +270,6 @@ export default function CommunityAdminApprovalsScreen() {
           </Card>
         );
       })}
-    </ScrollView>
+    </RefreshableScrollView>
   );
 }

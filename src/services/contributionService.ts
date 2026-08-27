@@ -1,5 +1,6 @@
 import { getCommunityMembers } from '../data/mock';
 import { isSupabaseDataEnabled, supabase } from './supabase';
+import { UNKNOWN_MEMBER_LABEL } from '../constants/userLabels';
 
 export type ContributionApprovalStatus = 'pending' | 'approved' | 'rejected';
 
@@ -664,8 +665,8 @@ export async function deleteContribution(input: {
 }
 
 export function getContributorDisplayName(communityId: string, userId: string | null): string {
-  if (!userId) return 'Belirtilmedi';
+  if (!userId) return UNKNOWN_MEMBER_LABEL;
   const member = getCommunityMembers(communityId).find((item) => item.userId === userId);
-  if (!member) return userId;
-  return member.user?.fullName ?? member.user?.username ?? userId;
+  if (!member) return UNKNOWN_MEMBER_LABEL;
+  return member.user?.fullName ?? member.user?.username ?? UNKNOWN_MEMBER_LABEL;
 }
