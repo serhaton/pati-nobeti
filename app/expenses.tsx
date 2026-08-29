@@ -208,7 +208,7 @@ export default function Expenses() {
   const [reviewingExpenseActionId, setReviewingExpenseActionId] = useState<string | null>(null);
 
   const [title, setTitle] = useState('');
-  const [expenseType, setExpenseType] = useState<ExpenseType>('veteriner');
+  const [expenseType, setExpenseType] = useState<ExpenseType>('mama');
   const [vendorText, setVendorText] = useState('');
   const [selectedVetId, setSelectedVetId] = useState<string | null>(null);
   const [expenseAt, setExpenseAt] = useState<Date>(new Date());
@@ -517,7 +517,7 @@ export default function Expenses() {
   function resetForm() {
     setEditingExpenseId(null);
     setTitle('');
-    setExpenseType('veteriner');
+    setExpenseType('mama');
     setVendorText('');
     setSelectedVetId(null);
     setExpenseAt(new Date());
@@ -1434,6 +1434,15 @@ export default function Expenses() {
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
               <TouchableOpacity
                 onPress={() => {
+                  setExpenseType('mama');
+                  setSelectedVetId(null);
+                }}
+                style={{ flex: 1, borderWidth: 1, borderColor: expenseType === 'mama' ? colors.primary : colors.border, borderRadius: 10, padding: 10, backgroundColor: '#fff' }}
+              >
+                <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Mama</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
                   if (communityVets.length === 0) {
                     Alert.alert('Uyarı', 'Topluluk yoneticisi veteriner tanimi yapmali.');
                   }
@@ -1443,15 +1452,6 @@ export default function Expenses() {
                 style={{ flex: 1, borderWidth: 1, borderColor: expenseType === 'veteriner' ? colors.primary : colors.border, borderRadius: 10, padding: 10, backgroundColor: '#fff' }}
               >
                 <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Veteriner</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => {
-                  setExpenseType('mama');
-                  setSelectedVetId(null);
-                }}
-                style={{ flex: 1, borderWidth: 1, borderColor: expenseType === 'mama' ? colors.primary : colors.border, borderRadius: 10, padding: 10, backgroundColor: '#fff' }}
-              >
-                <Text style={{ textAlign: 'center', color: colors.text, fontWeight: '700' }}>Mama</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => {
