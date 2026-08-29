@@ -24,4 +24,4 @@ ios/build/
 .env
 .env.*
 
-.ipa
+*.ipa
