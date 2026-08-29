@@ -672,6 +672,7 @@ export async function approveContribution(input: {
         communityId: input.communityId,
         eventType: 'contribution_approved',
         contributionId: input.contributionId,
+        decisionStatus: 'approved',
       },
     });
   }
@@ -739,6 +740,8 @@ export async function rejectContribution(input: {
       communityId: input.communityId,
       eventType: 'contribution_rejected',
       contributionId: input.contributionId,
+      decisionStatus: 'rejected',
+      decisionNote: reason,
     },
   });
 }

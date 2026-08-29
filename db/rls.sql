@@ -103,6 +103,7 @@ alter table public.global_veterinarians enable row level security;
 alter table public.community_veterinarians enable row level security;
 alter table public.user_devices enable row level security;
 alter table public.notification_events enable row level security;
+alter table public.push_notification_inbox enable row level security;
 
 drop policy if exists profiles_select on public.profiles;
 drop policy if exists profiles_insert_self on public.profiles;
@@ -646,3 +647,14 @@ on public.user_devices
 for delete
 to authenticated
 using (user_id = auth.uid());
+
+drop policy if exists push_notification_inbox_select_self on public.push_notification_inbox;
+
+create policy push_notification_inbox_select_self
+on public.push_notification_inbox
+for select
+to authenticated
+using (
+  recipient_user_id = auth.uid()
+  or lower(recipient_email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+);

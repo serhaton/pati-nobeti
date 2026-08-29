@@ -575,6 +575,7 @@ export async function approveExpense(input: {
         communityId: input.communityId,
         eventType: 'expense_approved',
         expenseId: input.expenseId,
+        decisionStatus: 'approved',
       },
     });
   }
@@ -651,6 +652,8 @@ export async function rejectExpense(input: {
       communityId: input.communityId,
       eventType: 'expense_rejected',
       expenseId: input.expenseId,
+      decisionStatus: 'rejected',
+      decisionNote: reason,
     },
   });
 }

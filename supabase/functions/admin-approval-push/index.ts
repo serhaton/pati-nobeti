@@ -24,7 +24,28 @@ type DirectNotificationPayload = {
   recipientUserId: string;
   title: string;
   body: string;
-  data?: Record<string, unknown>;
+  data?: Record<string, unknown> & {
+    decisionStatus?: 'pending' | 'approved' | 'rejected' | 'info';
+    decisionNote?: string;
+  };
+};
+
+type UserPushTarget = {
+  userId: string;
+  token: string;
+};
+
+type PushInboxRecord = {
+  recipientUserId: string;
+  communityId?: string | null;
+  eventType: string;
+  title: string;
+  body: string;
+  decisionStatus: 'pending' | 'approved' | 'rejected' | 'info';
+  decisionNote?: string | null;
+  sourceTable?: string | null;
+  sourceId?: string | null;
+  payload?: Record<string, unknown>;
 };
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
@@ -194,6 +215,33 @@ async function getAdminPushTokens(adminUserIds: string[]): Promise<string[]> {
   return Array.from(new Set(Array.from(latestTokenByUser.values())));
 }
 
+async function getAdminPushTargets(adminUserIds: string[]): Promise<UserPushTarget[]> {
+  if (adminUserIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('user_devices')
+    .select('user_id, expo_push_token, last_seen_at')
+    .eq('is_active', true)
+    .in('user_id', adminUserIds)
+    .order('last_seen_at', { ascending: false });
+
+  if (error) {
+    throw new Error(`Admin cihaz tokenları okunamadı: ${error.message}`);
+  }
+
+  const latestByUser = new Map<string, string>();
+  for (const row of data ?? []) {
+    const userId = String((row as any).user_id ?? '').trim();
+    const token = String((row as any).expo_push_token ?? '').trim();
+    if (!userId || !token) continue;
+    if (!latestByUser.has(userId)) {
+      latestByUser.set(userId, token);
+    }
+  }
+
+  return Array.from(latestByUser.entries()).map(([userId, token]) => ({ userId, token }));
+}
+
 async function getUserPushTokens(userId: string): Promise<string[]> {
   const { data, error } = await supabase
     .from('user_devices')
@@ -208,6 +256,77 @@ async function getUserPushTokens(userId: string): Promise<string[]> {
   }
 
   return Array.from(new Set((data ?? []).map((row: any) => String(row.expo_push_token)).filter(Boolean)));
+}
+
+async function getUserPushTargets(userId: string): Promise<UserPushTarget[]> {
+  const tokens = await getUserPushTokens(userId);
+  return tokens.map((token) => ({ userId, token }));
+}
+
+function inferDecisionStatusFromEventType(eventType: string): 'pending' | 'approved' | 'rejected' | 'info' {
+  if (eventType === 'community_approved') return 'approved';
+  if (eventType.endsWith('_pending')) return 'pending';
+  if (eventType.endsWith('_rejected')) return 'rejected';
+  return 'info';
+}
+
+async function insertPushInboxRecords(records: PushInboxRecord[]): Promise<void> {
+  if (records.length === 0) return;
+
+  try {
+    const userIds = Array.from(new Set(records.map((item) => item.recipientUserId)));
+    const { data: profileRows, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, email')
+      .in('id', userIds);
+
+    if (profileError) {
+      console.error('Failed to read profile emails for push inbox', profileError.message);
+      return;
+    }
+
+    const emailByUserId = new Map<string, string>();
+    for (const row of profileRows ?? []) {
+      const id = String((row as any).id ?? '').trim();
+      const email = String((row as any).email ?? '').trim().toLowerCase();
+      if (id && email) {
+        emailByUserId.set(id, email);
+      }
+    }
+
+    const rowsToInsert = records
+      .map((item) => {
+        const recipientEmail = emailByUserId.get(item.recipientUserId);
+        if (!recipientEmail) return null;
+
+        return {
+          recipient_user_id: item.recipientUserId,
+          recipient_email: recipientEmail,
+          community_id: item.communityId ?? null,
+          event_type: item.eventType,
+          title: item.title,
+          body: item.body,
+          decision_status: item.decisionStatus,
+          decision_note: item.decisionNote ?? null,
+          source_table: item.sourceTable ?? null,
+          source_id: item.sourceId ?? null,
+          payload: item.payload ?? {},
+        };
+      })
+      .filter(Boolean) as any[];
+
+    if (rowsToInsert.length === 0) return;
+
+    const { error: insertError } = await supabase
+      .from('push_notification_inbox')
+      .insert(rowsToInsert);
+
+    if (insertError) {
+      console.error('Failed to insert push inbox rows', insertError.message);
+    }
+  } catch (error: any) {
+    console.error('push inbox logging failed', error?.message ?? String(error));
+  }
 }
 
 async function sendExpoPush(messages: ExpoPushMessage[]): Promise<void> {
@@ -243,13 +362,13 @@ async function sendDirectNotification(payload: DirectNotificationPayload): Promi
     throw new Error('Direct notification requires recipientUserId, title and body.');
   }
 
-  const recipientTokens = await getUserPushTokens(recipientUserId);
-  if (recipientTokens.length === 0) {
+  const targets = await getUserPushTargets(recipientUserId);
+  if (targets.length === 0) {
     return { sent: false, tokenCount: 0 };
   }
 
-  const messages: ExpoPushMessage[] = recipientTokens.map((token) => ({
-    to: token,
+  const messages: ExpoPushMessage[] = targets.map((target) => ({
+    to: target.token,
     sound: 'default',
     title,
     body,
@@ -257,7 +376,25 @@ async function sendDirectNotification(payload: DirectNotificationPayload): Promi
   }));
 
   await sendExpoPush(messages);
-  return { sent: true, tokenCount: recipientTokens.length };
+
+  const decisionStatus = payload.data?.decisionStatus ?? inferDecisionStatusFromEventType(String(payload.data?.eventType ?? 'direct_info'));
+  const decisionNote = String(payload.data?.decisionNote ?? '').trim() || null;
+  await insertPushInboxRecords([
+    {
+      recipientUserId,
+      eventType: String(payload.data?.eventType ?? 'direct_info'),
+      title,
+      body,
+      decisionStatus,
+      decisionNote,
+      communityId: payload.data?.communityId ? String(payload.data.communityId) : null,
+      sourceTable: payload.data?.sourceTable ? String(payload.data.sourceTable) : null,
+      sourceId: payload.data?.sourceId ? String(payload.data.sourceId) : null,
+      payload: payload.data ?? {},
+    },
+  ]);
+
+  return { sent: true, tokenCount: targets.length };
 }
 
 async function processEvent(event: NotificationEventRow, attempts: number) {
@@ -269,15 +406,15 @@ async function processEvent(event: NotificationEventRow, attempts: number) {
       return;
     }
 
-    const recipientTokens = await getUserPushTokens(recipientUserId);
-    if (recipientTokens.length === 0) {
+    const recipientTargets = await getUserPushTargets(recipientUserId);
+    if (recipientTargets.length === 0) {
       await markEvent(event.id, 'failed', attempts, 'No active push token found for community creator.');
       return;
     }
 
     const { title, body } = await buildNotificationContent(event);
-    const messages: ExpoPushMessage[] = recipientTokens.map((token) => ({
-      to: token,
+    const messages: ExpoPushMessage[] = recipientTargets.map((target) => ({
+      to: target.token,
       sound: 'default',
       title,
       body,
@@ -291,6 +428,20 @@ async function processEvent(event: NotificationEventRow, attempts: number) {
     }));
 
     await sendExpoPush(messages);
+    await insertPushInboxRecords([
+      {
+        recipientUserId,
+        communityId: event.community_id,
+        eventType: event.event_type,
+        title,
+        body,
+        decisionStatus: inferDecisionStatusFromEventType(event.event_type),
+        decisionNote: null,
+        sourceTable: event.source_table,
+        sourceId: event.source_id,
+        payload: event.payload,
+      },
+    ]);
     await markEvent(event.id, 'sent', attempts);
     return;
   }
@@ -310,15 +461,15 @@ async function processEvent(event: NotificationEventRow, attempts: number) {
     return;
   }
 
-  const adminTokens = await getAdminPushTokens(adminUserIds);
-  if (adminTokens.length === 0) {
+  const adminTargets = await getAdminPushTargets(adminUserIds);
+  if (adminTargets.length === 0) {
     await markEvent(event.id, 'failed', attempts, 'No active push token found for admins.');
     return;
   }
 
   const { title, body } = await buildNotificationContent(event);
-  const messages: ExpoPushMessage[] = adminTokens.map((token) => ({
-    to: token,
+  const messages: ExpoPushMessage[] = adminTargets.map((target) => ({
+    to: target.token,
     sound: 'default',
     title,
     body,
@@ -332,6 +483,20 @@ async function processEvent(event: NotificationEventRow, attempts: number) {
   }));
 
   await sendExpoPush(messages);
+  await insertPushInboxRecords(
+    adminTargets.map((target) => ({
+      recipientUserId: target.userId,
+      communityId: event.community_id,
+      eventType: event.event_type,
+      title,
+      body,
+      decisionStatus: inferDecisionStatusFromEventType(event.event_type),
+      decisionNote: event.event_type === 'join_request_pending' ? String(event.payload?.note ?? '').trim() || null : null,
+      sourceTable: event.source_table,
+      sourceId: event.source_id,
+      payload: event.payload,
+    }))
+  );
   await markEvent(event.id, 'sent', attempts);
 }
 

@@ -601,6 +601,8 @@ export async function updateCommunityStatusByAppAdmin(input: {
       screen: 'community-select',
       communityId: input.communityId,
       eventType: 'community_rejected',
+      decisionStatus: 'rejected',
+      decisionNote: reason,
     },
   });
 }
@@ -875,6 +877,8 @@ export async function rejectJoinRequest(input: {
       screen: 'community-select',
       communityId: input.communityId,
       eventType: 'join_request_rejected',
+      decisionStatus: 'rejected',
+      decisionNote: reason,
     },
   });
 }

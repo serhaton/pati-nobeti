@@ -383,6 +383,22 @@ create table if not exists notification_events (
   created_at timestamptz not null default now()
 );
 
+create table if not exists push_notification_inbox (
+  id uuid primary key default gen_random_uuid(),
+  recipient_user_id uuid not null references profiles(id) on delete cascade,
+  recipient_email text not null,
+  community_id uuid references communities(id) on delete set null,
+  event_type text not null,
+  title text not null,
+  body text not null,
+  decision_status text not null default 'info' check (decision_status in ('pending', 'approved', 'rejected', 'info')),
+  decision_note text,
+  source_table text,
+  source_id text,
+  payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
 alter table notification_events
   drop constraint if exists notification_events_event_type_check;
 
@@ -394,6 +410,8 @@ create index if not exists idx_user_devices_user_active on user_devices (user_id
 create index if not exists idx_user_devices_token_active on user_devices (expo_push_token, is_active);
 create index if not exists idx_notification_events_status_created_at on notification_events (delivery_status, created_at);
 create index if not exists idx_notification_events_community_created_at on notification_events (community_id, created_at desc);
+create index if not exists idx_push_notification_inbox_email_created_at on push_notification_inbox (recipient_email, created_at desc);
+create index if not exists idx_push_notification_inbox_user_created_at on push_notification_inbox (recipient_user_id, created_at desc);
 
 create or replace function public.register_user_device(
   p_expo_push_token text,

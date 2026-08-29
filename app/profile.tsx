@@ -116,7 +116,7 @@ export default function Profile() {
         <Text style={{ color: colors.muted }}>Seçili: {selectedCommunity?.name ?? '-'}</Text>
       </View>
       <Card style={{ marginTop: 25 }}>
-        {['Topluluklarim', 'Ayarlar', ...(isAppAdmin ? ['Topluluk Admin İşlemleri'] : [])].map((x) => (
+        {['Topluluklarim', 'Ayarlar', 'Bildirimlerim', ...(isAppAdmin ? ['Topluluk Admin İşlemleri'] : [])].map((x) => (
           <TouchableOpacity
             key={x}
             onPress={() => {
@@ -126,6 +126,10 @@ export default function Profile() {
               }
               if (x === 'Ayarlar') {
                 router.push({ pathname: '/settings', params: source ? { source } : undefined });
+                return;
+              }
+              if (x === 'Bildirimlerim') {
+                router.push({ pathname: '/notifications', params: { source: 'profile' } });
                 return;
               }
               if (x === 'Topluluk Admin İşlemleri') {
