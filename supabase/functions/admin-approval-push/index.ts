@@ -20,9 +20,17 @@ type ExpoPushMessage = {
   data: Record<string, unknown>;
 };
 
+type DirectNotificationPayload = {
+  recipientUserId: string;
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+};
+
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 const EXPO_PUSH_API_URL = 'https://exp.host/--/api/v2/push/send';
+const MAX_DELIVERY_ATTEMPTS = 5;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -88,7 +96,7 @@ async function buildNotificationContent(event: NotificationEventRow): Promise<{ 
   };
 }
 
-async function markEvent(eventId: string, status: 'sent' | 'failed', attempts: number, errorText?: string) {
+async function markEvent(eventId: string, status: 'pending' | 'sent' | 'failed', attempts: number, errorText?: string) {
   const { error } = await supabase
     .from('notification_events')
     .update({
@@ -107,16 +115,42 @@ async function markEvent(eventId: string, status: 'sent' | 'failed', attempts: n
 async function getAdminUserIds(communityId: string): Promise<string[]> {
   const { data, error } = await supabase
     .from('community_members')
-    .select('user_id')
+    .select('user_id, profiles!inner(id, status)')
     .eq('community_id', communityId)
     .eq('role', 'admin')
-    .in('status', ['active', 'approved']);
+    .in('status', ['active', 'approved'])
+    .eq('profiles.status', 'active');
 
   if (error) {
     throw new Error(`Admin kullanıcıları okunamadı: ${error.message}`);
   }
 
   return (data ?? []).map((row: any) => String(row.user_id));
+}
+
+async function claimEventForProcessing(event: NotificationEventRow): Promise<{ claimed: boolean; attempts: number }> {
+  const currentAttempts = Number(event.delivery_attempts ?? 0);
+
+  const { data, error } = await supabase
+    .from('notification_events')
+    .update({
+      delivery_attempts: currentAttempts + 1,
+      last_error: null,
+    })
+    .eq('id', event.id)
+    .eq('delivery_attempts', currentAttempts)
+    .in('delivery_status', ['pending', 'failed'])
+    .select('id')
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Event claim failed: ${error.message}`);
+  }
+
+  return {
+    claimed: Boolean(data?.id),
+    attempts: currentAttempts + 1,
+  };
 }
 
 async function getAppAdminUserIds(): Promise<string[]> {
@@ -138,15 +172,26 @@ async function getAdminPushTokens(adminUserIds: string[]): Promise<string[]> {
 
   const { data, error } = await supabase
     .from('user_devices')
-    .select('expo_push_token')
+    .select('user_id, expo_push_token, last_seen_at')
     .eq('is_active', true)
-    .in('user_id', adminUserIds);
+    .in('user_id', adminUserIds)
+    .order('last_seen_at', { ascending: false });
 
   if (error) {
     throw new Error(`Admin cihaz tokenları okunamadı: ${error.message}`);
   }
 
-  return Array.from(new Set((data ?? []).map((row: any) => String(row.expo_push_token)).filter(Boolean)));
+  const latestTokenByUser = new Map<string, string>();
+  for (const row of data ?? []) {
+    const userId = String((row as any).user_id ?? '').trim();
+    const token = String((row as any).expo_push_token ?? '').trim();
+    if (!userId || !token) continue;
+    if (!latestTokenByUser.has(userId)) {
+      latestTokenByUser.set(userId, token);
+    }
+  }
+
+  return Array.from(new Set(Array.from(latestTokenByUser.values())));
 }
 
 async function getUserPushTokens(userId: string): Promise<string[]> {
@@ -154,7 +199,9 @@ async function getUserPushTokens(userId: string): Promise<string[]> {
     .from('user_devices')
     .select('expo_push_token')
     .eq('is_active', true)
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .order('last_seen_at', { ascending: false })
+    .limit(1);
 
   if (error) {
     throw new Error(`Kullanıcı cihaz tokenları okunamadı: ${error.message}`);
@@ -188,8 +235,32 @@ async function sendExpoPush(messages: ExpoPushMessage[]): Promise<void> {
   }
 }
 
-async function processEvent(event: NotificationEventRow) {
-  const attempts = Number(event.delivery_attempts ?? 0) + 1;
+async function sendDirectNotification(payload: DirectNotificationPayload): Promise<{ sent: boolean; tokenCount: number }> {
+  const recipientUserId = String(payload.recipientUserId ?? '').trim();
+  const title = String(payload.title ?? '').trim();
+  const body = String(payload.body ?? '').trim();
+  if (!recipientUserId || !title || !body) {
+    throw new Error('Direct notification requires recipientUserId, title and body.');
+  }
+
+  const recipientTokens = await getUserPushTokens(recipientUserId);
+  if (recipientTokens.length === 0) {
+    return { sent: false, tokenCount: 0 };
+  }
+
+  const messages: ExpoPushMessage[] = recipientTokens.map((token) => ({
+    to: token,
+    sound: 'default',
+    title,
+    body,
+    data: payload.data ?? {},
+  }));
+
+  await sendExpoPush(messages);
+  return { sent: true, tokenCount: recipientTokens.length };
+}
+
+async function processEvent(event: NotificationEventRow, attempts: number) {
 
   if (event.event_type === 'community_approved') {
     const recipientUserId = String(event.actor_user_id ?? '').trim();
@@ -273,13 +344,30 @@ Deno.serve(async (req) => {
       });
     }
 
+    let requestBody: Record<string, unknown> = {};
     let eventId: string | null = null;
     try {
-      const body = await req.json();
-      const rawEventId = String(body?.eventId ?? '').trim();
+      requestBody = await req.json();
+      const rawEventId = String(requestBody?.eventId ?? '').trim();
       eventId = rawEventId || null;
     } catch {
+      requestBody = {};
       eventId = null;
+    }
+
+    const directNotificationRaw = requestBody?.directNotification;
+    if (directNotificationRaw && typeof directNotificationRaw === 'object') {
+      const directNotification = directNotificationRaw as DirectNotificationPayload;
+      const result = await sendDirectNotification(directNotification);
+
+      return new Response(JSON.stringify({
+        ok: true,
+        direct: true,
+        sent: result.sent,
+        tokenCount: result.tokenCount,
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const baseQuery = supabase
@@ -288,7 +376,11 @@ Deno.serve(async (req) => {
 
     const query = eventId
       ? baseQuery.eq('id', eventId).limit(1)
-      : baseQuery.eq('delivery_status', 'pending').order('created_at', { ascending: true }).limit(50);
+      : baseQuery
+        .or('delivery_status.eq.pending,delivery_status.eq.failed')
+        .lt('delivery_attempts', MAX_DELIVERY_ATTEMPTS)
+        .order('created_at', { ascending: true })
+        .limit(50);
 
     const { data, error } = await query;
 
@@ -304,16 +396,28 @@ Deno.serve(async (req) => {
     let skipped = 0;
 
     for (const event of events) {
-      if (event.delivery_status !== 'pending') {
+      if (event.delivery_status === 'sent') {
+        skipped += 1;
+        continue;
+      }
+
+      const attempts = Number(event.delivery_attempts ?? 0);
+      if (attempts >= MAX_DELIVERY_ATTEMPTS) {
         skipped += 1;
         continue;
       }
 
       try {
-        await processEvent(event);
+        const claim = await claimEventForProcessing(event);
+        if (!claim.claimed) {
+          skipped += 1;
+          continue;
+        }
+
+        await processEvent(event, claim.attempts);
       } catch (eventError: any) {
-        const attempts = Number(event.delivery_attempts ?? 0) + 1;
-        await markEvent(event.id, 'failed', attempts, String(eventError?.message ?? 'Unknown notification error'));
+        const fallbackAttempts = Number(event.delivery_attempts ?? 0) + 1;
+        await markEvent(event.id, 'failed', fallbackAttempts, String(eventError?.message ?? 'Unknown notification error'));
       }
     }
 

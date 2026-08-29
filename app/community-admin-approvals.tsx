@@ -84,7 +84,7 @@ export default function CommunityAdminApprovalsScreen() {
     }, [loadRows])
   );
 
-  async function setStatus(communityId: string, status: 'approved' | 'rejected') {
+  async function setStatus(communityId: string, status: 'approved' | 'rejected', rejectionReason?: string) {
     if (!currentUser) return;
 
     setActioningCommunityId(communityId);
@@ -93,6 +93,7 @@ export default function CommunityAdminApprovalsScreen() {
         communityId,
         status,
         actorUserId: currentUser.id,
+        rejectionReason,
       });
 
       setRows((prev) => prev.map((item) => (
@@ -106,6 +107,33 @@ export default function CommunityAdminApprovalsScreen() {
     } finally {
       setActioningCommunityId(null);
     }
+  }
+
+  function askRejectReasonForCommunity(community: AppAdminCommunityRecord) {
+    const prompt = (Alert as any).prompt;
+    const submitReason = (value?: string) => {
+      const reason = String(value ?? '').trim();
+      if (!reason) {
+        Alert.alert('Eksik bilgi', 'Lütfen red nedenini yaz.');
+        return;
+      }
+      void setStatus(community.id, 'rejected', reason);
+    };
+
+    if (typeof prompt === 'function') {
+      prompt(
+        'Red nedeni',
+        `${community.name} topluluğu neden reddedildi?`,
+        [
+          { text: 'Vazgeç', style: 'cancel' },
+          { text: 'Reddet', style: 'destructive', onPress: submitReason },
+        ],
+        'plain-text'
+      );
+      return;
+    }
+
+    Alert.alert('Desteklenmiyor', 'Bu cihazda metinli red nedeni popup ekranı desteklenmiyor.');
   }
 
   async function deleteCommunity(community: AppAdminCommunityRecord) {
@@ -171,7 +199,11 @@ export default function CommunityAdminApprovalsScreen() {
   }
 
   return (
-    <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 36 }}>
+    <RefreshableScrollView
+      onRefreshAction={loadRows}
+      style={{ flex: 1, backgroundColor: colors.background }}
+      contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 36 }}
+    >
       <TouchableOpacity onPress={goBackBySource} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ paddingVertical: 6, paddingHorizontal: 8, alignSelf: 'flex-start' }}>
         <Text style={{ fontSize: 38, lineHeight: 38 }}>‹</Text>
       </TouchableOpacity>
@@ -239,7 +271,7 @@ export default function CommunityAdminApprovalsScreen() {
 
               <TouchableOpacity
                 disabled={!canAct}
-                onPress={() => setStatus(item.id, 'rejected')}
+                onPress={() => askRejectReasonForCommunity(item)}
                 style={{
                   flex: 1,
                   borderRadius: 10,

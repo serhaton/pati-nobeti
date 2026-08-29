@@ -96,6 +96,38 @@ function logSupabaseStageError(stage: string, error: any) {
   });
 }
 
+async function sendDirectNotificationToUser(input: {
+  recipientUserId: string;
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+}): Promise<void> {
+  if (!isSupabaseDataEnabled()) return;
+
+  const recipientUserId = String(input.recipientUserId ?? '').trim();
+  const title = String(input.title ?? '').trim();
+  const body = String(input.body ?? '').trim();
+  if (!recipientUserId || !title || !body) return;
+
+  try {
+    await supabase.functions.invoke('admin-approval-push', {
+      body: {
+        directNotification: {
+          recipientUserId,
+          title,
+          body,
+          data: input.data ?? {},
+        },
+      },
+    });
+  } catch (error: any) {
+    console.warn('[community][direct-notification:failed]', {
+      recipientUserId,
+      message: error?.message ?? null,
+    });
+  }
+}
+
 function decodeJwtPayload(accessToken: string | null | undefined): Record<string, any> | null {
   if (!accessToken) return null;
 
@@ -308,6 +340,18 @@ export async function createCommunityAndAssignAdmin(input: {
 
   console.log('[community:create][community-members-insert:ok]', { communityId });
 
+  // Fallback dispatch: process queued notification events immediately from client auth context.
+  try {
+    await supabase.functions.invoke('admin-approval-push', {
+      body: {},
+    });
+  } catch (dispatchError: any) {
+    console.warn('[community:create][notify-dispatch-fallback:failed]', {
+      communityId,
+      message: dispatchError?.message ?? null,
+    });
+  }
+
   return { communityId };
 }
 
@@ -392,6 +436,7 @@ export async function updateCommunityStatusByAppAdmin(input: {
   communityId: string;
   status: Exclude<CommunityApprovalStatus, 'pending'>;
   actorUserId: string;
+  rejectionReason?: string;
 }): Promise<void> {
   if (!isSupabaseDataEnabled()) {
     throw new Error('Topluluk durum güncelleme işlemi şu anda kullanılamıyor.');
@@ -528,6 +573,35 @@ export async function updateCommunityStatusByAppAdmin(input: {
 
   console.log('[community:admin-approve][community-members-reject-admins:ok]', {
     communityId: input.communityId,
+  });
+
+  const reason = String(input.rejectionReason ?? '').trim();
+  const { data: rejectedCommunityRow, error: rejectedCommunityReadError } = await supabase
+    .from('communities')
+    .select('name, created_by')
+    .eq('id', input.communityId)
+    .maybeSingle();
+
+  if (rejectedCommunityReadError) {
+    logSupabaseStageError('admin-reject.communities-read-created-by', rejectedCommunityReadError);
+    return;
+  }
+
+  const rejectedCommunityName = String(rejectedCommunityRow?.name ?? 'Topluluk').trim() || 'Topluluk';
+  const rejectedCreatedBy = String(rejectedCommunityRow?.created_by ?? '').trim();
+  if (!rejectedCreatedBy) return;
+
+  await sendDirectNotificationToUser({
+    recipientUserId: rejectedCreatedBy,
+    title: 'Topluluk oluşturma isteği reddedildi',
+    body: reason
+      ? `${rejectedCommunityName} için red nedeni: ${reason}`
+      : `${rejectedCommunityName} oluşturma isteği reddedildi.`,
+    data: {
+      screen: 'community-select',
+      communityId: input.communityId,
+      eventType: 'community_rejected',
+    },
   });
 }
 
@@ -684,6 +758,19 @@ export async function sendJoinRequest(input: {
   if (upsertMemberError) {
     throw formatError(upsertMemberError, 'Üyelik durumu güncellenemedi.');
   }
+
+  // Fallback dispatch: process queued notification events immediately.
+  try {
+    await supabase.functions.invoke('admin-approval-push', {
+      body: {},
+    });
+  } catch (dispatchError: any) {
+    console.warn('[join-request][notify-dispatch-fallback:failed]', {
+      communityId: input.communityId,
+      userId: input.userId,
+      message: dispatchError?.message ?? null,
+    });
+  }
 }
 
 export async function getPendingJoinRequestsForCommunity(communityId: string): Promise<PendingJoinRequest[]> {
@@ -747,6 +834,8 @@ export async function rejectJoinRequest(input: {
   requestId: string;
   communityId: string;
   userId: string;
+  rejectionReason?: string;
+  communityName?: string;
 }): Promise<void> {
   if (!isSupabaseDataEnabled()) {
     throw new Error('İstek reddi işlemi şu anda kullanılamıyor.');
@@ -773,6 +862,21 @@ export async function rejectJoinRequest(input: {
   if (memberError) {
     throw formatError(memberError, 'Üyelik rejected durumuna getirilemedi.');
   }
+
+  const reason = String(input.rejectionReason ?? '').trim();
+  const communityName = String(input.communityName ?? '').trim() || 'Topluluk';
+  await sendDirectNotificationToUser({
+    recipientUserId: input.userId,
+    title: 'Katılım isteğiniz reddedildi',
+    body: reason
+      ? `${communityName} için red nedeni: ${reason}`
+      : `${communityName} için katılım isteğiniz reddedildi.`,
+    data: {
+      screen: 'community-select',
+      communityId: input.communityId,
+      eventType: 'join_request_rejected',
+    },
+  });
 }
 
 export async function getCommunityMembersForAdmin(communityId: string): Promise<ManagedCommunityMember[]> {

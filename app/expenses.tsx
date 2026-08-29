@@ -449,6 +449,9 @@ export default function Expenses() {
         expenseId: expense.id,
         communityId: selectedCommunityId,
         approvedBy: currentUser.id,
+        recipientUserId: expense.submittedBy,
+        communityName: selectedCommunity?.name,
+        expenseTitle: expense.title,
       });
       await loadExpenseData();
       setSelectedReadonlyExpense(null);
@@ -460,7 +463,7 @@ export default function Expenses() {
     }
   }
 
-  async function onRejectExpenseFromReview(expense: ExpenseRecord) {
+  async function onRejectExpenseFromReview(expense: ExpenseRecord, rejectionReason: string) {
     if (!selectedCommunityId) return;
 
     setReviewingExpenseActionId(expense.id);
@@ -468,6 +471,10 @@ export default function Expenses() {
       await rejectExpense({
         expenseId: expense.id,
         communityId: selectedCommunityId,
+        rejectionReason,
+        recipientUserId: expense.submittedBy,
+        communityName: selectedCommunity?.name,
+        expenseTitle: expense.title,
       });
       await loadExpenseData();
       setSelectedReadonlyExpense(null);
@@ -477,6 +484,33 @@ export default function Expenses() {
     } finally {
       setReviewingExpenseActionId(null);
     }
+  }
+
+  function askRejectReasonForExpense(expense: ExpenseRecord) {
+    const prompt = (Alert as any).prompt;
+    const submitReason = (value?: string) => {
+      const reason = String(value ?? '').trim();
+      if (!reason) {
+        Alert.alert('Eksik bilgi', 'Lütfen red nedenini yaz.');
+        return;
+      }
+      void onRejectExpenseFromReview(expense, reason);
+    };
+
+    if (typeof prompt === 'function') {
+      prompt(
+        'Red nedeni',
+        `${expense.title} masrafı neden reddedildi?`,
+        [
+          { text: 'Vazgeç', style: 'cancel' },
+          { text: 'Reddet', style: 'destructive', onPress: submitReason },
+        ],
+        'plain-text'
+      );
+      return;
+    }
+
+    Alert.alert('Desteklenmiyor', 'Bu cihazda metinli red nedeni popup ekranı desteklenmiyor.');
   }
 
   function resetForm() {
@@ -1721,7 +1755,7 @@ export default function Expenses() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     disabled={reviewingExpenseActionId === selectedReadonlyExpense.id}
-                    onPress={() => onRejectExpenseFromReview(selectedReadonlyExpense)}
+                    onPress={() => askRejectReasonForExpense(selectedReadonlyExpense)}
                     style={{
                       flex: 1,
                       borderRadius: 10,

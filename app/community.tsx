@@ -213,13 +213,15 @@ export default function Community() {
     }
   }
 
-  async function onReject(request: PendingJoinRequest) {
+  async function onReject(request: PendingJoinRequest, rejectionReason: string) {
     setActioningRequestId(request.id);
     try {
       await rejectJoinRequest({
         requestId: request.id,
         communityId: request.communityId,
         userId: request.userId,
+        rejectionReason,
+        communityName: selectedCommunity?.name,
       });
       await refreshCommunities();
       await loadPendingRequests();
@@ -228,6 +230,33 @@ export default function Community() {
     } finally {
       setActioningRequestId(null);
     }
+  }
+
+  function askRejectReasonForJoinRequest(request: PendingJoinRequest) {
+    const prompt = (Alert as any).prompt;
+    const submitReason = (value?: string) => {
+      const reason = String(value ?? '').trim();
+      if (!reason) {
+        Alert.alert('Eksik bilgi', 'Lütfen red nedenini yaz.');
+        return;
+      }
+      void onReject(request, reason);
+    };
+
+    if (typeof prompt === 'function') {
+      prompt(
+        'Red nedeni',
+        'Katılım isteğini neden reddettiğini kısaca yaz.',
+        [
+          { text: 'Vazgeç', style: 'cancel' },
+          { text: 'Reddet', style: 'destructive', onPress: submitReason },
+        ],
+        'plain-text'
+      );
+      return;
+    }
+
+    Alert.alert('Desteklenmiyor', 'Bu cihazda metinli red nedeni popup ekranı desteklenmiyor.');
   }
 
   async function onAllocateContribution(contribution: ContributionRecord) {
@@ -358,7 +387,7 @@ export default function Community() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     disabled={actioningRequestId === r.id}
-                    onPress={() => onReject(r)}
+                    onPress={() => askRejectReasonForJoinRequest(r)}
                     style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 11, opacity: actioningRequestId === r.id ? 0.7 : 1 }}
                   >
                     <Text style={{ color: colors.text, textAlign: 'center', fontWeight: '700' }}>Reddet</Text>

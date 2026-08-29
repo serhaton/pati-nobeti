@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { RefreshableScrollView } from '../src/components/RefreshableScrollView';
 import MapView, { Marker, Region } from 'react-native-maps';
@@ -36,6 +36,17 @@ type NearbyCommunity = {
 
 type MembershipStatus = 'none' | 'pending' | 'rejected' | 'approved' | 'active' | 'passive';
 type MembershipRole = 'admin' | 'member' | 'none';
+
+function getMembershipStatusLabel(status: MembershipStatus): string {
+  if (status === 'pending') return 'Beklemede';
+  return status;
+}
+
+function getMembershipRoleLabel(role: MembershipRole): string {
+  if (role === 'admin') return 'Yonetici';
+  if (role === 'member') return 'Uye';
+  return role;
+}
 
 function toRadians(value: number) {
   return (value * Math.PI) / 180;
@@ -111,6 +122,51 @@ export default function CommunitySelectScreen() {
     longitudeDelta: 0.08,
   });
 
+  const reloadMemberships = useCallback(async () => {
+    if (!currentUser || !isSupabaseDataEnabled()) {
+      setMembershipsByCommunity({});
+      setMembershipRolesByCommunity({});
+      return;
+    }
+
+    const memberships = await getMembershipsForUser(currentUser.id);
+
+    const next: Record<string, MembershipStatus> = {};
+    const nextRoles: Record<string, MembershipRole> = {};
+    memberships.forEach((membership) => {
+      const rawStatus = membership.status.toLowerCase();
+      const rawRole = membership.role.toLowerCase();
+      if (rawStatus === 'pending') next[membership.communityId] = 'pending';
+      else if (rawStatus === 'rejected') next[membership.communityId] = 'rejected';
+      else if (rawStatus === 'approved') next[membership.communityId] = 'approved';
+      else if (rawStatus === 'passive') next[membership.communityId] = 'passive';
+      else next[membership.communityId] = 'active';
+
+      nextRoles[membership.communityId] = rawRole === 'admin' ? 'admin' : 'member';
+    });
+
+    setMembershipsByCommunity(next);
+    setMembershipRolesByCommunity(nextRoles);
+  }, [currentUser]);
+
+  const reloadCreatorCommunities = useCallback(async () => {
+    if (!currentUser || !isSupabaseDataEnabled()) {
+      setCreatorCommunities([]);
+      return;
+    }
+
+    const rows = await getCommunitiesCreatedByUser(currentUser.id);
+    setCreatorCommunities(rows);
+  }, [currentUser]);
+
+  const handleScreenRefresh = useCallback(async () => {
+    await refreshCommunities();
+    await Promise.all([
+      reloadMemberships(),
+      reloadCreatorCommunities(),
+    ]);
+  }, [refreshCommunities, reloadMemberships, reloadCreatorCommunities]);
+
   useEffect(() => {
     let mounted = true;
 
@@ -161,31 +217,9 @@ export default function CommunitySelectScreen() {
     let mounted = true;
 
     async function loadMemberships() {
-      if (!currentUser || !isSupabaseDataEnabled()) {
-        setMembershipsByCommunity({});
-        setMembershipRolesByCommunity({});
-        return;
-      }
-
       try {
-        const memberships = await getMembershipsForUser(currentUser.id);
+        await reloadMemberships();
         if (!mounted) return;
-
-        const next: Record<string, MembershipStatus> = {};
-        const nextRoles: Record<string, MembershipRole> = {};
-        memberships.forEach((membership) => {
-          const rawStatus = membership.status.toLowerCase();
-          const rawRole = membership.role.toLowerCase();
-          if (rawStatus === 'pending') next[membership.communityId] = 'pending';
-          else if (rawStatus === 'rejected') next[membership.communityId] = 'rejected';
-          else if (rawStatus === 'approved') next[membership.communityId] = 'approved';
-          else if (rawStatus === 'passive') next[membership.communityId] = 'passive';
-          else next[membership.communityId] = 'active';
-
-          nextRoles[membership.communityId] = rawRole === 'admin' ? 'admin' : 'member';
-        });
-        setMembershipsByCommunity(next);
-        setMembershipRolesByCommunity(nextRoles);
       } catch (error: any) {
         if (!mounted) return;
         Alert.alert('Üyelik hatası', String(error?.message ?? 'Üyelik durumlari okunamadi.'));
@@ -197,7 +231,7 @@ export default function CommunitySelectScreen() {
     return () => {
       mounted = false;
     };
-  }, [allCommunities.length, currentUser?.id]);
+  }, [allCommunities, currentUser?.id, reloadMemberships]);
 
   useEffect(() => {
     let mounted = true;
@@ -229,15 +263,9 @@ export default function CommunitySelectScreen() {
     let mounted = true;
 
     async function loadCreatorCommunities() {
-      if (!currentUser || !isSupabaseDataEnabled()) {
-        if (mounted) setCreatorCommunities([]);
-        return;
-      }
-
       try {
-        const rows = await getCommunitiesCreatedByUser(currentUser.id);
+        await reloadCreatorCommunities();
         if (!mounted) return;
-        setCreatorCommunities(rows);
       } catch {
         if (!mounted) return;
         setCreatorCommunities([]);
@@ -249,13 +277,27 @@ export default function CommunitySelectScreen() {
     return () => {
       mounted = false;
     };
-  }, [allCommunities.length, currentUser?.id]);
+  }, [allCommunities, currentUser?.id, reloadCreatorCommunities]);
 
   const mergedCommunities = useMemo(() => {
     const byId = new Map(allCommunities.map((item) => [item.id, item]));
 
     creatorCommunities.forEach((community) => {
-      if (byId.has(community.id)) return;
+      const existing = byId.get(community.id);
+      if (existing) {
+        byId.set(community.id, {
+          ...existing,
+          name: community.name || existing.name,
+          neighborhood: community.neighborhood || existing.neighborhood,
+          latitude: Number.isFinite(community.latitude) ? community.latitude : existing.latitude,
+          longitude: Number.isFinite(community.longitude) ? community.longitude : existing.longitude,
+          defaultZoom: Number.isFinite(community.defaultZoom) ? community.defaultZoom : existing.defaultZoom,
+          status: community.status,
+          createdBy: community.createdBy ?? existing.createdBy,
+        });
+        return;
+      }
+
       byId.set(community.id, {
         id: community.id,
         name: community.name,
@@ -606,7 +648,11 @@ export default function CommunitySelectScreen() {
   }
 
   return (
-    <RefreshableScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 32 }}>
+    <RefreshableScrollView
+      onRefreshAction={handleScreenRefresh}
+      style={{ flex: 1, backgroundColor: colors.background }}
+      contentContainerStyle={{ padding: 20, paddingTop: 58, paddingBottom: 32 }}
+    >
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Logo small />
         <TouchableOpacity
@@ -677,7 +723,9 @@ export default function CommunitySelectScreen() {
             : membershipStatus;
           const isAwaitingAppAdminApproval = community.status === 'pending' && (effectiveMembershipStatus === 'pending' || isCreatorPendingApproval);
 
-          const actionLabel = effectiveMembershipStatus === 'active' || effectiveMembershipStatus === 'approved' || effectiveMembershipStatus === 'passive'
+          const actionLabel = isCreatorPendingApproval
+            ? 'Topluluk Oluşturma İsteği Beklemede'
+            : effectiveMembershipStatus === 'active' || effectiveMembershipStatus === 'approved' || effectiveMembershipStatus === 'passive'
             ? 'Bu Toplulukla Devam Et'
             : effectiveMembershipStatus === 'pending'
               ? 'Katılım isteği beklemede'
@@ -702,7 +750,7 @@ export default function CommunitySelectScreen() {
 
                 {isSupabaseDataEnabled() ? (
                   <Text style={{ color: colors.muted, marginTop: 7, fontSize: 12 }}>
-                    Üyelik durumu: {effectiveMembershipStatus}{membershipRole !== 'none' ? ` · Rol: ${membershipRole}` : ''}
+                    Üyelik durumu: {getMembershipStatusLabel(effectiveMembershipStatus)}{membershipRole !== 'none' ? ` · Rol: ${getMembershipRoleLabel(membershipRole)}` : ''}
                   </Text>
                 ) : null}
 
@@ -757,7 +805,7 @@ export default function CommunitySelectScreen() {
 
                 {isSupabaseDataEnabled() ? (
                   <Text style={{ color: colors.muted, marginTop: 7, fontSize: 12 }}>
-                    Üyelik durumu: {membershipStatus}{membershipRole !== 'none' ? ` · Rol: ${membershipRole}` : ''}
+                    Üyelik durumu: {getMembershipStatusLabel(membershipStatus)}{membershipRole !== 'none' ? ` · Rol: ${getMembershipRoleLabel(membershipRole)}` : ''}
                   </Text>
                 ) : null}
 

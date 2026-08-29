@@ -70,6 +70,38 @@ function formatError(error: any, fallback: string): Error {
   return new Error(details || fallback);
 }
 
+async function sendDirectNotificationToUser(input: {
+  recipientUserId: string;
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+}): Promise<void> {
+  if (!isSupabaseDataEnabled()) return;
+
+  const recipientUserId = String(input.recipientUserId ?? '').trim();
+  const title = String(input.title ?? '').trim();
+  const body = String(input.body ?? '').trim();
+  if (!recipientUserId || !title || !body) return;
+
+  try {
+    await supabase.functions.invoke('admin-approval-push', {
+      body: {
+        directNotification: {
+          recipientUserId,
+          title,
+          body,
+          data: input.data ?? {},
+        },
+      },
+    });
+  } catch (error: any) {
+    console.warn('[contribution][direct-notification:failed]', {
+      recipientUserId,
+      message: error?.message ?? null,
+    });
+  }
+}
+
 function mapAllocationRow(row: any): ContributionAllocation {
   const expenseTitle = row.expenses?.title ?? row.expense?.title ?? 'Masraf';
 
@@ -302,6 +334,17 @@ export async function createContribution(input: {
 
   if (error) {
     throw formatError(error, 'Pati uzatma kaydı oluşturulamadı.');
+  }
+
+  try {
+    await supabase.functions.invoke('admin-approval-push', {
+      body: {},
+    });
+  } catch (dispatchError: any) {
+    console.warn('[contribution:create][notify-dispatch-fallback:failed]', {
+      communityId: input.communityId,
+      message: dispatchError?.message ?? null,
+    });
   }
 
   return mapRow(data, []);
@@ -574,6 +617,8 @@ export async function approveContribution(input: {
   contributionId: string;
   communityId: string;
   approvedBy: string;
+  recipientUserId?: string | null;
+  communityName?: string;
 }): Promise<void> {
   const nowIso = new Date().toISOString();
 
@@ -603,11 +648,41 @@ export async function approveContribution(input: {
   if (error) {
     throw formatError(error, 'Pati uzatma kaydı onaylanamadı.');
   }
+
+  let recipientUserId = String(input.recipientUserId ?? '').trim();
+  if (!recipientUserId) {
+    const { data: contributionRow } = await supabase
+      .from('contributions')
+      .select('contributor_user_id, user_id')
+      .eq('id', input.contributionId)
+      .eq('community_id', input.communityId)
+      .maybeSingle();
+
+    recipientUserId = String(contributionRow?.contributor_user_id ?? contributionRow?.user_id ?? '').trim();
+  }
+
+  if (recipientUserId) {
+    const communityName = String(input.communityName ?? '').trim() || 'Topluluk';
+    await sendDirectNotificationToUser({
+      recipientUserId,
+      title: 'Pati Uzat kaydınız onaylandı',
+      body: `${communityName} için Pati Uzat kaydınız onaylandı.`,
+      data: {
+        screen: 'pati-uzat',
+        communityId: input.communityId,
+        eventType: 'contribution_approved',
+        contributionId: input.contributionId,
+      },
+    });
+  }
 }
 
 export async function rejectContribution(input: {
   contributionId: string;
   communityId: string;
+  rejectionReason?: string;
+  recipientUserId?: string | null;
+  communityName?: string;
 }): Promise<void> {
   if (!isSupabaseDataEnabled()) {
     mockContributions = mockContributions.map((item) => {
@@ -635,6 +710,37 @@ export async function rejectContribution(input: {
   if (error) {
     throw formatError(error, 'Pati uzatma kaydı reddedilemedi.');
   }
+
+  const reason = String(input.rejectionReason ?? '').trim();
+  let recipientUserId = String(input.recipientUserId ?? '').trim();
+  if (!recipientUserId) {
+    const { data: contributionRow } = await supabase
+      .from('contributions')
+      .select('contributor_user_id, user_id')
+      .eq('id', input.contributionId)
+      .eq('community_id', input.communityId)
+      .maybeSingle();
+
+    recipientUserId = String(contributionRow?.contributor_user_id ?? contributionRow?.user_id ?? '').trim();
+  }
+
+  if (!recipientUserId) return;
+
+  const communityName = String(input.communityName ?? '').trim() || 'Topluluk';
+
+  await sendDirectNotificationToUser({
+    recipientUserId,
+    title: 'Pati Uzat kaydınız reddedildi',
+    body: reason
+      ? `${communityName} için red nedeni: ${reason}`
+      : `${communityName} için Pati Uzat kaydınız reddedildi.`,
+    data: {
+      screen: 'pati-uzat',
+      communityId: input.communityId,
+      eventType: 'contribution_rejected',
+      contributionId: input.contributionId,
+    },
+  });
 }
 
 export async function deleteContribution(input: {

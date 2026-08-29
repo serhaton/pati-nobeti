@@ -139,6 +139,19 @@ export async function registerPushTokenForUser(userId: string): Promise<string |
 
     console.log('[push] Token registered for user:', userId);
 
+    // Kick notification processor to flush pending/failed queue.
+    // This helps when push events were created before recipient tokens were active.
+    try {
+      await supabase.functions.invoke('admin-approval-push', {
+        body: {},
+      });
+    } catch (dispatchError: any) {
+      console.warn('[push] Notification dispatch after token registration failed:', {
+        userId,
+        message: dispatchError?.message ?? null,
+      });
+    }
+
     return token;
   } catch (error: any) {
     // Use warn instead of error to avoid red-screen in development for non-fatal push registration issues.
@@ -164,6 +177,38 @@ export async function deactivatePushTokenForUser(userId: string): Promise<void> 
     }
   } catch {
     // Ignore push token deactivation errors during logout.
+  }
+}
+
+export async function sendDirectPushNotification(input: {
+  recipientUserId: string;
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+}): Promise<void> {
+  if (!isSupabaseDataEnabled()) return;
+
+  const recipientUserId = String(input.recipientUserId ?? '').trim();
+  const title = String(input.title ?? '').trim();
+  const body = String(input.body ?? '').trim();
+  if (!recipientUserId || !title || !body) return;
+
+  try {
+    await supabase.functions.invoke('admin-approval-push', {
+      body: {
+        directNotification: {
+          recipientUserId,
+          title,
+          body,
+          data: input.data ?? {},
+        },
+      },
+    });
+  } catch (error: any) {
+    console.warn('[push] Direct notification invoke failed:', {
+      recipientUserId,
+      message: error?.message ?? null,
+    });
   }
 }
 

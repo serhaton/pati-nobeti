@@ -52,6 +52,38 @@ function formatError(error: any, fallback: string): Error {
   return new Error(details || fallback);
 }
 
+async function sendDirectNotificationToUser(input: {
+  recipientUserId: string;
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+}): Promise<void> {
+  if (!isSupabaseDataEnabled()) return;
+
+  const recipientUserId = String(input.recipientUserId ?? '').trim();
+  const title = String(input.title ?? '').trim();
+  const body = String(input.body ?? '').trim();
+  if (!recipientUserId || !title || !body) return;
+
+  try {
+    await supabase.functions.invoke('admin-approval-push', {
+      body: {
+        directNotification: {
+          recipientUserId,
+          title,
+          body,
+          data: input.data ?? {},
+        },
+      },
+    });
+  } catch (error: any) {
+    console.warn('[expense][direct-notification:failed]', {
+      recipientUserId,
+      message: error?.message ?? null,
+    });
+  }
+}
+
 function normalizeType(row: any): ExpenseType {
   const raw = String(row.expense_type ?? row.category ?? '').toLowerCase();
   if (raw === 'vet' || raw === 'veteriner') return 'veteriner';
@@ -290,6 +322,19 @@ export async function createExpense(input: {
     throw formatError(error, 'Masraf kaydı oluşturulamadı.');
   }
 
+  if (approvalStatus === 'pending') {
+    try {
+      await supabase.functions.invoke('admin-approval-push', {
+        body: {},
+      });
+    } catch (dispatchError: any) {
+      console.warn('[expense:create][notify-dispatch-fallback:failed]', {
+        communityId: input.communityId,
+        message: dispatchError?.message ?? null,
+      });
+    }
+  }
+
   return mapRow(data);
 }
 
@@ -465,6 +510,9 @@ export async function approveExpense(input: {
   expenseId: string;
   communityId: string;
   approvedBy: string;
+  recipientUserId?: string | null;
+  communityName?: string;
+  expenseTitle?: string;
 }): Promise<void> {
   const nowIso = new Date().toISOString();
 
@@ -494,11 +542,51 @@ export async function approveExpense(input: {
   if (error) {
     throw formatError(error, 'Masraf onaylanamadı.');
   }
+
+  let recipientUserId = String(input.recipientUserId ?? '').trim();
+  let expenseTitle = String(input.expenseTitle ?? '').trim();
+
+  if (!recipientUserId || !expenseTitle) {
+    const { data: expenseRow } = await supabase
+      .from('expenses')
+      .select('submitted_by, title')
+      .eq('id', input.expenseId)
+      .eq('community_id', input.communityId)
+      .maybeSingle();
+
+    if (!recipientUserId) {
+      recipientUserId = String(expenseRow?.submitted_by ?? '').trim();
+    }
+    if (!expenseTitle) {
+      expenseTitle = String(expenseRow?.title ?? '').trim();
+    }
+  }
+
+  if (recipientUserId) {
+    const communityName = String(input.communityName ?? '').trim() || 'Topluluk';
+    const safeExpenseTitle = expenseTitle || 'Masraf';
+
+    await sendDirectNotificationToUser({
+      recipientUserId,
+      title: 'Masraf kaydınız onaylandı',
+      body: `${communityName} / ${safeExpenseTitle} kaydı onaylandı.`,
+      data: {
+        screen: 'expenses',
+        communityId: input.communityId,
+        eventType: 'expense_approved',
+        expenseId: input.expenseId,
+      },
+    });
+  }
 }
 
 export async function rejectExpense(input: {
   expenseId: string;
   communityId: string;
+  rejectionReason?: string;
+  recipientUserId?: string | null;
+  communityName?: string;
+  expenseTitle?: string;
 }): Promise<void> {
   if (!isSupabaseDataEnabled()) {
     mockExpenseRecords = mockExpenseRecords.map((item) => {
@@ -526,4 +614,43 @@ export async function rejectExpense(input: {
   if (error) {
     throw formatError(error, 'Masraf reddedilemedi.');
   }
+
+  const reason = String(input.rejectionReason ?? '').trim();
+  let recipientUserId = String(input.recipientUserId ?? '').trim();
+  let expenseTitle = String(input.expenseTitle ?? '').trim();
+
+  if (!recipientUserId || !expenseTitle) {
+    const { data: expenseRow } = await supabase
+      .from('expenses')
+      .select('submitted_by, title')
+      .eq('id', input.expenseId)
+      .eq('community_id', input.communityId)
+      .maybeSingle();
+
+    if (!recipientUserId) {
+      recipientUserId = String(expenseRow?.submitted_by ?? '').trim();
+    }
+    if (!expenseTitle) {
+      expenseTitle = String(expenseRow?.title ?? '').trim();
+    }
+  }
+
+  if (!recipientUserId) return;
+
+  const communityName = String(input.communityName ?? '').trim() || 'Topluluk';
+  const safeExpenseTitle = expenseTitle || 'Masraf';
+
+  await sendDirectNotificationToUser({
+    recipientUserId,
+    title: 'Masraf kaydınız reddedildi',
+    body: reason
+      ? `${communityName} / ${safeExpenseTitle} red nedeni: ${reason}`
+      : `${communityName} / ${safeExpenseTitle} kaydı reddedildi.`,
+    data: {
+      screen: 'expenses',
+      communityId: input.communityId,
+      eventType: 'expense_rejected',
+      expenseId: input.expenseId,
+    },
+  });
 }

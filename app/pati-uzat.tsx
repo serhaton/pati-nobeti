@@ -552,6 +552,8 @@ export default function PatiUzat() {
         contributionId: contribution.id,
         communityId: selectedCommunityId,
         approvedBy: currentUser.id,
+        recipientUserId: contribution.contributorUserId,
+        communityName: selectedCommunity?.name,
       });
       await loadData();
       setSelectedReviewContribution(null);
@@ -563,7 +565,7 @@ export default function PatiUzat() {
     }
   }
 
-  async function onRejectContributionFromReview(contribution: ContributionRecord) {
+  async function onRejectContributionFromReview(contribution: ContributionRecord, rejectionReason: string) {
     if (!selectedCommunityId) return;
 
     setActioningReviewContributionId(contribution.id);
@@ -571,6 +573,9 @@ export default function PatiUzat() {
       await rejectContribution({
         contributionId: contribution.id,
         communityId: selectedCommunityId,
+        rejectionReason,
+        recipientUserId: contribution.contributorUserId,
+        communityName: selectedCommunity?.name,
       });
       await loadData();
       setSelectedReviewContribution(null);
@@ -580,6 +585,33 @@ export default function PatiUzat() {
     } finally {
       setActioningReviewContributionId(null);
     }
+  }
+
+  function askRejectReasonForContribution(contribution: ContributionRecord) {
+    const prompt = (Alert as any).prompt;
+    const submitReason = (value?: string) => {
+      const reason = String(value ?? '').trim();
+      if (!reason) {
+        Alert.alert('Eksik bilgi', 'Lütfen red nedenini yaz.');
+        return;
+      }
+      void onRejectContributionFromReview(contribution, reason);
+    };
+
+    if (typeof prompt === 'function') {
+      prompt(
+        'Red nedeni',
+        'Pati Uzat kaydı neden reddedildi?',
+        [
+          { text: 'Vazgeç', style: 'cancel' },
+          { text: 'Reddet', style: 'destructive', onPress: submitReason },
+        ],
+        'plain-text'
+      );
+      return;
+    }
+
+    Alert.alert('Desteklenmiyor', 'Bu cihazda metinli red nedeni popup ekranı desteklenmiyor.');
   }
 
   async function submitContribution() {
@@ -1116,7 +1148,7 @@ export default function PatiUzat() {
 
                   <TouchableOpacity
                     disabled={actioningReviewContributionId === selectedReviewContribution.id}
-                    onPress={() => onRejectContributionFromReview(selectedReviewContribution)}
+                    onPress={() => askRejectReasonForContribution(selectedReviewContribution)}
                     style={{
                       flex: 1,
                       borderRadius: 10,
