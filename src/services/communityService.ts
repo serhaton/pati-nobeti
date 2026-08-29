@@ -453,8 +453,8 @@ export async function updateCommunityStatusByAppAdmin(input: {
     .from('communities')
     .update({
       status: input.status,
-      approved_at: nowIso,
-      approved_by: input.actorUserId,
+      actioned_at: nowIso,
+      actioned_by: input.actorUserId,
     })
     .eq('id', input.communityId);
 

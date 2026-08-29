@@ -16,12 +16,18 @@ for select
 to authenticated
 using (
   bucket_id = 'app-images'
-  and exists (
-    select 1
-    from public.community_members cm
-    where cm.user_id = auth.uid()
-      and cm.status in ('active', 'approved')
-      and cm.community_id::text = split_part(name, '/', 1)
+  and (
+    (
+      split_part(name, '/', 1) = 'profiles'
+      and split_part(name, '/', 2) = auth.uid()::text
+    )
+    or exists (
+      select 1
+      from public.community_members cm
+      where cm.user_id = auth.uid()
+        and cm.status in ('active', 'approved')
+        and cm.community_id::text = split_part(name, '/', 1)
+    )
   )
 );
 
@@ -32,12 +38,18 @@ to authenticated
 with check (
   bucket_id = 'app-images'
   and owner = auth.uid()
-  and exists (
-    select 1
-    from public.community_members cm
-    where cm.user_id = auth.uid()
-      and cm.status in ('active', 'approved')
-      and cm.community_id::text = split_part(name, '/', 1)
+  and (
+    (
+      split_part(name, '/', 1) = 'profiles'
+      and split_part(name, '/', 2) = auth.uid()::text
+    )
+    or exists (
+      select 1
+      from public.community_members cm
+      where cm.user_id = auth.uid()
+        and cm.status in ('active', 'approved')
+        and cm.community_id::text = split_part(name, '/', 1)
+    )
   )
 );
 
@@ -48,23 +60,35 @@ to authenticated
 using (
   bucket_id = 'app-images'
   and owner = auth.uid()
-  and exists (
-    select 1
-    from public.community_members cm
-    where cm.user_id = auth.uid()
-      and cm.status in ('active', 'approved')
-      and cm.community_id::text = split_part(name, '/', 1)
+  and (
+    (
+      split_part(name, '/', 1) = 'profiles'
+      and split_part(name, '/', 2) = auth.uid()::text
+    )
+    or exists (
+      select 1
+      from public.community_members cm
+      where cm.user_id = auth.uid()
+        and cm.status in ('active', 'approved')
+        and cm.community_id::text = split_part(name, '/', 1)
+    )
   )
 )
 with check (
   bucket_id = 'app-images'
   and owner = auth.uid()
-  and exists (
-    select 1
-    from public.community_members cm
-    where cm.user_id = auth.uid()
-      and cm.status in ('active', 'approved')
-      and cm.community_id::text = split_part(name, '/', 1)
+  and (
+    (
+      split_part(name, '/', 1) = 'profiles'
+      and split_part(name, '/', 2) = auth.uid()::text
+    )
+    or exists (
+      select 1
+      from public.community_members cm
+      where cm.user_id = auth.uid()
+        and cm.status in ('active', 'approved')
+        and cm.community_id::text = split_part(name, '/', 1)
+    )
   )
 );
 
@@ -75,10 +99,16 @@ to authenticated
 using (
   bucket_id = 'app-images'
   and owner = auth.uid()
-  and exists (
-    select 1
-    from public.community_members cm
-    where cm.user_id = auth.uid()
-      and cm.status in ('active', 'approved')
+  and (
+    (
+      split_part(name, '/', 1) = 'profiles'
+      and split_part(name, '/', 2) = auth.uid()::text
+    )
+    or exists (
+      select 1
+      from public.community_members cm
+      where cm.user_id = auth.uid()
+        and cm.status in ('active', 'approved')
+    )
   )
 );

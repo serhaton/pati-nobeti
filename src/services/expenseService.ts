@@ -20,8 +20,8 @@ export type ExpenseRecord = {
   receiptUrls: string[];
   approvalStatus: ExpenseApprovalStatus;
   submittedBy: string | null;
-  approvedBy: string | null;
-  approvedAt: string | null;
+  actionedBy: string | null;
+  actionedAt: string | null;
   createdAt: string;
 };
 
@@ -129,8 +129,8 @@ function mapRow(row: any): ExpenseRecord {
     receiptUrls,
     approvalStatus: normalizeStatus(row),
     submittedBy: row.submitted_by ? String(row.submitted_by) : null,
-    approvedBy: row.approved_by ? String(row.approved_by) : null,
-    approvedAt: row.approved_at ? toIso(row.approved_at, createdAt) : null,
+    actionedBy: row.actioned_by ? String(row.actioned_by) : null,
+    actionedAt: row.actioned_at ? toIso(row.actioned_at, createdAt) : null,
     createdAt,
   };
 }
@@ -154,8 +154,8 @@ let mockExpenseRecords: ExpenseRecord[] = mockExpenses.map((item) => {
     receiptUrls: ['mock://receipt'],
     approvalStatus: 'approved',
     submittedBy: null,
-    approvedBy: null,
-    approvedAt: nowIso,
+    actionedBy: null,
+    actionedAt: nowIso,
     createdAt: nowIso,
   };
 });
@@ -169,7 +169,7 @@ export async function getApprovedExpensesByCommunity(communityId: string): Promi
 
   const { data, error } = await supabase
     .from('expenses')
-    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, due_amount, note, receipt_url, receipt_urls, approval_status, submitted_by, approved_by, approved_at, created_at')
+    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, due_amount, note, receipt_url, receipt_urls, approval_status, submitted_by, actioned_by, actioned_at, created_at')
     .eq('community_id', communityId)
     .eq('approval_status', 'approved')
     .order('expense_at', { ascending: false });
@@ -190,7 +190,7 @@ export async function getExpensesByCommunity(communityId: string): Promise<Expen
 
   const { data, error } = await supabase
     .from('expenses')
-    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, due_amount, note, receipt_url, receipt_urls, approval_status, submitted_by, approved_by, approved_at, created_at')
+    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, due_amount, note, receipt_url, receipt_urls, approval_status, submitted_by, actioned_by, actioned_at, created_at')
     .eq('community_id', communityId)
     .order('expense_at', { ascending: false });
 
@@ -213,7 +213,7 @@ export async function getExpensesBySubmitter(input: {
 
   const { data, error } = await supabase
     .from('expenses')
-    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, due_amount, note, receipt_url, receipt_urls, approval_status, submitted_by, approved_by, approved_at, created_at')
+    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, due_amount, note, receipt_url, receipt_urls, approval_status, submitted_by, actioned_by, actioned_at, created_at')
     .eq('community_id', input.communityId)
     .eq('submitted_by', input.submitterUserId)
     .order('expense_at', { ascending: false });
@@ -234,7 +234,7 @@ export async function getPendingExpensesForCommunity(communityId: string): Promi
 
   const { data, error } = await supabase
     .from('expenses')
-    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, due_amount, note, receipt_url, receipt_urls, approval_status, submitted_by, approved_by, approved_at, created_at')
+    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, due_amount, note, receipt_url, receipt_urls, approval_status, submitted_by, actioned_by, actioned_at, created_at')
     .eq('community_id', communityId)
     .eq('approval_status', 'pending')
     .order('created_at', { ascending: false });
@@ -283,8 +283,8 @@ export async function createExpense(input: {
       receiptUrls: normalizedReceiptUrls,
       approvalStatus,
       submittedBy: effectiveSubmittedBy,
-      approvedBy: input.isCommunityAdmin ? input.submittedBy : null,
-      approvedAt: input.isCommunityAdmin ? nowIso : null,
+      actionedBy: input.isCommunityAdmin ? input.submittedBy : null,
+      actionedAt: input.isCommunityAdmin ? nowIso : null,
       createdAt: nowIso,
     };
 
@@ -311,11 +311,11 @@ export async function createExpense(input: {
       vendor_text: input.vendorName,
       community_veterinarian_id: input.communityVeterinarianId ?? null,
       approval_status: approvalStatus,
-      approved_by: input.isCommunityAdmin ? input.submittedBy : null,
-      approved_at: input.isCommunityAdmin ? nowIso : null,
+      actioned_by: input.isCommunityAdmin ? input.submittedBy : null,
+      actioned_at: input.isCommunityAdmin ? nowIso : null,
       paid_by: effectiveSubmittedBy,
     })
-    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, due_amount, note, receipt_url, receipt_urls, approval_status, submitted_by, approved_by, approved_at, created_at')
+    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, due_amount, note, receipt_url, receipt_urls, approval_status, submitted_by, actioned_by, actioned_at, created_at')
     .single();
 
   if (error) {
@@ -425,7 +425,7 @@ export async function updateExpense(input: {
     })
     .eq('id', input.expenseId)
     .eq('community_id', input.communityId)
-    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, due_amount, note, receipt_url, receipt_urls, approval_status, submitted_by, approved_by, approved_at, created_at')
+    .select('id, community_id, title, category, expense_type, community_veterinarian_id, vendor, vendor_text, expense_at, amount, due_amount, note, receipt_url, receipt_urls, approval_status, submitted_by, actioned_by, actioned_at, created_at')
     .single();
 
   if (error) {
@@ -509,7 +509,7 @@ export async function deleteExpense(input: {
 export async function approveExpense(input: {
   expenseId: string;
   communityId: string;
-  approvedBy: string;
+  actionedBy: string;
   recipientUserId?: string | null;
   communityName?: string;
   expenseTitle?: string;
@@ -522,8 +522,8 @@ export async function approveExpense(input: {
       return {
         ...item,
         approvalStatus: 'approved',
-        approvedBy: input.approvedBy,
-        approvedAt: nowIso,
+        actionedBy: input.actionedBy,
+        actionedAt: nowIso,
       };
     });
     return;
@@ -533,8 +533,8 @@ export async function approveExpense(input: {
     .from('expenses')
     .update({
       approval_status: 'approved',
-      approved_by: input.approvedBy,
-      approved_at: nowIso,
+      actioned_by: input.actionedBy,
+      actioned_at: nowIso,
     })
     .eq('id', input.expenseId)
     .eq('community_id', input.communityId);
@@ -584,19 +584,22 @@ export async function approveExpense(input: {
 export async function rejectExpense(input: {
   expenseId: string;
   communityId: string;
+  actionedBy: string;
   rejectionReason?: string;
   recipientUserId?: string | null;
   communityName?: string;
   expenseTitle?: string;
 }): Promise<void> {
+  const nowIso = new Date().toISOString();
+
   if (!isSupabaseDataEnabled()) {
     mockExpenseRecords = mockExpenseRecords.map((item) => {
       if (item.id !== input.expenseId || item.communityId !== input.communityId) return item;
       return {
         ...item,
         approvalStatus: 'rejected',
-        approvedBy: null,
-        approvedAt: null,
+        actionedBy: input.actionedBy,
+        actionedAt: nowIso,
       };
     });
     return;
@@ -606,8 +609,8 @@ export async function rejectExpense(input: {
     .from('expenses')
     .update({
       approval_status: 'rejected',
-      approved_by: null,
-      approved_at: null,
+      actioned_by: input.actionedBy,
+      actioned_at: nowIso,
     })
     .eq('id', input.expenseId)
     .eq('community_id', input.communityId);

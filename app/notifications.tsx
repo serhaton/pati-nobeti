@@ -2,7 +2,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Text, TouchableOpacity, View } from 'react-native';
-import { Card } from '../src/components/Card';
 import { useAuth } from '../src/context/AuthContext';
 import { colors } from '../src/theme';
 import { getInboxNotificationsByEmail, InboxNotificationRecord } from '../src/services/notificationInboxService';
@@ -104,13 +103,13 @@ export default function NotificationsScreen() {
         </TouchableOpacity>
 
         <Text style={{ fontSize: 27, fontWeight: '800', color: colors.text, marginTop: 10 }}>Bildirimlerim</Text>
-        <Text style={{ color: colors.muted, marginTop: 5 }}>En yeni kayıtlar en üstte gösterilir.</Text>
+        <Text style={{ color: colors.muted, marginTop: 5 }}>Geçmiş görünümü. En yeni kayıtlar üstte.</Text>
       </View>
 
       <FlatList
         data={rows}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 20, paddingBottom: 44 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 30 }}
         onEndReachedThreshold={0.3}
         onEndReached={() => {
           void loadMore();
@@ -120,39 +119,49 @@ export default function NotificationsScreen() {
           void loadFirstPage();
         }}
         ListEmptyComponent={!isLoading ? (
-          <Card style={{ marginTop: 14 }}>
-            <Text style={{ color: colors.muted }}>Henüz bildirim kaydı yok.</Text>
-          </Card>
+          <View style={{ marginTop: 18, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: '#F7F8FA', paddingVertical: 14, paddingHorizontal: 12 }}>
+            <Text style={{ color: colors.muted, fontSize: 13 }}>Henüz bildirim kaydı yok.</Text>
+          </View>
         ) : null}
         ListFooterComponent={isLoadingMore ? (
-          <View style={{ alignItems: 'center', marginTop: 10 }}>
+          <View style={{ alignItems: 'center', marginTop: 14 }}>
             <ActivityIndicator color={colors.primary} />
-            <Text style={{ color: colors.muted, marginTop: 6 }}>Daha fazla yükleniyor...</Text>
+            <Text style={{ color: colors.muted, marginTop: 6, fontSize: 12 }}>Daha fazla yükleniyor...</Text>
           </View>
         ) : null}
         renderItem={({ item, index }) => {
           const tone = decisionStyle(item.decisionStatus);
           return (
-            <Card style={{ marginTop: index === 0 ? 14 : 10 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.text, fontWeight: '800', fontSize: 16 }}>{item.title}</Text>
-                  <Text style={{ color: colors.muted, marginTop: 4 }}>{item.body}</Text>
-                </View>
-                <View style={{ backgroundColor: tone.bg, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 }}>
-                  <Text style={{ color: tone.text, fontWeight: '800', fontSize: 12 }}>{decisionLabel(item.decisionStatus)}</Text>
-                </View>
+            <View
+              style={{
+                marginTop: index === 0 ? 4 : 0,
+                paddingVertical: 10,
+                borderBottomWidth: 1,
+                borderBottomColor: colors.border,
+                flexDirection: 'row',
+                gap: 10,
+              }}
+            >
+              <View style={{ width: 10, alignItems: 'center', paddingTop: 5 }}>
+                <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: tone.text }} />
               </View>
 
-              <Text style={{ color: colors.muted, marginTop: 8, fontSize: 12 }}>{formatDateTime(item.createdAt)}</Text>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                  <View style={{ flex: 1, paddingRight: 6 }}>
+                    <Text style={{ color: colors.text, fontWeight: '700', fontSize: 14, lineHeight: 19 }}>{item.title}</Text>
+                    <Text style={{ color: colors.muted, marginTop: 3, fontSize: 13, lineHeight: 18 }}>{item.body}</Text>
+                  </View>
 
-              {item.decisionNote ? (
-                <View style={{ marginTop: 9, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.border, padding: 10 }}>
-                  <Text style={{ color: colors.text, fontWeight: '700', fontSize: 12 }}>Onay/Red Notu</Text>
-                  <Text style={{ color: colors.muted, marginTop: 4, fontSize: 12 }}>{item.decisionNote}</Text>
+                  <View style={{ backgroundColor: tone.bg, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 }}>
+                    <Text style={{ color: tone.text, fontWeight: '800', fontSize: 11 }}>{decisionLabel(item.decisionStatus)}</Text>
+                  </View>
                 </View>
-              ) : null}
-            </Card>
+
+                <Text style={{ color: colors.muted, marginTop: 6, fontSize: 11 }}>{formatDateTime(item.createdAt)}</Text>
+
+              </View>
+            </View>
           );
         }}
       />

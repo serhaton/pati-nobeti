@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { RefreshableScrollView } from '../src/components/RefreshableScrollView';
 import MapView, { Marker, Region } from 'react-native-maps';
 import { Card } from '../src/components/Card';
@@ -14,6 +14,7 @@ import {
   getCommunitiesCreatedByUser,
   getIsCurrentUserAppAdmin,
   getMembershipsForUser,
+  getUserProfileSettings,
   sendJoinRequest,
 } from '../src/services/communityService';
 import { isSupabaseDataEnabled } from '../src/services/supabase';
@@ -38,13 +39,15 @@ type MembershipStatus = 'none' | 'pending' | 'rejected' | 'approved' | 'active' 
 type MembershipRole = 'admin' | 'member' | 'none';
 
 function getMembershipStatusLabel(status: MembershipStatus): string {
+  if (status === 'none') return 'Üye değil';
   if (status === 'pending') return 'Beklemede';
+  if (status === 'rejected') return 'Reddedildi';
   return status;
 }
 
 function getMembershipRoleLabel(role: MembershipRole): string {
   if (role === 'admin') return 'Yonetici';
-  if (role === 'member') return 'Uye';
+  if (role === 'member') return 'Üye';
   return role;
 }
 
@@ -111,6 +114,7 @@ export default function CommunitySelectScreen() {
   const [returnToCreateAfterPicker, setReturnToCreateAfterPicker] = useState(false);
   const [isCreatingCommunity, setIsCreatingCommunity] = useState(false);
   const [isAppAdmin, setIsAppAdmin] = useState(false);
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState('');
   const [isResolvingAddress, setIsResolvingAddress] = useState(false);
   const [pendingSelectionId, setPendingSelectionId] = useState<string | null>(null);
   const [creatorCommunities, setCreatorCommunities] = useState<CreatedByUserCommunityRecord[]>([]);
@@ -253,6 +257,32 @@ export default function CommunitySelectScreen() {
     }
 
     loadAppAdminFlag();
+
+    return () => {
+      mounted = false;
+    };
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadProfileAvatar() {
+      if (!currentUser || !isSupabaseDataEnabled()) {
+        if (mounted) setProfileAvatarUrl('');
+        return;
+      }
+
+      try {
+        const profile = await getUserProfileSettings(currentUser.id);
+        if (!mounted) return;
+        setProfileAvatarUrl(String(profile.avatarUrl ?? ''));
+      } catch {
+        if (!mounted) return;
+        setProfileAvatarUrl('');
+      }
+    }
+
+    loadProfileAvatar();
 
     return () => {
       mounted = false;
@@ -655,12 +685,25 @@ export default function CommunitySelectScreen() {
     >
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Logo small />
-        <TouchableOpacity
-          onPress={handleLogout}
-          style={{ borderWidth: 1, borderColor: colors.danger, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#fff' }}
-        >
-          <Text style={{ color: colors.danger, fontWeight: '800' }}>Çıkış Yap</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: '/profile', params: { source: 'community-select' } })}
+            style={{ width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: '#fff', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
+          >
+            {profileAvatarUrl ? (
+              <Image source={{ uri: profileAvatarUrl }} style={{ width: '100%', height: '100%' }} />
+            ) : (
+              <Text style={{ fontSize: 19 }}>👤</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleLogout}
+            style={{ borderWidth: 1, borderColor: colors.danger, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#fff' }}
+          >
+            <Text style={{ color: colors.danger, fontWeight: '800' }}>Çıkış Yap</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       <Text style={{ color: colors.text, fontSize: 26, fontWeight: '800', marginTop: 18 }}>Topluluk Seçimi</Text>
       <Text style={{ color: colors.muted, marginTop: 7 }}>Konumuna 10 km içindeki topluluklar listelenir.</Text>
@@ -703,13 +746,13 @@ export default function CommunitySelectScreen() {
 
         {!communityLoadError && !isLocating ? (
           <Text style={{ marginTop: 12, marginBottom: 8, color: colors.text, fontWeight: '800' }}>
-            Dahil Oldugun Topluluklar
+            Dahil Olduğun Topluluklar
           </Text>
         ) : null}
 
         {!communityLoadError && !isLocating && memberCommunities.length === 0 ? (
           <Card style={{ marginBottom: 10 }}>
-            <Text style={{ color: colors.muted }}>Henüz dahil oldugun bir topluluk yok.</Text>
+            <Text style={{ color: colors.muted }}>Henüz dahil olduğun bir topluluk yok.</Text>
           </Card>
         ) : null}
 

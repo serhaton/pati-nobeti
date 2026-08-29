@@ -30,8 +30,8 @@ create table if not exists communities (
   status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
   cover_url text,
   created_by uuid references profiles(id),
-  approved_by uuid references profiles(id),
-  approved_at timestamptz,
+  actioned_by uuid references profiles(id),
+  actioned_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -49,8 +49,8 @@ begin
 
   alter table communities
     add column if not exists status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
-    add column if not exists approved_by uuid references profiles(id),
-    add column if not exists approved_at timestamptz;
+    add column if not exists actioned_by uuid references profiles(id),
+    add column if not exists actioned_at timestamptz;
 
   -- One-time backfill: if status column was missing before this migration,
   -- mark existing records as approved.
@@ -58,6 +58,41 @@ begin
     update communities
     set status = 'approved'
     where status = 'pending';
+  end if;
+end $$;
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'communities'
+      and column_name = 'approved_by'
+  ) and not exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'communities'
+      and column_name = 'actioned_by'
+  ) then
+    alter table public.communities rename column approved_by to actioned_by;
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'communities'
+      and column_name = 'approved_at'
+  ) and not exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'communities'
+      and column_name = 'actioned_at'
+  ) then
+    alter table public.communities rename column approved_at to actioned_at;
   end if;
 end $$;
 
@@ -201,8 +236,8 @@ create table if not exists contributions (
   receipt_url text,
   receipt_urls jsonb not null default '[]'::jsonb,
   approval_status text not null default 'pending' check (approval_status in ('pending', 'approved', 'rejected')),
-  approved_by uuid references profiles(id) on delete set null,
-  approved_at timestamptz,
+  actioned_by uuid references profiles(id) on delete set null,
+  actioned_at timestamptz,
   note text,
   created_at timestamptz not null default now()
 );
@@ -225,8 +260,43 @@ alter table contributions
   add column if not exists receipt_url text,
   add column if not exists receipt_urls jsonb not null default '[]'::jsonb,
   add column if not exists approval_status text not null default 'pending' check (approval_status in ('pending', 'approved', 'rejected')),
-  add column if not exists approved_by uuid references profiles(id) on delete set null,
-  add column if not exists approved_at timestamptz;
+  add column if not exists actioned_by uuid references profiles(id) on delete set null,
+  add column if not exists actioned_at timestamptz;
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'contributions'
+      and column_name = 'approved_by'
+  ) and not exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'contributions'
+      and column_name = 'actioned_by'
+  ) then
+    alter table public.contributions rename column approved_by to actioned_by;
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'contributions'
+      and column_name = 'approved_at'
+  ) and not exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'contributions'
+      and column_name = 'actioned_at'
+  ) then
+    alter table public.contributions rename column approved_at to actioned_at;
+  end if;
+end $$;
 
 update contributions
 set contributor_user_id = user_id
@@ -319,8 +389,43 @@ alter table expenses
   add column if not exists submitted_by uuid references profiles(id) on delete set null,
   add column if not exists submitted_at timestamptz not null default now(),
   add column if not exists approval_status text not null default 'approved' check (approval_status in ('pending', 'approved', 'rejected')),
-  add column if not exists approved_by uuid references profiles(id) on delete set null,
-  add column if not exists approved_at timestamptz;
+  add column if not exists actioned_by uuid references profiles(id) on delete set null,
+  add column if not exists actioned_at timestamptz;
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'expenses'
+      and column_name = 'approved_by'
+  ) and not exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'expenses'
+      and column_name = 'actioned_by'
+  ) then
+    alter table public.expenses rename column approved_by to actioned_by;
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'expenses'
+      and column_name = 'approved_at'
+  ) and not exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'expenses'
+      and column_name = 'actioned_at'
+  ) then
+    alter table public.expenses rename column approved_at to actioned_at;
+  end if;
+end $$;
 
 update expenses
 set receipt_urls = jsonb_build_array(receipt_url)
@@ -548,7 +653,7 @@ begin
       new.created_by,
       jsonb_build_object(
         'communityName', coalesce(new.name, ''),
-        'approvedAt', coalesce(new.approved_at, now())
+        'actionedAt', coalesce(new.actioned_at, now())
       )
     );
   end if;

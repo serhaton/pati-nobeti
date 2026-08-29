@@ -121,11 +121,11 @@ export default function Profile() {
             key={x}
             onPress={() => {
               if (x === 'Topluluklarim') {
-                router.push({ pathname: '/my-communities', params: source ? { source } : undefined });
+                router.push({ pathname: '/my-communities' });
                 return;
               }
               if (x === 'Ayarlar') {
-                router.push({ pathname: '/settings', params: source ? { source } : undefined });
+                router.push({ pathname: '/settings' });
                 return;
               }
               if (x === 'Bildirimlerim') {

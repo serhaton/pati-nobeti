@@ -41,6 +41,9 @@ function CommunityGuard() {
       || pathname === '/auth/reset-password'
       || pathname === '/community-select'
       || pathname === '/profile'
+      || pathname === '/my-communities'
+      || pathname === '/settings'
+      || pathname === '/notifications'
       || pathname === '/community-admin-approvals';
 
     if (currentUser && !selectedCommunity && !allowWithoutCommunity) {

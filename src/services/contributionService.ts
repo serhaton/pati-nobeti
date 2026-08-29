@@ -23,8 +23,8 @@ export type ContributionRecord = {
   receiptUrl: string;
   receiptUrls: string[];
   approvalStatus: ContributionApprovalStatus;
-  approvedBy: string | null;
-  approvedAt: string | null;
+  actionedBy: string | null;
+  actionedAt: string | null;
   createdAt: string;
   allocations: ContributionAllocation[];
   allocatedAmount: number;
@@ -131,8 +131,8 @@ function mapRow(row: any, allocations: ContributionAllocation[]): ContributionRe
     receiptUrl: receiptUrls[0] ?? String(row.receipt_url ?? ''),
     receiptUrls,
     approvalStatus: normalizeStatus(row.approval_status),
-    approvedBy: row.approved_by ? String(row.approved_by) : null,
-    approvedAt: row.approved_at ? toIso(row.approved_at, createdAt) : null,
+    actionedBy: row.actioned_by ? String(row.actioned_by) : null,
+    actionedAt: row.actioned_at ? toIso(row.actioned_at, createdAt) : null,
     createdAt,
     allocations,
     allocatedAmount,
@@ -189,7 +189,7 @@ export async function getPendingContributionsForCommunity(communityId: string): 
 
   const { data, error } = await supabase
     .from('contributions')
-    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, approved_by, approved_at, created_at')
+    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, actioned_by, actioned_at, created_at')
     .eq('community_id', communityId)
     .eq('approval_status', 'pending')
     .order('created_at', { ascending: false });
@@ -214,7 +214,7 @@ export async function getContributionsByContributor(communityId: string, contrib
 
   const { data, error } = await supabase
     .from('contributions')
-    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, approved_by, approved_at, created_at')
+    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, actioned_by, actioned_at, created_at')
     .eq('community_id', communityId)
     .eq('contributor_user_id', contributorUserId)
     .order('transfer_at', { ascending: false });
@@ -239,7 +239,7 @@ export async function getContributionsByCommunity(communityId: string): Promise<
 
   const { data, error } = await supabase
     .from('contributions')
-    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, approved_by, approved_at, created_at')
+    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, actioned_by, actioned_at, created_at')
     .eq('community_id', communityId)
     .order('transfer_at', { ascending: false });
 
@@ -263,7 +263,7 @@ export async function getAllocatableContributionsForCommunity(communityId: strin
 
   const { data, error } = await supabase
     .from('contributions')
-    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, approved_by, approved_at, created_at')
+    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, actioned_by, actioned_at, created_at')
     .eq('community_id', communityId)
     .eq('approval_status', 'approved')
     .order('transfer_at', { ascending: false });
@@ -304,8 +304,8 @@ export async function createContribution(input: {
       receiptUrl: primaryReceiptUrl,
       receiptUrls: normalizedReceiptUrls,
       approvalStatus: 'pending',
-      approvedBy: null,
-      approvedAt: null,
+      actionedBy: null,
+      actionedAt: null,
       createdAt: nowIso,
       allocations: [],
       allocatedAmount: 0,
@@ -329,7 +329,7 @@ export async function createContribution(input: {
       approval_status: 'pending',
       created_by: input.actorUserId,
     })
-    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, approved_by, approved_at, created_at')
+    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, actioned_by, actioned_at, created_at')
     .single();
 
   if (error) {
@@ -353,7 +353,7 @@ export async function createContribution(input: {
 export async function allocateContributionToExpenses(input: {
   contributionId: string;
   communityId: string;
-  approvedBy: string;
+  actionedBy: string;
   primaryExpenseId: string;
   autoDistributeRemaining?: boolean;
 }): Promise<{ allocatedAmount: number; remainingAmount: number }> {
@@ -368,8 +368,8 @@ export async function allocateContributionToExpenses(input: {
 
     if (contribution.approvalStatus === 'pending') {
       contribution.approvalStatus = 'approved';
-      contribution.approvedBy = input.approvedBy;
-      contribution.approvedAt = nowIso;
+      contribution.actionedBy = input.actionedBy;
+      contribution.actionedAt = nowIso;
     }
 
     return {
@@ -396,8 +396,8 @@ export async function allocateContributionToExpenses(input: {
       .from('contributions')
       .update({
         approval_status: 'approved',
-        approved_by: input.approvedBy,
-        approved_at: nowIso,
+        actioned_by: input.actionedBy,
+        actioned_at: nowIso,
       })
       .eq('id', input.contributionId)
       .eq('community_id', input.communityId);
@@ -477,7 +477,7 @@ export async function allocateContributionToExpenses(input: {
         contribution_id: input.contributionId,
         expense_id: expense.id,
         amount: allocationAmount,
-        allocated_by: input.approvedBy,
+        allocated_by: input.actionedBy,
         allocated_at: nowIso,
       });
 
@@ -602,7 +602,7 @@ export async function updateContribution(input: {
     })
     .eq('id', input.contributionId)
     .eq('community_id', input.communityId)
-    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, approved_by, approved_at, created_at')
+    .select('id, community_id, user_id, contributor_user_id, amount, transfer_at, note, receipt_url, receipt_urls, approval_status, actioned_by, actioned_at, created_at')
     .single();
 
   if (error) {
@@ -616,7 +616,7 @@ export async function updateContribution(input: {
 export async function approveContribution(input: {
   contributionId: string;
   communityId: string;
-  approvedBy: string;
+  actionedBy: string;
   recipientUserId?: string | null;
   communityName?: string;
 }): Promise<void> {
@@ -628,8 +628,8 @@ export async function approveContribution(input: {
       return {
         ...item,
         approvalStatus: 'approved',
-        approvedBy: input.approvedBy,
-        approvedAt: nowIso,
+        actionedBy: input.actionedBy,
+        actionedAt: nowIso,
       };
     });
     return;
@@ -639,8 +639,8 @@ export async function approveContribution(input: {
     .from('contributions')
     .update({
       approval_status: 'approved',
-      approved_by: input.approvedBy,
-      approved_at: nowIso,
+      actioned_by: input.actionedBy,
+      actioned_at: nowIso,
     })
     .eq('id', input.contributionId)
     .eq('community_id', input.communityId);
@@ -681,18 +681,21 @@ export async function approveContribution(input: {
 export async function rejectContribution(input: {
   contributionId: string;
   communityId: string;
+  actionedBy: string;
   rejectionReason?: string;
   recipientUserId?: string | null;
   communityName?: string;
 }): Promise<void> {
+  const nowIso = new Date().toISOString();
+
   if (!isSupabaseDataEnabled()) {
     mockContributions = mockContributions.map((item) => {
       if (item.id !== input.contributionId || item.communityId !== input.communityId) return item;
       return {
         ...item,
         approvalStatus: 'rejected',
-        approvedBy: null,
-        approvedAt: null,
+        actionedBy: input.actionedBy,
+        actionedAt: nowIso,
       };
     });
     return;
@@ -702,8 +705,8 @@ export async function rejectContribution(input: {
     .from('contributions')
     .update({
       approval_status: 'rejected',
-      approved_by: null,
-      approved_at: null,
+      actioned_by: input.actionedBy,
+      actioned_at: nowIso,
     })
     .eq('id', input.contributionId)
     .eq('community_id', input.communityId);

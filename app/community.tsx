@@ -273,7 +273,7 @@ export default function Community() {
       await allocateContributionToExpenses({
         contributionId: contribution.id,
         communityId: selectedCommunityId,
-        approvedBy: currentUser.id,
+        actionedBy: currentUser.id,
         primaryExpenseId: selectedExpenseId,
         autoDistributeRemaining: true,
       });

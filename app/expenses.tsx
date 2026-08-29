@@ -448,7 +448,7 @@ export default function Expenses() {
       await approveExpense({
         expenseId: expense.id,
         communityId: selectedCommunityId,
-        approvedBy: currentUser.id,
+        actionedBy: currentUser.id,
         recipientUserId: expense.submittedBy,
         communityName: selectedCommunity?.name,
         expenseTitle: expense.title,
@@ -464,13 +464,14 @@ export default function Expenses() {
   }
 
   async function onRejectExpenseFromReview(expense: ExpenseRecord, rejectionReason: string) {
-    if (!selectedCommunityId) return;
+    if (!selectedCommunityId || !currentUser) return;
 
     setReviewingExpenseActionId(expense.id);
     try {
       await rejectExpense({
         expenseId: expense.id,
         communityId: selectedCommunityId,
+        actionedBy: currentUser.id,
         rejectionReason,
         recipientUserId: expense.submittedBy,
         communityName: selectedCommunity?.name,
@@ -1088,7 +1089,7 @@ export default function Expenses() {
               <Text style={{ color: colors.muted, marginTop: 2 }}>{expenseTypeLabel(item.type)}</Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>Durum: {expenseStatusLabel(item.approvalStatus)}</Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>
-                Yapan: {resolveMemberDisplayName(item.submittedBy)}
+                Yapan: {resolveMemberDisplayName(item.submittedBy, UNKNOWN_MEMBER_LABEL)}
               </Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
@@ -1192,7 +1193,7 @@ export default function Expenses() {
                         <Text style={{ color: colors.muted, marginTop: 4 }}>{item.vendorName} · {new Date(item.expenseAt).toLocaleString('tr-TR')}</Text>
                         <Text style={{ color: colors.muted, marginTop: 2 }}>{expenseTypeLabel(item.type)}</Text>
                         <Text style={{ color: colors.muted, marginTop: 2 }}>
-                          Yapan: {resolveMemberDisplayName(item.submittedBy)}
+                          Yapan: {resolveMemberDisplayName(item.submittedBy, UNKNOWN_MEMBER_LABEL)}
                         </Text>
                       </View>
                       <View style={{ alignItems: 'flex-end' }}>
@@ -1710,7 +1711,7 @@ export default function Expenses() {
                 Tarih: {new Date(selectedReadonlyExpense.expenseAt).toLocaleString('tr-TR')}
               </Text>
               <Text style={{ color: colors.muted, marginTop: 2 }}>
-                Yapan: {resolveMemberDisplayName(selectedReadonlyExpense.submittedBy)}
+                Yapan: {resolveMemberDisplayName(selectedReadonlyExpense.submittedBy, UNKNOWN_MEMBER_LABEL)}
               </Text>
 
               <View style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 10, backgroundColor: '#fff' }}>

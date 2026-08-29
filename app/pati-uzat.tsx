@@ -551,7 +551,7 @@ export default function PatiUzat() {
       await approveContribution({
         contributionId: contribution.id,
         communityId: selectedCommunityId,
-        approvedBy: currentUser.id,
+        actionedBy: currentUser.id,
         recipientUserId: contribution.contributorUserId,
         communityName: selectedCommunity?.name,
       });
@@ -566,13 +566,14 @@ export default function PatiUzat() {
   }
 
   async function onRejectContributionFromReview(contribution: ContributionRecord, rejectionReason: string) {
-    if (!selectedCommunityId) return;
+    if (!selectedCommunityId || !currentUser) return;
 
     setActioningReviewContributionId(contribution.id);
     try {
       await rejectContribution({
         contributionId: contribution.id,
         communityId: selectedCommunityId,
+        actionedBy: currentUser.id,
         rejectionReason,
         recipientUserId: contribution.contributorUserId,
         communityName: selectedCommunity?.name,

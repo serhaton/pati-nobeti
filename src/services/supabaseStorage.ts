@@ -245,16 +245,28 @@ export async function uploadImageIfNeeded(input: {
     return sourceUri;
   }
 
-  const normalizedCommunityId = input.communityId.trim();
-  if (!normalizedCommunityId) {
-    throw new Error('Community id bulunamadı. Görsel yüklenemedi.');
-  }
-
   const extension = inferExtension(sourceUri);
   assertAllowedExtension(extension, ['jpg', 'png', 'webp', 'heic'], 'Yalnızca görsel dosyaları yüklenebilir.');
   const contentType = inferMimeType(extension);
   const guid = generateGuid();
-  const objectPath = `${normalizedCommunityId}/${input.folder}/${input.filePrefix}-${guid}.${extension}`;
+  const normalizedFolder = input.folder.trim();
+  const normalizedFilePrefix = input.filePrefix.trim();
+  if (!normalizedFolder || !normalizedFilePrefix) {
+    throw new Error('Dosya yolu oluşturulamadı. Görsel yüklenemedi.');
+  }
+
+  let objectPath = '';
+
+  if (normalizedFolder === 'profiles') {
+    // Profile images must be user-scoped so they can be uploaded without a selected community.
+    objectPath = `profiles/${normalizedFilePrefix}/${guid}.${extension}`;
+  } else {
+    const normalizedCommunityId = input.communityId.trim();
+    if (!normalizedCommunityId) {
+      throw new Error('Community id bulunamadı. Görsel yüklenemedi.');
+    }
+    objectPath = `${normalizedCommunityId}/${normalizedFolder}/${normalizedFilePrefix}-${guid}.${extension}`;
+  }
 
   await uploadToBucket({
     sourceUri,
